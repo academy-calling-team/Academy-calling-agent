@@ -26,6 +26,7 @@ yarn-error.log*
 .data/
 
 # 녹음, 대용량 파일
+experiments/latency/models/
 *.m4a
 *.wav
 *.mp3
