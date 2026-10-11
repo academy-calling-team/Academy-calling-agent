@@ -1,0 +1,254 @@
+{
+  "verified_at": "2026-10-05",
+  "all_data_synthetic": true,
+  "credentials_included": false,
+  "cases": [
+    {
+      "name": "partial_negative_and_class_time",
+      "provenance": "actual_local_http_response",
+      "input": {
+        "inquirer_id": "bc9430d9-4abd-45c0-b737-251fa24508ee",
+        "academy_id": "1243ad6a-9c51-45db-93db-e0ee0d671464",
+        "student": {
+          "grade": "M2",
+          "level": "MID",
+          "region": "대구 북구 침산동",
+          "subject": "MATH"
+        },
+        "question_codes": [
+          "shuttle",
+          "vacancy",
+          "class_time"
+        ]
+      },
+      "public_result": {
+        "inquiry_id": "0a124261-7904-4c2d-b3d7-fbade3309e61",
+        "inquirer_id": "bc9430d9-4abd-45c0-b737-251fa24508ee",
+        "status": "completed",
+        "student": {
+          "grade": "M2",
+          "level": "MID",
+          "region": "대구 북구 침산동",
+          "subject": "MATH"
+        },
+        "academy": {
+          "academy_id": "1243ad6a-9c51-45db-93db-e0ee0d671464",
+          "name": "6주차 별도 HTTP 가상 학원"
+        },
+        "questions": [
+          {
+            "question_id": "c116b0d1-7d9c-42b6-8575-b0c73c11df8f",
+            "question_code": "shuttle"
+          },
+          {
+            "question_id": "2fee4d36-10cf-4d48-8557-3e72b1630c96",
+            "question_code": "vacancy"
+          },
+          {
+            "question_id": "d7eaa843-7e2f-4327-87e8-861d2ef16236",
+            "question_code": "class_time"
+          }
+        ],
+        "attempts": [
+          {
+            "call_id": "2c7611e9-1c3e-4896-bedf-5a14495626fc",
+            "attempt_no": 1,
+            "status": "finished",
+            "started_at": "2026-10-05T05:00:00+00:00",
+            "outcome": "answered"
+          }
+        ],
+        "result": {
+          "notes": "실제 전화 아님",
+          "answers": [
+            {
+              "asked": true,
+              "detail": "목업 정답",
+              "reason": null,
+              "yes_no": false,
+              "answered": true,
+              "question_id": "c116b0d1-7d9c-42b6-8575-b0c73c11df8f",
+              "question_code": "shuttle"
+            },
+            {
+              "asked": true,
+              "detail": "미확인",
+              "reason": "unknown",
+              "yes_no": null,
+              "answered": false,
+              "question_id": "2fee4d36-10cf-4d48-8557-3e72b1630c96",
+              "question_code": "vacancy"
+            },
+            {
+              "asked": true,
+              "detail": "화목 19:00",
+              "reason": null,
+              "yes_no": null,
+              "answered": true,
+              "question_id": "d7eaa843-7e2f-4327-87e8-861d2ef16236",
+              "question_code": "class_time"
+            }
+          ],
+          "latency": null,
+          "outcome": "answered",
+          "unresolved": [
+            "2fee4d36-10cf-4d48-8557-3e72b1630c96"
+          ],
+          "callback_at": null,
+          "duration_sec": 0,
+          "summary_text": "가상 통화 결과",
+          "available_times": [
+            "평일 14:00-16:00"
+          ],
+          "consult_accepted": true,
+          "disclosure_played": true,
+          "callback_requested": false,
+          "review_revision": 0
+        },
+        "failure_reason": null,
+        "fallback_required": false,
+        "fallback_status": null,
+        "review_required": false,
+        "review_reason": null
+      }
+    },
+    {
+      "name": "unknown_callback",
+      "provenance": "constructed_display_example_matches_tested_contract",
+      "public_result": {
+        "inquiry_id": "0a124261-7904-4c2d-b3d7-fbade3309e61",
+        "inquirer_id": "bc9430d9-4abd-45c0-b737-251fa24508ee",
+        "status": "retry_wait",
+        "student": {
+          "grade": "M2",
+          "level": "MID",
+          "region": "대구 북구 침산동",
+          "subject": "MATH"
+        },
+        "academy": {
+          "academy_id": "1243ad6a-9c51-45db-93db-e0ee0d671464",
+          "name": "6주차 별도 HTTP 가상 학원"
+        },
+        "questions": [
+          {
+            "question_id": "c116b0d1-7d9c-42b6-8575-b0c73c11df8f",
+            "question_code": "shuttle"
+          },
+          {
+            "question_id": "2fee4d36-10cf-4d48-8557-3e72b1630c96",
+            "question_code": "vacancy"
+          },
+          {
+            "question_id": "d7eaa843-7e2f-4327-87e8-861d2ef16236",
+            "question_code": "class_time"
+          }
+        ],
+        "attempts": [
+          {
+            "call_id": "2c7611e9-1c3e-4896-bedf-5a14495626fc",
+            "attempt_no": 1,
+            "status": "finished",
+            "started_at": "2026-10-05T05:00:00+00:00",
+            "outcome": "answered"
+          }
+        ],
+        "result": {
+          "notes": "실제 전화 아님",
+          "answers": [
+            {
+              "asked": true,
+              "detail": "목업 정답",
+              "reason": null,
+              "yes_no": false,
+              "answered": true,
+              "question_id": "c116b0d1-7d9c-42b6-8575-b0c73c11df8f",
+              "question_code": "shuttle"
+            },
+            {
+              "asked": true,
+              "detail": "미확인",
+              "reason": "unknown",
+              "yes_no": null,
+              "answered": false,
+              "question_id": "2fee4d36-10cf-4d48-8557-3e72b1630c96",
+              "question_code": "vacancy"
+            },
+            {
+              "asked": true,
+              "detail": "화목 19:00",
+              "reason": null,
+              "yes_no": null,
+              "answered": true,
+              "question_id": "d7eaa843-7e2f-4327-87e8-861d2ef16236",
+              "question_code": "class_time"
+            }
+          ],
+          "latency": null,
+          "outcome": "answered",
+          "unresolved": [
+            "2fee4d36-10cf-4d48-8557-3e72b1630c96"
+          ],
+          "callback_at": null,
+          "duration_sec": 0,
+          "summary_text": "가상 통화 결과",
+          "available_times": [
+            "평일 14:00-16:00"
+          ],
+          "consult_accepted": true,
+          "disclosure_played": true,
+          "callback_requested": true,
+          "review_revision": 0
+        },
+        "failure_reason": null,
+        "fallback_required": false,
+        "fallback_status": null,
+        "review_required": true,
+        "review_reason": "callback_time_unknown"
+      }
+    },
+    {
+      "name": "queued_no_result",
+      "provenance": "constructed_display_example",
+      "public_result": {
+        "inquiry_id": "0a124261-7904-4c2d-b3d7-fbade3309e61",
+        "inquirer_id": "bc9430d9-4abd-45c0-b737-251fa24508ee",
+        "status": "queued",
+        "student": {
+          "grade": "M2",
+          "level": "MID",
+          "region": "대구 북구 침산동",
+          "subject": "MATH"
+        },
+        "academy": {
+          "academy_id": "1243ad6a-9c51-45db-93db-e0ee0d671464",
+          "name": "6주차 별도 HTTP 가상 학원"
+        },
+        "questions": [
+          {
+            "question_id": "c116b0d1-7d9c-42b6-8575-b0c73c11df8f",
+            "question_code": "shuttle"
+          },
+          {
+            "question_id": "2fee4d36-10cf-4d48-8557-3e72b1630c96",
+            "question_code": "vacancy"
+          },
+          {
+            "question_id": "d7eaa843-7e2f-4327-87e8-861d2ef16236",
+            "question_code": "class_time"
+          }
+        ],
+        "attempts": [],
+        "result": null,
+        "failure_reason": null,
+        "fallback_required": false,
+        "fallback_status": null,
+        "review_required": false,
+        "review_reason": null
+      }
+    }
+  ],
+  "references": [
+    "../검증결과/별도_HTTP_인증_워커_왕복.json",
+    "../검증결과/100건_백엔드_시나리오.json"
+  ]
+}
