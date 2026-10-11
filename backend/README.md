@@ -77,15 +77,15 @@ python -m pytest tests/test_backend.py tests/test_extensions.py tests/test_week6
 ## 이번 업로드와 음성 목업 대조
 
 이번 코드는 backend/development-api-040 브랜치의 검토 대상이다. 기존 음성팀 구현과 루트 설정 파일은 보존했다.
-[업로드 검증](../docs/verification/backend/upload-2026-10-11.md)과 [음성 목업 간극](../docs/api/voice-mock-gaps.md)을 먼저 확인한다.
+[검증 결과](../docs/verification/backend.md)와 [파트 연결 안내](../docs/api/README.md)을 먼저 확인한다.
 기본 큐는 자체 목업을 사용하며 음성팀 워커를 자동 선택하지 않는다. 외부 워커 연결용 설정·번호 규칙·409 처리는 후속 검토 대상이다.
 루트 .env가 이미 있으면 덮어쓰지 말고 backend/.env.example의 필요한 항목만 검토해 추가한다. 음성팀 설정은 voice/.env를 사용한다.
 
 ## 명세와 남은 작업
 
-[API](../docs/api/README.md), [음성 계약](../docs/api/voice-contract.md),
-[데이터](../docs/database/README.md), [ERD](../docs/erd/README.md),
-[검증 범위](../docs/verification/backend/README.md)를 참고한다.
+[문서 안내](../docs/README.md), [API·파트 연결](../docs/api/README.md),
+[데이터 사전](../docs/database/data-dictionary.md), [SQL](../docs/database/schema.sql),
+[검증 결과](../docs/verification/backend.md)를 참고한다.
 `python generate_docs.py`는 DB 접속 없이 OpenAPI/결과 스키마/MySQL DDL을 생성한다.
 데이터 사전과 ERD는 schema.py 변경 후 별도 검토가 필요하며 자동 갱신 완료로 간주하지 않는다.
 
