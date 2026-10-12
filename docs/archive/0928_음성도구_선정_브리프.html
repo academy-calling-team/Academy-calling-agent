@@ -1,0 +1,492 @@
+<title>음성 도구 선정 브리프</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --bg:#F5F7F9; --surface:#FFFFFF; --ink:#151E27; --muted:#5B6a78;
+    --line:#DCE3EA; --line-soft:#EAEFF4;
+    --accent:#0E7C86; --accent-soft:#E2F1F2;
+    --warn:#9A5B06; --warn-soft:#FBEFDC;
+    --stop:#98382C; --stop-soft:#F8E6E2;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0F1419; --surface:#161D24; --ink:#E6EDF3; --muted:#9AA8B5;
+      --line:#27313B; --line-soft:#1E262E;
+      --accent:#49B6AF; --accent-soft:#12312F;
+      --warn:#E2A748; --warn-soft:#33270F;
+      --stop:#E3796A; --stop-soft:#361C18;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0F1419; --surface:#161D24; --ink:#E6EDF3; --muted:#9AA8B5;
+    --line:#27313B; --line-soft:#1E262E;
+    --accent:#49B6AF; --accent-soft:#12312F;
+    --warn:#E2A748; --warn-soft:#33270F;
+    --stop:#E3796A; --stop-soft:#361C18;
+    color-scheme: dark;
+  }
+
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size:15px; line-height:1.65; margin:0;
+  }
+  .wrap{max-width:840px; margin:0 auto; padding-inline:18px; padding-block:40px 64px;}
+
+  .eyebrow{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:11.5px; letter-spacing:.09em; text-transform:uppercase;
+    color:var(--muted); margin:0 0 10px;
+  }
+  h1{font-size:clamp(26px,5vw,34px); font-weight:600; line-height:1.2; margin:0 0 14px; text-wrap:balance;}
+  h2{
+    font-size:19px; font-weight:600; margin:0 0 4px; text-wrap:balance;
+    padding-top:14px; border-top:1px solid var(--line);
+  }
+  h2 + .sub{color:var(--muted); font-size:13.5px; margin:0 0 16px;}
+  h3{font-size:15px; font-weight:600; margin:22px 0 8px;}
+  p{margin:0 0 12px;}
+  section{margin-top:44px;}
+  .lede{font-size:16.5px;}
+
+  .meta{
+    display:flex; flex-wrap:wrap; gap:6px 18px; margin:0 0 30px;
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--muted);
+  }
+  .meta span{white-space:nowrap;}
+
+  .callout{
+    background:var(--surface); border:1px solid var(--line);
+    border-left:3px solid var(--accent);
+    padding:18px 20px; margin:20px 0;
+  }
+  .callout h3{margin-top:0;}
+  .callout p:last-child{margin-bottom:0;}
+  .rule{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:13px; line-height:1.9; margin:0;
+  }
+  .rule b{color:var(--accent); font-weight:500;}
+
+  .scroll{overflow-x:auto; margin:16px 0; border:1px solid var(--line); background:var(--surface);}
+  table{border-collapse:collapse; width:100%; min-width:620px; font-size:13.5px;}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--line-soft); vertical-align:top;}
+  thead th{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--muted); background:var(--bg); border-bottom:1px solid var(--line); white-space:nowrap;
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  td.name{font-weight:500; white-space:nowrap;}
+  td.num{font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums; white-space:nowrap;}
+  code, .mono{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12.5px;}
+  code{background:var(--line-soft); padding:1px 5px; border-radius:3px;}
+
+  .chip{
+    display:inline-block; font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:10.5px; letter-spacing:.04em; padding:2px 7px; border-radius:2px; white-space:nowrap;
+  }
+  .chip.ok{background:var(--accent-soft); color:var(--accent);}
+  .chip.warn{background:var(--warn-soft); color:var(--warn);}
+  .chip.stop{background:var(--stop-soft); color:var(--stop);}
+  .legend{display:flex; flex-wrap:wrap; gap:10px 16px; font-size:12.5px; color:var(--muted); margin:14px 0 0;}
+  .legend div{display:flex; align-items:center; gap:7px;}
+
+  ol,ul{margin:0 0 12px; padding-left:22px;}
+  li{margin-bottom:7px;}
+  ol.qs{padding-left:0; list-style:none; counter-reset:q;}
+  ol.qs li{
+    counter-increment:q; position:relative; padding-left:34px; margin-bottom:14px;
+  }
+  ol.qs li::before{
+    content:"Q" counter(q); position:absolute; left:0; top:1px;
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; color:var(--accent);
+  }
+  ol.qs b{font-weight:600;}
+
+  figure{margin:20px 0; background:var(--surface); border:1px solid var(--line); padding:18px 16px 14px;}
+  figure .scroll{margin:0; border:none; background:none;}
+  svg{display:block; max-width:100%; height:auto; min-width:640px; color:var(--ink);}
+  figcaption{font-size:12.5px; color:var(--muted); margin-top:12px; line-height:1.6;}
+
+  .srcs{font-size:13px; color:var(--muted);}
+  .srcs li{margin-bottom:5px;}
+  a{color:var(--accent); text-decoration-thickness:1px; text-underline-offset:2px;}
+  a:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  .foot{margin-top:48px; padding-top:16px; border-top:1px solid var(--line); font-size:12.5px; color:var(--muted);}
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">8조 · 음성 파이프라인</p>
+  <h1>음성 도구 선정 브리프</h1>
+  <div class="meta">
+    <span>작성 2026-09-28</span>
+    <span>회의 9/29(화) 20:00 온라인</span>
+    <span>담당 김규림 · 강유준</span>
+  </div>
+
+  <p class="lede">회의록의 음성 담당 몫 네 가지를 정리했습니다. 도구 비교와 선정 의견, 음성 처리 API 요구 항목, 실시간 처리·대화 테스트 기준 초안, 논문 후보입니다. 070 회선도 우리가 계약하는 조건이라, 문제는 도구 하나를 고르는 게 아니라 <b>회선과 도구의 조합</b>을 고르는 겁니다.</p>
+
+  <div class="callout">
+    <h3>결정 규칙</h3>
+    <p class="rule">
+      회선이 <b>SIP 트렁크 자격증명</b>을 주면<br>
+      → Vapi · Retell · LiveKit · ElevenLabs에 그대로 물립니다 (G.711 기준).<br><br>
+      회선이 <b>통화 중 실시간 오디오</b>를 내주면<br>
+      → 우리 서버에 STT·TTS를 직접 붙일 수 있습니다.<br><br>
+      회선이 <b>전사·녹음 결과만</b> 돌려주면<br>
+      → 통화 중 대화가 불가능합니다. 후보에서 빠집니다.
+    </p>
+  </div>
+  <div class="legend">
+    <div><span class="chip ok">확인됨</span> 문서·공식 페이지에서 확인</div>
+    <div><span class="chip warn">확인 필요</span> 공개 정보 없음, 문의·가입 후 확인</div>
+    <div><span class="chip stop">제약</span> 이번 학기 일정에 걸리는 조건</div>
+  </div>
+
+  <section>
+    <h2>도구 비교</h2>
+    <p class="sub">후보별 한국어 처리 · 070 연동 · 가격 · 체험 가능 여부. 가격은 통화 1분 기준이며 환율은 1,400원/$로 환산했습니다.</p>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>도구</th><th>한국어</th><th>070 연동</th><th>가격 (1분)</th><th>체험</th><th>판단</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="name">Vapi</td>
+            <td>STT·TTS를 골라 끼우는 구조라 한국어 품질은 선택한 엔진에 달림</td>
+            <td><span class="chip ok">확인됨</span> BYO SIP 트렁크 지원, G.711 기준, TLS는 트렁크 설정에 따름</td>
+            <td class="num">플랫폼 $0.05–0.13<br>+ STT·LLM·TTS·통신 별도<br>합계 $0.13–0.32</td>
+            <td>셀프 가입</td>
+            <td>구간별 교체·측정이 되는 유일한 후보</td>
+          </tr>
+          <tr>
+            <td class="name">Retell AI</td>
+            <td>번들 구성이라 엔진 교체 폭이 좁음</td>
+            <td><span class="chip ok">확인됨</span> elastic SIP 트렁크 권장, TLS 시그널링·SRTP 지원, 고정 IP 없어 digest 인증</td>
+            <td class="num">$0.07–0.31<br>(STT·LLM·TTS·통신 포함)</td>
+            <td>셀프 가입</td>
+            <td>설정이 가장 적고 예산 예측이 쉬움</td>
+          </tr>
+          <tr>
+            <td class="name">ElevenLabs Agents</td>
+            <td>TTS 자연스러움이 후보 중 강점</td>
+            <td><span class="chip ok">확인됨</span> SIP 트렁크로 번호 임포트, TLS·미디어 암호화 설정 가능</td>
+            <td class="num">$0.07–0.30<br>(통신·LLM 별도)</td>
+            <td>셀프 가입</td>
+            <td>TTS만 떼어 다른 후보에 붙이는 쪽이 실용적</td>
+          </tr>
+          <tr>
+            <td class="name">OpenAI Realtime<br><span class="mono">gpt-realtime</span></td>
+            <td>음성→음성 단일 모델, 지연·억양 유리</td>
+            <td><span class="chip stop">제약</span> SIP는 인·아웃바운드 다 되지만 <b>Opus + TLS + SDES-SRTP 요구</b>. 국내 070은 보통 G.711 A-law라 직결이 막힐 수 있음</td>
+            <td class="num">토큰 과금<br>입력 $32 / 출력 $64 per 1M<br>mini $10 / $20</td>
+            <td>셀프 가입</td>
+            <td>중간 게이트웨이를 두면 가능. 링잉 3분·통화 2시간 제한 있음</td>
+          </tr>
+          <tr>
+            <td class="name">LiveKit Agents</td>
+            <td>엔진 자유 조합</td>
+            <td><span class="chip ok">확인됨</span> 인·아웃바운드 트렁크 객체, TLS 5061, SRTP allow/require</td>
+            <td class="num"><span class="chip warn">확인 필요</span><br>자체 호스팅은 무료</td>
+            <td>오픈소스</td>
+            <td>070(G.711)과 Realtime(Opus) 사이 변환 위치로 쓸 수 있음</td>
+          </tr>
+          <tr>
+            <td class="name">리턴제로 RTZR</td>
+            <td>콜센터·전화통화 특화. 한국어 통화 인식은 후보 중 최상급</td>
+            <td>STT 전용 (전화 연동은 별도)</td>
+            <td class="num"><span class="chip warn">확인 필요</span><br>가격 비공개</td>
+            <td><span class="chip stop">제약</span> API는 <span class="mono">biz@rtzr.ai</span> 영업 문의</td>
+            <td>2주 안에 검증 불가. 인식률 비교 실험용으로만</td>
+          </tr>
+          <tr>
+            <td class="name">네이버 CLOVA<br>Speech · Voice</td>
+            <td>한국어 인식·합성 안정적</td>
+            <td>STT/TTS 전용</td>
+            <td class="num"><span class="chip warn">확인 필요</span><br>ncloud 요금표 공개</td>
+            <td>ncloud 셀프 가입</td>
+            <td>국내 엔진 중 유일하게 바로 써볼 수 있는 쪽</td>
+          </tr>
+          <tr>
+            <td class="name">070 회선</td>
+            <td>—</td>
+            <td><span class="chip stop">제약</span> 국내 SIP는 G.711 A-law·SRTP 필수, NAT·SBC 코덱 협상 필요</td>
+            <td class="num">월 ₩19,000–99,000</td>
+            <td>서비스별 상이</td>
+            <td>아래 <b>070 회선 후보</b>에서 따로 비교</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>070 회선 후보</h2>
+    <p class="sub">회선을 우리가 고르면 판단 기준은 하나입니다. 통화 중에 우리 AI가 듣고 말할 길을 열어 주는가.</p>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>후보</th><th>개통·계약</th><th>요금</th><th>우리 AI 연결</th><th>판단</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="name">ClawOps</td>
+            <td>카드 없이 가입, 계약 없음</td>
+            <td class="num">Trial 3일 (발신 10분)<br>개인 ₩19,000/월<br>(동시 1, 발신 100분)<br>비즈니스 ₩99,000/월<br>(동시 10, 발신 1,000분)<br>부가 ₩10–200/분</td>
+            <td>SIP/2.0 연결과 WebRTC 제공, OpenAI·Deepgram·ElevenLabs 자유 연결을 내세움. <span class="chip warn">확인 필요</span> 블로그 예시는 전사·녹음·요약 웹훅 중심이라 <b>통화 중 실시간 오디오 경로</b>는 가입해서 확인해야 함</td>
+            <td>3일 체험이 있어 이번 주에 검증 가능. 1순위 후보</td>
+          </tr>
+          <tr>
+            <td class="name">일반 인터넷전화<br>삼성 WYZ070 · 컴네트워크 등</td>
+            <td>상담·계약 필요</td>
+            <td class="num">문의</td>
+            <td>SIP 계정은 나오지만 개발자용 API·문서가 빈약</td>
+            <td>개통까지 시간이 걸려 학기 일정과 안 맞음</td>
+          </tr>
+          <tr>
+            <td class="name">해외 플랫폼 번호<br>Vapi · Twilio 등</td>
+            <td>즉시 발급</td>
+            <td class="num">분당 과금</td>
+            <td>플랫폼 기본 기능이라 가장 빠름</td>
+            <td><span class="chip stop">제약</span> 학원 쪽에 국제전화로 표시될 수 있어 실제 발신에는 부적합. 내부 테스트 전용</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>요금제를 가르는 건 월정액이 아니라 <b>발신 분수와 동시 통화 수</b>입니다. 개인 플랜은 발신 100분·동시 1통화라, 시나리오를 몇 번 돌릴지부터 정하고 플랜을 골라야 합니다.</p>
+  </section>
+
+  <section>
+    <h2>선정 의견</h2>
+    <p class="sub">회선과 도구를 같이 고르는 문제라 조합으로 적었습니다.</p>
+
+    <h3>진행은 2단계로</h3>
+    <p><b>1단계 — 해외 번호로 파이프라인부터 굴립니다.</b> 팀원 휴대폰에 걸어 지연·턴 판정·시나리오를 검증합니다. 회선 계약을 기다리며 2주를 보내지 않는 게 목적입니다.</p>
+    <p><b>2단계 — 실제 학원 통화 시점에 070으로 갈아끼웁니다.</b> ClawOps Trial로 실시간 오디오 경로부터 확인하고, 되면 개인 플랜으로 넘어갑니다.</p>
+
+    <h3>1순위 — ClawOps 070 + Vapi</h3>
+    <p>STT·LLM·TTS를 따로 끼우는 구조라 한국어 엔진을 바꿔가며 비교할 수 있고, 구간별 지연을 따로 볼 수 있습니다. 응답 지연 1.5초를 검증하려면 어디서 시간이 새는지 봐야 하는데 번들 요금제는 그 안이 가려집니다. 논문 실험도 이 구조에서 나옵니다. 전제는 ClawOps가 SIP 자격증명이나 실시간 미디어를 내주느냐이고, 3일 체험으로 확인됩니다.</p>
+
+    <h3>2순위 — ClawOps 070 + 우리 서버 + OpenAI Realtime</h3>
+    <p>ClawOps 문서가 예시로 드는 조합입니다. 대화 자연스러움과 지연은 가장 유리하지만, Realtime의 SIP는 Opus·TLS·SDES-SRTP를 요구하고 국내 회선은 G.711 A-law라 중간 변환이 필요합니다. 그 변환을 우리가 책임져야 합니다.</p>
+
+    <h3>3순위 — Retell + 070</h3>
+    <p>통신까지 한 요금에 들어 있어 설정과 정산이 가장 단순합니다. 구현이 밀릴 때 안전한 쪽입니다. 대신 엔진 교체 여지가 좁아 비교 실험은 포기해야 합니다.</p>
+
+    <h3>비권장</h3>
+    <p>국내 STT·TTS를 직접 조합해 파이프라인 본체로 쓰는 안. 리턴제로는 한국어 통화 인식이 가장 좋지만 가격이 비공개이고 영업 문의를 거쳐야 합니다. 회의록에서 짚은 국내 서비스 체험 제한이 그대로 확인됐습니다. 계약을 기다리다 학기가 지나갑니다. 한국어 인식률 비교 항목으로만 쓰는 게 맞습니다. 해외 번호로 실제 학원에 거는 것도 권하지 않습니다.</p>
+
+    <div class="callout">
+      <h3>예산 감각</h3>
+      <p>회선까지 우리가 부담하면 항목이 둘입니다. <b>070 개인 플랜 3개월 ₩57,000</b>(발신 300분), <b>AI 플랫폼 200분 ₩36,000–90,000</b>(분당 180–450원). 합쳐 10만~15만 원이라 50만 원 안에서 여유가 있습니다.</p>
+      <p>다만 비즈니스 플랜(₩99,000 × 3개월 = ₩297,000)까지 가면 빠듯해집니다. 시나리오 10종을 3회씩 2분 통화로 잡으면 60분이니 개인 플랜으로 충분하고, 회차를 5회로 늘리면 100분을 넘겨 플랜을 올려야 합니다. <b>테스트 설계가 곧 예산 설계입니다.</b></p>
+    </div>
+  </section>
+
+  <section>
+    <h2>음성 처리 API 요구 항목</h2>
+    <p class="sub">백엔드·프론트와 맞춰야 할 입출력입니다. 통화 상태는 백엔드가, 대화 진행 상태는 음성이 소유합니다.</p>
+
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 960 230" role="img" aria-label="문의 등록부터 학원 통화까지의 흐름. 백엔드는 call_request를 음성 파이프라인에 넘기고, 음성 파이프라인은 070 SIP 회선으로 학원에 발신한 뒤 call_result와 상태 이벤트를 백엔드로 돌려준다.">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 9 5 L 0 9 z" fill="currentColor"></path>
+            </marker>
+          </defs>
+
+          <line x1="379" y1="26" x2="379" y2="198" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" opacity="0.45"></line>
+          <text x="379" y="216" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.6" font-family="IBM Plex Mono, monospace">파트 경계</text>
+
+          <rect x="14" y="70" width="120" height="56" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.8"></rect>
+          <text x="74" y="96" text-anchor="middle" font-size="13" fill="currentColor">프론트엔드</text>
+          <text x="74" y="113" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.6">문의 입력·조회</text>
+
+          <rect x="194" y="70" width="160" height="56" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.8"></rect>
+          <text x="274" y="96" text-anchor="middle" font-size="13" fill="currentColor">백엔드 서버</text>
+          <text x="274" y="113" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.6">발신 큐 · 통화 상태</text>
+
+          <rect x="404" y="70" width="180" height="56" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"></rect>
+          <text x="494" y="96" text-anchor="middle" font-size="13" fill="var(--accent)" font-weight="600">음성 파이프라인</text>
+          <text x="494" y="113" text-anchor="middle" font-size="11" fill="var(--accent)">대화 진행 상태</text>
+
+          <rect x="634" y="70" width="140" height="56" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.8"></rect>
+          <text x="704" y="96" text-anchor="middle" font-size="13" fill="currentColor">070 회선</text>
+          <text x="704" y="113" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.6">우리가 계약</text>
+
+          <rect x="824" y="70" width="122" height="56" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.8"></rect>
+          <text x="885" y="96" text-anchor="middle" font-size="13" fill="currentColor">학원 담당자</text>
+          <text x="885" y="113" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.6">사람</text>
+
+          <line x1="140" y1="98" x2="188" y2="98" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah)"></line>
+          <text x="164" y="60" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.75">문의 등록</text>
+
+          <line x1="360" y1="98" x2="398" y2="98" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#ah)"></line>
+          <text x="379" y="60" text-anchor="middle" font-size="11" fill="var(--accent)" font-family="IBM Plex Mono, monospace">call_request</text>
+
+          <line x1="590" y1="98" x2="628" y2="98" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah)"></line>
+          <text x="609" y="60" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.75">SIP INVITE</text>
+          <text x="609" y="45" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.5" font-family="IBM Plex Mono, monospace">G.711 A-law</text>
+
+          <line x1="780" y1="98" x2="818" y2="98" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah)"></line>
+          <text x="799" y="60" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.75">통화</text>
+
+          <polyline points="494,132 494,176 274,176 274,132" fill="none" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#ah)"></polyline>
+          <text x="384" y="169" text-anchor="middle" font-size="11" fill="var(--accent)" font-family="IBM Plex Mono, monospace">call_result · 상태 이벤트</text>
+        </svg>
+      </div>
+      <figcaption>백엔드와 음성 파트가 주고받는 것은 요청 1건, 결과 1건, 그 사이의 상태 이벤트입니다. 통화 상태(발신중·응답·부재중·거절)는 백엔드가, 대화 진행 상태는 음성이 가집니다.</figcaption>
+    </figure>
+
+    <h3>요청 — 백엔드 → 음성</h3>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>필드</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td class="name"><code>inquiry_id</code> / <code>attempt_id</code></td><td>문의 1건과 통화 시도를 분리. 재시도 이력을 잇는 키</td></tr>
+          <tr><td class="name"><code>academy</code></td><td>학원명, 전화번호, 운영시간, 담당자명(있으면)</td></tr>
+          <tr><td class="name"><code>student</code></td><td>학년, 과목, 지역. 통화 중 학원이 되물을 항목</td></tr>
+          <tr><td class="name"><code>questions[]</code></td><td>질문ID, 질문 문구, 필수 여부. 답변을 이 ID에 붙여 돌려줌</td></tr>
+          <tr><td class="name"><code>disclosure_text</code></td><td>AI·녹취 고지 문구. 기업 승인본을 그대로 읽음</td></tr>
+          <tr><td class="name"><code>limits</code></td><td>최대 통화시간, 재시도 회차, 무응답 판정 시간</td></tr>
+          <tr><td class="name"><code>callback_url</code></td><td>결과·이벤트를 받을 백엔드 엔드포인트</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>결과 — 음성 → 백엔드 (통화 종료 시 1건)</h3>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>필드</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td class="name"><code>connection</code></td><td>응답 · 부재중 · 거절 · 통화중 · 번호오류</td></tr>
+          <tr><td class="name"><code>consult_accepted</code></td><td>상담 수락 여부 (예 · 아니오 · 미확인)</td></tr>
+          <tr><td class="name"><code>available_slots[]</code></td><td>상담 가능 시간. 원문과 구조화 값을 함께</td></tr>
+          <tr><td class="name"><code>answers[]</code></td><td>질문ID별 답변 텍스트 + 확인 상태(확인 · 미확인 · 거절)</td></tr>
+          <tr><td class="name"><code>unconfirmed[]</code> / <code>notes</code></td><td>못 받은 항목과 특이사항. 추측으로 채우지 않음</td></tr>
+          <tr><td class="name"><code>summary</code> / <code>transcript</code></td><td>통화 요약과 전사 텍스트</td></tr>
+          <tr><td class="name"><code>recording_url</code></td><td>녹음 파일. 보관 기간은 기업 정책 확인 필요</td></tr>
+          <tr><td class="name"><code>latency</code></td><td>발화 종료→응답 지연의 평균·p95. 1.5초 검증 근거</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>상태 이벤트 — 음성 → 백엔드 (통화 중)</h3>
+    <p><span class="mono">call.initiated · call.ringing · call.answered · call.speaking · call.barge_in · call.ended(사유)</span></p>
+    <p>이벤트마다 <code>event_id</code>를 붙여 중복 수신을 걸러야 합니다. 같은 통화 이벤트가 두 번 와도 결과는 1건만 저장되어야 합니다.</p>
+  </section>
+
+  <section>
+    <h2>테스트 기준 초안</h2>
+    <p class="sub">응답이 매번 달라지는 시스템이라 문구가 아니라 항목 충족으로 판정합니다.</p>
+
+    <h3>지연 측정 기준</h3>
+    <p>학원 담당자 발화의 음성이 끊긴 시점(t0)부터 AI 첫 오디오가 나온 시점(t1)까지를 재고, <code>t1 − t0 ≤ 1.5초</code>를 목표로 둡니다. 통화당 발화 5회 이상에서 평균과 p95를 함께 보고, 구간은 발화 종료 판정 대기 · STT 최종화 · LLM 첫 토큰 · TTS 첫 오디오로 쪼갭니다. 플랫폼 로그에서 이 네 구간이 따로 나오는지가 도구 선정의 숨은 기준입니다.</p>
+
+    <h3>시나리오와 통과 기준</h3>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>#</th><th>시나리오</th><th>통과 기준</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td>정상 응답 — 질문 2개에 모두 답</td><td>질문ID별 답변 채워짐, 통화 완주, 지연 1.5초 이내</td></tr>
+          <tr><td class="num">2</td><td>무응답 — 벨만 울림</td><td>판정 시간 내 <code>부재중</code>으로 종료, 재시도 큐로 반환</td></tr>
+          <tr><td class="num">3</td><td>거절 — "지금 수업 중이에요"</td><td>상담 가능 시간을 받아오거나 <code>재통화 요청</code>으로 분류</td></tr>
+          <tr><td class="num">4</td><td>부분 답변 — 하나만 답</td><td>나머지는 <code>미확인</code>. 추측으로 채우면 실패</td></tr>
+          <tr><td class="num">5</td><td>범위 밖 질문 — 학원이 되물음</td><td>범위 외로 표시하고 "확인 후 회신"으로 응답</td></tr>
+          <tr><td class="num">6</td><td>발화 중첩 — AI 말 도중 끼어듦</td><td>TTS 즉시 중단, 직전 문맥 유지, 같은 질문 반복 안 함</td></tr>
+          <tr><td class="num">7</td><td>인식 오류 — 요일·숫자 오인</td><td>1회 되묻고 확정, 2회 실패 시 <code>미확인</code> 처리</td></tr>
+          <tr><td class="num">8</td><td>긴 답변 — 30초 이상 설명</td><td>핵심 항목 누락 없이 요약, 질문ID 매칭 유지</td></tr>
+          <tr><td class="num">9</td><td>정체 질문 — "사람 아니세요?"</td><td>고지 문구 재안내, 통화 계속</td></tr>
+          <tr><td class="num">10</td><td>중복 이벤트 — 같은 이벤트 2회</td><td>결과 1건만 저장 (멱등)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>비결정성 판정 방식</h3>
+    <ul>
+      <li>정답은 문장이 아니라 슬롯 값으로 둡니다. "통학 가능 = 예 / 아니오 / 미확인"처럼 두면 표현 차이는 무시됩니다.</li>
+      <li>같은 시나리오를 3~5회 반복합니다. 통과 기준을 전회 통과로 할지 통과율 몇 퍼센트로 할지는 멘토와 합의가 필요합니다.</li>
+      <li>실패로 바로 확정하는 금지 행위: 없는 정보를 만들어 답하기, 고지 문구 누락, 학부모 정보를 필요 이상으로 말하기.</li>
+      <li>회차별 로그·녹음·측정치를 보관합니다. 이게 논문 실험 데이터가 됩니다.</li>
+      <li>발신 번호 유형(070 · 휴대폰 · 대표번호)에 따라 학원이 받는 비율이 달라집니다. 회선을 우리가 고르는 이상 이건 실험 변수로 잡을 만합니다.</li>
+      <li>반복 횟수는 발신 분수와 직결됩니다. 시나리오 수 × 회차 × 통화 길이를 먼저 계산하고 요금제를 고르세요.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>논문 후보</h2>
+    <p class="sub">설계·이론 먼저, 구현 결과로 보강하는 팀 방향에 맞춰 12월~1월 학회를 봤습니다.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>학회</th><th>시기</th><th>확인된 사실</th><th>해야 할 확인</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="name">KSC<br>한국정보과학회</td>
+            <td class="num">12월 중순</td>
+            <td>KSC2025는 12/16~18 개최, <b>학부생·주니어 논문경진대회 부문</b> 운영</td>
+            <td>KSC2026 일정과 논문 마감일. 학회 사이트가 자동 조회를 막아 직접 열어봐야 함</td>
+          </tr>
+          <tr>
+            <td class="name">ACK 2026<br>한국정보처리학회</td>
+            <td class="num">11/5~11/7</td>
+            <td>세종대 개최 확정</td>
+            <td>마감이 이미 지났을 가능성 큼. 학회 사무국(02-2077-1414) 문의</td>
+          </tr>
+          <tr>
+            <td class="name">KICS 추계<br>한국통신학회</td>
+            <td class="num">11월</td>
+            <td>2026 추계종합학술발표회 개설</td>
+            <td>마감·등록비. 통신·음성 트랙이라 주제 적합도는 높음</td>
+          </tr>
+          <tr>
+            <td class="name">한국컴퓨터정보학회<br>동계</td>
+            <td class="num">1월</td>
+            <td>동계학술대회 정기 개최</td>
+            <td>2027 동계 공고. 구현 결과까지 넣을 시간이 가장 넉넉한 후보</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p><b>제안</b> — KSC 2026 학부생 부문을 1순위로 두고, 마감이 촉박하면 1월 동계 학술대회로 넘기는 2단 계획. 등록비 지원 여부는 회의록대로 지도교수님 확인 사항입니다.</p>
+  </section>
+
+  <section>
+    <h2>멘토 질문</h2>
+    <p class="sub">Q1~Q3은 답을 받기 전에는 회선을 계약할 수 없는 항목입니다.</p>
+    <ol class="qs">
+      <li><b>회선 명의와 결제.</b> 070을 팀원 개인 명의로 개통해도 되나요, 기업 명의여야 하나요? 월정액 결제는 50만 원 선결제 구조에서 어떻게 처리하고 증빙은 무엇으로 남기나요?</li>
+      <li><b>발신 대상 범위.</b> 실제로 전화를 걸어도 되는 학원 목록이 있나요? 사전 동의를 기업이 받아 주시는 건가요, 우리가 구하는 건가요?</li>
+      <li><b>발신 번호 유형.</b> 070으로 걸면 학원이 안 받을 가능성이 있습니다. 기업 대표번호(15xx)나 기업 회선을 빌려 쓸 수 있는 여지가 있나요?</li>
+      <li><b>지연 기준.</b> 1.5초를 발화 종료 시점부터 재고 p95로 보고드리면 되나요? 합격 수치를 정해 주시면 테스트 기준에 박겠습니다.</li>
+      <li><b>고지·녹음 정책.</b> AI·녹취 고지 문구 승인본이 있나요? 녹음 보관 기간도 알려주세요.</li>
+      <li><b>플랫폼 데이터.</b> 학원 정보와 문의 데이터를 API로 받나요, 더미로 진행하나요? 음성 쪽 질문 항목 설계가 여기에 달려 있습니다.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>출처</h2>
+    <ul class="srcs">
+      <li><a href="https://developers.openai.com/api/docs/guides/realtime-sip">OpenAI — Realtime API with SIP</a> · 인·아웃바운드 SIP, TLS·Opus·SDES-SRTP 요구, 링잉 3분·통화 2시간 제한</li>
+      <li><a href="https://developers.openai.com/api/docs/pricing">OpenAI — Pricing</a> · gpt-realtime 오디오 토큰 단가</li>
+      <li><a href="https://didlogic.com/learn/connecting-ai-voice-platforms-via-sip-vapi-retell-livekit-and-elevenlabs/">didlogic — Connecting AI Voice Platforms via SIP</a> · Vapi·Retell·LiveKit·ElevenLabs의 BYO SIP 지원과 G.711 기준</li>
+      <li><a href="https://caller.digital/voice-ai-pricing-comparison">Caller Digital — Voice AI Pricing Per Minute 2026</a> · 플랫폼별 분당 단가와 번들 범위</li>
+      <li><a href="https://claw-ops.com/blog/sip-api-korea-guide">ClawOps — 한국에서 SIP API 사용하기: 070 번호 연동 가이드</a> · 국내 SIP의 G.711 A-law·SRTP 조건, NAT·SBC 협상</li>
+      <li><a href="https://claw-ops.com/blog/070-number-api-quickstart">ClawOps — 070 번호 API 빠른 시작</a> / <a href="https://claw-ops.com/">서비스 소개</a> · 요금제, 무료 체험 조건, SIP·WebRTC 제공과 AI 스택 자유 연결</li>
+      <li><a href="https://www.moket.kr/tools/vito">모켓 — VITO 사용법·가격</a> · 리턴제로 API 가격 비공개, 영업 문의 경로</li>
+      <li><a href="https://www.ncloud.com/product/aiService/csr">NAVER Cloud — CLOVA Speech Recognition</a> / <a href="https://www.ncloud.com/product/aiService/clovaVoice">CLOVA Voice</a></li>
+      <li><a href="https://ack.kips.or.kr/">ACK 2026</a> · 11/5~7 세종대</li>
+      <li><a href="https://cs.sogang.ac.kr/front/cmsboardview.do?siteId=cs&amp;bbsConfigFK=1749&amp;pkid=932786">KSC2025 학부생 부문 수상 공지</a> · 12/16~18 개최, 학부생·주니어 논문경진대회 존재</li>
+    </ul>
+  </section>
+
+  <p class="foot">가격과 마감일은 조사 시점(2026-09-28) 기준입니다. 표에서 <span class="chip warn">확인 필요</span>로 표시한 칸은 공개 정보가 없어 가입·문의 후에 채워야 합니다.</p>
+
+</div>

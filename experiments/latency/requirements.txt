@@ -1,0 +1,6 @@
+# 통화 분석 스크립트(scripts/)용.
+# Python 3.11 + 괄호 안 버전에서 10/7 결과(data/results)를 그대로 재현했다.
+# Windows 스마트 앱 컨트롤이 켜진 PC에서는 numpy 2.5.4의 DLL이 막혔다. 괄호 안 버전으로 설치한다.
+numpy>=1.26             # 2.4.4
+scikit-learn>=1.3       # 1.8.0 (one_call.py)
+sherpa-onnx>=1.13,<2    # 1.13.8

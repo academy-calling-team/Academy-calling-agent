@@ -1,0 +1,31 @@
+{
+ "source": "vapi_low_asr.json",
+ "ai_spk": 0,
+ "gaps": [
+  {
+   "human_end": 11.62,
+   "ai_start": 13.69,
+   "gap": 2.07,
+   "human": "네 가능합니다",
+   "ai": "네 감사합니다"
+  },
+  {
+   "human_end": 26.52,
+   "ai_start": 28.73,
+   "gap": 2.21,
+   "human": ", 수 6시에 있습니다.",
+   "ai": ", 수, 목요일 오 6시에 수업이 있다는 말씀이죠?"
+  }
+ ],
+ "overlaps": [],
+ "summary": {
+  "n": 2,
+  "mean": 2.14,
+  "median": 2.14,
+  "p90": 2.21,
+  "p95": 2.21,
+  "min": 2.07,
+  "max": 2.21,
+  "over_1_5": 2
+ }
+}
