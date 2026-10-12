@@ -78,7 +78,12 @@ python -m pytest tests/test_backend.py tests/test_extensions.py tests/test_week6
 
 이번 코드는 backend/development-api-040 브랜치의 검토 대상이다. 기존 음성팀 구현과 루트 설정 파일은 보존했다.
 [검증 결과](../docs/verification/backend.md)와 [파트 연결 안내](../docs/api/README.md)을 먼저 확인한다.
-기본 큐는 자체 목업을 사용하며 음성팀 워커를 자동 선택하지 않는다. 외부 워커 연결용 설정·번호 규칙·409 처리는 후속 검토 대상이다.
+기본 큐는 자체 목업을 사용한다. 이번 로컬 후보는 `python run_queue.py --worker-url http://127.0.0.1:18780`으로 음성팀 목업을 선택한다.
+`--worker-url`과 `--simulate-results`는 동시에 사용할 수 없다. 외부 워커는 INTERNAL_API_KEY를 사용하며 원격 주소는 HTTPS가 필요하다.
+401/404/409/422 등 명확한 거절은 접수 성공으로 바꾸지 않고 자동 전송을 중단한다. 실패 이유와 review_required를 조회할 수 있다.
+타임아웃·연결 오류 때만 같은 call_id의 영속 접수를 GET으로 재확인한다. 429/5xx는 같은 ID·본문으로 전송 한도 내 재시도한다.
+seed의 phone=None은 그대로 유지하며 현재 음성팀 코드에서는 422가 발생한다. 정상 연결 검증에는 별도 목업 시험 데이터만 사용했다.
+GitHub main을 변경한 상태가 아니며, 아래 문서는 로컬 검토 후보의 동작을 설명한다.
 루트 .env가 이미 있으면 덮어쓰지 말고 backend/.env.example의 필요한 항목만 검토해 추가한다. 음성팀 설정은 voice/.env를 사용한다.
 
 ## 명세와 남은 작업
@@ -89,6 +94,6 @@ python -m pytest tests/test_backend.py tests/test_extensions.py tests/test_week6
 `python generate_docs.py`는 DB 접속 없이 OpenAPI/결과 스키마/MySQL DDL을 생성한다.
 데이터 사전과 ERD는 schema.py 변경 후 별도 검토가 필요하며 자동 갱신 완료로 간주하지 않는다.
 
-실제 음성 워커·번호·Vapi/ClawOps API·웹훅 인증·분석 지연·프론트 실제 연결과
+실제 Vapi/ClawOps API·전화번호·웹훅 인증·실통화 분석 지연·프론트 실제 연결과
 최신 API AWS 배포는 남아 있다. 워커 HTTP 어댑터는 is_mock=true만 허용한다.
 Vapi 결제와 실제 통합 성공은 구분한다. 기본 정책 수치는 개발값이며 팀/멘토 확정 전이다.

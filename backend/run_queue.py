@@ -9,19 +9,31 @@ from service import Service
 from redis_queue import RedisQueue
 from worker import MockWorker,make_result
 from contracts import ResultInput
-from settings import redis_url, require_mock_mode
+from settings import redis_url, require_mock_mode, internal_key
+from http_worker6 import WorkerHttpAdapter
 
-def main():
+def parse_args(argv=None):
     parser=argparse.ArgumentParser()
     parser.add_argument('--once',action='store_true')
     parser.add_argument('--simulate-results',action='store_true',help='Store explicitly synthetic answers, not measured voice results')
-    args=parser.parse_args()
+    parser.add_argument('--worker-url',help='Mock voice worker URL; local HTTP or remote HTTPS')
+    args=parser.parse_args(argv)
+    if args.worker_url and args.simulate_results:
+        parser.error('--worker-url cannot be combined with --simulate-results')
+    return args
+
+def build_worker(args,engine):
+    if args.worker_url:return WorkerHttpAdapter(args.worker_url,internal_key())
+    return MockWorker(engine,'local-mock-runner-placeholder')
+
+def main():
+    args=parse_args()
     require_mock_mode()
     engine=local_engine(); service=Service(engine,allow_legacy_tokens=False)
     client=redis.Redis.from_url(redis_url(),decode_responses=True,
         socket_connect_timeout=2,socket_timeout=3)
     # Uses the existing mock contract with an in-process placeholder; no external credential needed.
-    worker=MockWorker(engine,'local-mock-runner-placeholder')
+    worker=build_worker(args,engine)
     queue=RedisQueue(service,client)
     try:
         while True:

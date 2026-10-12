@@ -235,7 +235,8 @@ def test_http_worker_unknown_stays_unknown_and_real_disabled():
     worker=WorkerHttpAdapter('https://mock-worker.invalid','synthetic-internal-only',
         httpx.MockTransport(lambda r:httpx.Response(404)))
     try:
-        with pytest.raises(ConnectionError):worker.accept(dict(call_id=str(uuid4()),is_mock=True))
+        from worker_errors import WorkerRejected
+        with pytest.raises(WorkerRejected):worker.accept(dict(call_id=str(uuid4()),is_mock=True))
         with pytest.raises(ValueError):worker.accept(dict(call_id=str(uuid4()),is_mock=False))
     finally:worker.close()
     with pytest.raises(ValueError):WorkerHttpAdapter('http://external.invalid','synthetic-internal-only')
@@ -244,7 +245,8 @@ def test_http_worker_unknown_stays_unknown_and_real_disabled():
         worker=WorkerHttpAdapter('https://mock-worker.invalid','synthetic-internal-only',
             httpx.MockTransport(lambda request,reply=malformed:httpx.Response(200,json=reply)))
         try:
-            with pytest.raises(ConnectionError):worker.accept(dict(call_id=str(uuid4()),is_mock=True))
+            from worker_errors import WorkerProtocolError
+            with pytest.raises(WorkerProtocolError):worker.accept(dict(call_id=str(uuid4()),is_mock=True))
         finally:worker.close()
 
 def test_auth_admin_review_and_authenticated_correction_author(env,auth_client):
