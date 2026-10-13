@@ -10,9 +10,9 @@
 
 | 파일 | 하는 일 |
 |---|---|
-| `app.py` | `POST /internal/calls` 접수(202), `GET /internal/calls/{call_id}` 조회(200, 404). 접수 기록은 `voice/.data/`에 저장 |
+| `app.py` | `POST /internal/calls` 접수(202), `GET /internal/calls/{call_id}` 조회(200, 404). 접수 기록은 `voice/.data/`에 저장. 목업 요청(`is_mock=true`)은 `to=null`도 받음 |
 | `samples.py` | 가짜 events와 result. 시나리오: 정상 연결, 일부 미확인, 부재중 |
-| `sender.py` | events와 result를 백엔드로 보냄. 일시 오류는 다시 보내고, 거절(401, 404, 409, 422)은 멈춤 |
+| `sender.py` | events와 result를 백엔드로 보냄. 일시 오류(연결 실패, 5xx)는 3번까지 다시 보내고, 그래도 안 되면 재시작할 때 다시 보냄. 거절(401, 404, 409, 422)은 바로 멈추고 거절로 기록해서 자동으로 다시 보내지 않음 |
 | `fake_backend.py` | 혼자 시험할 때 쓰는 가짜 백엔드. 받은 내용을 터미널에 출력 |
 | `test_app.py` | 시험 |
 
@@ -43,6 +43,13 @@ python voice/mock_worker/app.py
 ```
 python -m pytest voice/mock_worker -q
 ```
+
+## 백엔드와 정한 규칙 (10/13)
+
+- `to`는 목업 요청에서만 null 허용. 실제 발신(`is_mock=false`)은 유효한 전화번호 필수
+- 같은 결과를 다시 보낼 때는 같은 `result_id`와 같은 본문
+- 거절된 건은 `ReceiptStore.rejected()`로 이유를 확인한 뒤 사람이 판단해서 다시 보냄
+- API 상세 기준은 저장소 `docs/api`. 수강료, 교재비는 질문 코드에 넣지 않음 (음성인식 시험에만 사용)
 
 ## 진짜 백엔드와 연결할 때
 

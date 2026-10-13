@@ -2,13 +2,16 @@
 import copy
 import json
 import re
+import sqlite3
+from contextlib import closing
 from datetime import datetime
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
-from app import ReceiptStore, create_app
+from app import CallRequest, ReceiptStore, create_app
 from fake_backend import create_backend
 from samples import SAMPLE_REQUEST, build_events, build_result, pick_scenario
 from sender import Sender
@@ -71,6 +74,29 @@ def test_accept_is_idempotent_and_survives_restart(tmp_path, client, store):
 
 def test_unknown_call_is_404(client):
     assert client.get("/internal/calls/nothing", headers=HEADERS).status_code == 404
+
+
+def test_mock_call_without_phone_number_is_accepted(client):
+    # 백엔드 목업 학원은 phone=None (10/13 합의: is_mock일 때만 허용)
+    assert client.post("/internal/calls", json=make_request(to=None), headers=HEADERS).status_code == 202
+
+
+def test_real_call_requires_phone_number():
+    with pytest.raises(ValidationError):
+        CallRequest.model_validate(make_request(to=None, is_mock=False))
+    assert CallRequest.model_validate(make_request(is_mock=False)).to == SAMPLE_REQUEST["to"]
+
+
+def test_old_receipt_file_gets_rejection_columns(tmp_path):
+    path = tmp_path / "old.sqlite3"
+    with closing(sqlite3.connect(path)) as db, db:
+        db.execute("CREATE TABLE receipts (call_id TEXT PRIMARY KEY, payload_hash TEXT NOT NULL,"
+                   " payload TEXT NOT NULL, scenario TEXT NOT NULL, received_at TEXT NOT NULL, delivered_at TEXT)")
+        db.execute("INSERT INTO receipts VALUES ('c_old', 'hash', '{}', 'answered', '2026-10-12T05:00:00+00:00', NULL)")
+    store = ReceiptStore(path)
+    assert store.pending() == ["c_old"]
+    store.mark_rejected("c_old", "409 conflict")
+    assert store.pending() == [] and store.rejected() == {"c_old": "409 conflict"}
 
 
 def test_same_call_id_with_other_payload_conflicts(client):
@@ -186,12 +212,25 @@ def test_retries_temporary_errors(store):
     assert store.pending() == []
 
 
-def test_stops_on_rejection_and_keeps_pending(store):
+def test_rejection_is_recorded_and_not_resent(store):
     store.accept("c_02", SAMPLE_REQUEST, "answered")
     backend = FakeBackend(statuses=[409])
     assert make_sender(backend).deliver(store, "c_02") is False
     assert len(backend.requests) == 1
-    assert store.pending() == ["c_02"]
+    assert store.pending() == []
+    assert "409" in store.rejected()["c_02"]
+
+    later = FakeBackend()
+    make_sender(later).deliver_pending(store)
+    assert later.requests == []
+
+
+def test_temporary_failure_stays_pending(store):
+    store.accept("c_02", SAMPLE_REQUEST, "answered")
+    backend = FakeBackend(statuses=[503, 503, 503])
+    assert make_sender(backend).deliver(store, "c_02") is False
+    assert len(backend.requests) == 3
+    assert store.pending() == ["c_02"] and store.rejected() == {}
 
 
 def test_deliver_pending_sends_unsent_receipts(store):
