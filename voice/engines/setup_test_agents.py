@@ -27,7 +27,7 @@ ENV = ROOT / 'voice' / '.env'
 # 두 플랫폼에 똑같이 들어갈 설정. 지연이 가장 적은 쪽으로 골랐다.
 SETTINGS = {
     'name': '시험 GPT-Live luna none marin',
-    'prompt_file': 'voice/prompts/agent_prompt_v2.txt',
+    'prompt_file': 'voice/prompts/agent_prompt_v3.txt',
     'speaker_model': 'gpt-live-1',       # 말하는 모델. 두 플랫폼 모두 말 끝 판정을 이 모델이 직접 한다
     'reasoner_model': 'gpt-5.6-luna',    # 업무 처리 모델. 두 플랫폼 공통 선택지는 luna, terra
     'reasoning_effort': 'none',          # 가장 빠른 값. 정확도가 떨어지면 두 쪽 모두 'low'로
