@@ -114,6 +114,13 @@ textarea { width: 100%; min-height: 90px; font: 12px/1.4 var(--font-data); color
       <span><strong>녹음 파일</strong>(WAV, m4a, mp3)과 <strong>분석 결과</strong>(<code>*_rows.json</code>)를 여기에 끌어다 놓으세요.</span>
       <label class="filebtn">파일 고르기<input type="file" id="fileInput" multiple accept=".wav,.m4a,.mp3,.ogg,.json,audio/*,application/json"></label>
     </div>
+    <span class="bar">
+      <label class="sub" for="thr">말소리 기준</label>
+      <select id="thr">
+        <option value="-50" selected>−50 dB (자동 분석과 같음)</option>
+        <option value="-60">−60 dB (작은 소리까지)</option>
+      </select>
+    </span>
     <span class="msg" id="loadMsg">결과 파일이 없으면 소리 크기로 말 구간만 나눕니다. 구간을 누르고 1·2 키로 사람·AI를 정하세요.</span>
   </section>
 
@@ -270,11 +277,13 @@ textarea { width: 100%; min-height: 90px; font: 12px/1.4 var(--font-data); color
   }
 
   // ---------- 말 구간 ----------
-  function energySegments() {
+  // 소리 크기로 말 구간 나누기. 기준은 '말소리 기준' 값과 바닥 소음+12dB 중 큰 쪽(자동 분석의 경계 기준은 −50dBFS)
+  function energySegments(minDb) {
+    minDb = minDb ?? +$('thr').value;
     const hop = Math.round(S.sr * 0.01), n = Math.floor(S.x.length / hop), db = new Float32Array(n);
     for (let f = 0; f < n; f++) { let s = 0; for (let i = f * hop; i < (f + 1) * hop; i++) s += S.x[i] * S.x[i]; db[f] = 10 * Math.log10(s / hop + 1e-10); }
     const sorted = Array.from(db).sort((a, b) => a - b), floor = sorted[Math.floor(n * 0.1)] ?? -100;
-    const thr = Math.max(floor + 12, -60);
+    const thr = Math.max(floor + 12, minDb);
     const segs = []; let st = -1, lastOn = -1;
     for (let f = 0; f < n; f++) {
       if (db[f] > thr) { if (st < 0) st = f; lastOn = f; }
@@ -407,6 +416,7 @@ textarea { width: 100%; min-height: 90px; font: 12px/1.4 var(--font-data); color
 
   // ---------- 표·요약 ----------
   function pct(v, p) { const s = [...v].sort((a, b) => a - b); return s[Math.max(1, Math.ceil(p / 100 * s.length)) - 1]; }
+  function median(v) { const s = [...v].sort((a, b) => a - b), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; }
   function allRows() { return [...S.gaps, ...S.manual]; }
   function renderTable() {
     const tb = $('rows'); tb.innerHTML = '';
@@ -434,7 +444,7 @@ textarea { width: 100%; min-height: 90px; font: 12px/1.4 var(--font-data); color
     const v = allRows().filter((g) => !g.excluded).map((g) => g.gap);
     const st = v.length ? [
       ['응답 수', v.length], ['평균', (v.reduce((a, b) => a + b, 0) / v.length).toFixed(2) + '초'],
-      ['중앙값', pct(v, 50).toFixed(2) + '초'], ['p95', pct(v, 95).toFixed(2) + '초'],
+      ['중앙값', median(v).toFixed(2) + '초'], ['p95', pct(v, 95).toFixed(2) + '초'],
       ['1.5초 넘음', `${v.filter((x) => x > 1.5).length}개 (${Math.round(100 * v.filter((x) => x > 1.5).length / v.length)}%)`],
     ] : [['응답 수', 0], ['평균', '–'], ['중앙값', '–'], ['p95', '–'], ['1.5초 넘음', '–']];
     $('stats').innerHTML = st.map(([k, val], i) => `<div class="stat ${i === 3 && v.length && pct(v, 95) > 1.5 ? 'warn' : ''}"><span>${k}</span><b>${val}</b></div>`).join('');
@@ -465,17 +475,40 @@ textarea { width: 100%; min-height: 90px; font: 12px/1.4 var(--font-data); color
   const key = () => 'latency-viewer:' + S.name;
   function save() {
     if (S.isExample) return;
-    try { localStorage.setItem(key(), JSON.stringify({ labels: S.segs.map((s) => s.who), gaps: S.gaps.map(({ key, he, as, gap, kind, excluded }) => ({ key, he, as, gap, kind, excluded })), manual: S.manual })); } catch (e) { /* 저장 불가 환경 */ }
+    try {
+      localStorage.setItem(key(), JSON.stringify({
+        v: 2, thr: +$('thr').value, fromEnergy: S.fromEnergy, segs: S.segs,
+        gaps: S.gaps.map(({ key, he, as, gap, kind, excluded }) => ({ key, he, as, gap, kind, excluded })), manual: S.manual,
+      }));
+    } catch (e) { /* 저장 불가 환경 */ }
   }
   function restore() {
     try {
       const d = JSON.parse(localStorage.getItem(key()) || 'null');
       if (!d) return false;
-      if (d.labels && d.labels.length === S.segs.length) d.labels.forEach((w, i) => { S.segs[i].who = w; });
+      if (d.v === 2 && Array.isArray(d.segs)) {
+        S.segs = d.segs; S.fromEnergy = !!d.fromEnergy; $('thr').value = String(d.thr ?? -50);
+      } else if (d.labels) {
+        // 10/14 첫 뷰어는 −60dB로 나누고 구간 순서대로 표시를 저장했다. 같은 기준으로 다시 나눠 표시를 입힌다.
+        if (S.fromEnergy) { const segs = energySegments(-60); if (segs.length === d.labels.length) { S.segs = segs; $('thr').value = '-60'; } }
+        if (d.labels.length === S.segs.length) d.labels.forEach((w, i) => { S.segs[i].who = w; });
+      }
       S.gaps = d.gaps || []; computeGaps(); S.manual = d.manual || [];
       return true;
     } catch (e) { return false; }
   }
+  // 기준을 바꾸면 다시 나누고, 사람·AI 표시는 가장 많이 겹치는 이전 구간에서 가져온다
+  $('thr').addEventListener('change', () => {
+    if (!S.fromEnergy || S.isExample) return;
+    const old = S.segs;
+    S.segs = energySegments().map((s) => {
+      let best = null, bo = 0;
+      for (const o of old) { const ov = Math.min(s.end, o.end) - Math.max(s.start, o.start); if (ov > bo) { bo = ov; best = o; } }
+      return { ...s, who: best ? best.who : '?' };
+    });
+    S.selSeg = -1; computeGaps(); save(); refresh();
+    $('loadMsg').textContent = `말소리 기준 ${$('thr').value} dB로 말 구간 ${S.segs.length}개를 다시 나눴습니다. 사람·AI 표시는 겹치는 구간을 따라 옮겼으니, 짧은 조각은 다시 확인하세요.`;
+  });
 
   // ---------- 불러오기 ----------
   let pendingRows = null;
@@ -497,6 +530,7 @@ textarea { width: 100%; min-height: 90px; font: 12px/1.4 var(--font-data); color
         const { x, sr } = await decodeAudio(audio);
         S.isExample = false; S.name = audio.name.replace(/(_16k)?\.[^.]+$/, '');
         setAudio(x, sr);
+        S.fromEnergy = !pendingRows;
         S.segs = pendingRows || energySegments(); S.gaps = []; S.manual = []; S.selGap = -1; S.selSeg = -1; S.markA = S.markB = null;
         computeGaps();
         const restored = restore();
@@ -504,12 +538,12 @@ textarea { width: 100%; min-height: 90px; font: 12px/1.4 var(--font-data); color
         $('exampleBadge').hidden = true;
         msg.textContent = pendingRows
           ? `말 구간 ${S.segs.length}개, 응답 간격 ${S.gaps.length}개를 불러왔습니다.${restored ? ' 이 브라우저에 저장된 수정도 다시 적용했습니다.' : ''}`
-          : `결과 파일이 없어 소리 크기로 말 구간 ${S.segs.length}개를 나눴습니다. 구간을 누르고 1(사람)·2(AI)로 정하세요.`;
+          : `결과 파일이 없어 소리 크기(${$('thr').value} dB 기준)로 말 구간 ${S.segs.length}개를 나눴습니다. 구간을 누르고 1(사람)·2(AI)로 정하세요.${restored ? ' 이 브라우저에 저장된 표시를 다시 입혔습니다.' : ''}`;
         pendingRows = null;
         refresh();
       } else if (pendingRows) {
         if (!S.isExample && S.dur) {
-          S.segs = pendingRows; pendingRows = null; computeGaps(); save(); refresh();
+          S.segs = pendingRows; S.fromEnergy = false; pendingRows = null; computeGaps(); save(); refresh();
           msg.textContent = `말 구간 ${S.segs.length}개를 지금 녹음에 입혔습니다.`;
         } else msg.textContent = '분석 결과를 읽었습니다. 같은 통화의 녹음 파일도 넣어 주세요.';
       }
