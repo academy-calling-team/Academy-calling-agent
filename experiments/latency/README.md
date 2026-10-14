@@ -69,7 +69,33 @@
 
 `*_16k.wav`는 분석에 쓴 16kHz 모노 변환본이다. `scripts/to16k.py`로 만든다.
 
-## 분석 다시 돌리기
+## 파형 보며 직접 재기 (뷰어)
+
+`viewer/latency_viewer.html`을 브라우저로 연다. 설치는 필요 없다. 녹음 파일(WAV·m4a·mp3)과 분석 결과(`data/results/<이름>_rows.json`)를 함께 끌어다 놓으면 파형이 화자 색(사람·AI)으로 칠해지고, 자동으로 잰 응답 간격이 띠로 표시된다. 결과 파일 없이 녹음만 넣으면 소리 크기로 말 구간만 나누므로, 구간을 누르고 `1`(사람)·`2`(AI)로 정한다.
+
+- 표의 응답을 누르면 그 지점으로 확대되고 앞 1초부터 재생 위치가 잡힌다. 0.5배속으로 들으며 확인한다.
+- 자동 값이 틀렸으면 표시선(사람 말 끝·AI 시작)을 끌어 옮기고 '선택한 응답을 이 값으로 고치기'를 누른다. 새로 재려면 `[`·`]`로 표시선을 찍고 `Enter`.
+- 요약(응답 수, 평균, 중앙값, p95, 1.5초 넘음)은 표에서 '빼기'하지 않은 응답으로 계산한다. 'CSV 복사'로 결과를 가져간다.
+- 녹음은 브라우저 안에서만 읽고 어디에도 올리지 않는다. 고친 값은 그 브라우저에만 저장된다.
+
+## 한 번에 돌리기 (`measure.py`)
+
+10/13 측정에 쓴 과정(녹음 받기 → 변환 → 화자 분리·전사 → 화자 재판정 → 응답 간격 → 보고)을 통화 목록 CSV 한 장으로 돌린다. 10/13 통화 목록은 `data/calls_1013.csv`다. 열의 뜻은 `scripts/measure.py` 맨 위 설명에 있다.
+
+```
+python scripts/measure.py fetch   data/calls_1013.csv      # ClawOps 서버 녹음 받기 (Vapi 통화는 ClawOps 쪽 통화를 시각으로 찾음)
+python scripts/measure.py analyze data/calls_1013.csv      # 통화마다 분석, '?'로 남은 구간을 보여 줌
+python scripts/measure.py fix     data/calls_1013.csv      # CSV의 fix 열(직접 정한 화자)만 다시 적용
+python scripts/measure.py report  data/calls_1013.csv      # 엔진별 지연·겹침·목소리·끊김
+python scripts/measure.py transcript data/calls_1013.csv 1013_va_C   # 정답지 대조용 전사
+```
+
+- sherpa-onnx가 깔린 가상환경 파이썬으로 실행하고, 키는 저장소의 `voice/.env`에서 읽는다.
+- 화자 판정은 대본(`voice/prompts/test_script_v3.md`)의 사람 대사와 AI 말투로 한다(`scripts/relabel.py`). 새 대본을 쓰면 `relabel.py`의 `SCRIPT`에 사람 대사를 넣는다.
+- `one_call.py`는 10/7 통화 1의 사람 목소리를 기준으로 쓰므로 `call1.json`과 `call1_16k.wav`가 있어야 한다.
+- **재현 확인 (10/14).** `data/calls_1013.csv`로 `fix`·`report`를 돌리면 저장된 결과와 같은 값이 나온다(ClawOps 50개 중앙값 1.62초, Vapi 48개 중앙값 1.44초). `analyze`로 통화 하나를 처음부터 다시 돌려도 결과 JSON이 같았다.
+
+## 분석 다시 돌리기 (스크립트 하나씩)
 
 명령은 모두 이 폴더(`experiments/latency/`)에서 실행한다. 결과는 `data/results/`에 쓴다.
 
