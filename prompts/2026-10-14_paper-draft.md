@@ -153,3 +153,4 @@
 - 프롬프트에 넣은 숫자와 사실은 `docs/음성_엔진_비교_측정.md`, `experiments/latency/data/human_result/human_1013.csv`, 노션 7주차 회의록에서 가져왔다. 지연은 사람이 파형 뷰어로 직접 잰 값(ClawOps 49개, Vapi 44개)이다.
 - 숫자와 참고문헌을 지어내지 말고 모르는 곳은 [확인 필요]로 남기라고 지시했다. 초안은 강유준·딩옌이 검토하고, 10/19 노션에 올려 멘토님과 지도교수님 의견을 받는다.
 - 초안과 최종 원고 파일은 제출 뒤 따로 올린다.
+- 10/14 초안 v1(GPT-6 ASTRA Light)의 '확인 필요' 칸을 채우려고 Claude가 저장소 기록을 대조했다. 통계 계산 방법을 밝히려고 `experiments/latency/scripts/human_stats.py`를 만들어 표의 숫자가 그대로 다시 나오는지 확인했고, 그림 2(`experiments/latency/data/human_result/fig2_latency_1013.svg`)를 같은 스크립트로 만들었다. 참고문헌 중 ISCA 논문 5편은 DOI로 제목·저자·쪽수가 맞는지 확인했다.
