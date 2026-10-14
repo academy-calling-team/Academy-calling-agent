@@ -213,7 +213,7 @@ def main() -> None:
     sender = Sender(backend_url, key, delay_sec=float(os.getenv("MOCK_DELAY_SEC", "2")))
     threading.Thread(target=sender.deliver_pending, args=(store,), daemon=True).start()
     port = int(os.getenv("WORKER_PORT", "18780"))
-    uvicorn.run(create_app(key, store, sender, mode), host="127.0.0.1", port=port)
+    uvicorn.run(create_app(key, store, sender, mode), host=os.getenv("WORKER_HOST", "127.0.0.1"), port=port)
 
 
 if __name__ == "__main__":
