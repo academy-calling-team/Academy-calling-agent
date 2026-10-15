@@ -1,6 +1,7 @@
-"""Worker contract adapter with uncertain-acceptance lookup. Real dialing stays disabled."""
-from urllib.parse import urlparse
+"""Mock worker HTTP adapter. Only transport uncertainty triggers receipt lookup."""
+from urllib.parse import urlparse, quote
 import httpx
+from worker_errors import WorkerRejected, WorkerProtocolError
 
 class WorkerHttpAdapter:
     def __init__(self,url,internal_key,transport=None):
@@ -15,7 +16,7 @@ class WorkerHttpAdapter:
             trust_env=False,follow_redirects=False,headers={'X-Internal-Key':internal_key})
     def lookup(self,cid):
         try:
-            r=self.client.get('/internal/calls/'+cid)
+            r=self.client.get('/internal/calls/'+quote(cid,safe=''))
             reply=r.json() if r.status_code==200 else {}
         except (httpx.RequestError,ValueError):return None
         return reply if isinstance(reply,dict) and reply.get('call_id')==cid and reply.get('accepted') is True else None
@@ -23,10 +24,19 @@ class WorkerHttpAdapter:
         if payload.get('is_mock') is not True:raise ValueError('Real dialing is disabled in this development adapter')
         try:
             r=self.client.post('/internal/calls',json=payload)
-            reply=r.json() if r.status_code==202 else None
-        except (httpx.RequestError,ValueError):reply=None
-        if not isinstance(reply,dict) or reply.get('call_id')!=payload['call_id'] or reply.get('accepted') is not True:
+        except httpx.RequestError:
             reply=self.lookup(payload['call_id'])
-        if reply is None:raise ConnectionError('Worker acceptance unknown; keep same call ID')
+            if reply is None:raise ConnectionError('Worker acceptance unknown; keep same call ID') from None
+            return reply
+        if r.status_code==429 or 500<=r.status_code<600:
+            raise ConnectionError(f'Worker temporarily unavailable: HTTP {r.status_code}')
+        if 400<=r.status_code<500:
+            raise WorkerRejected(r.status_code)
+        if r.status_code!=202:
+            raise WorkerProtocolError(f'Unexpected worker status: HTTP {r.status_code}')
+        try:reply=r.json()
+        except ValueError:raise WorkerProtocolError('Invalid worker acceptance JSON') from None
+        if not isinstance(reply,dict) or reply.get('call_id')!=payload['call_id'] or reply.get('accepted') is not True:
+            raise WorkerProtocolError('Worker acceptance receipt does not match request')
         return reply
     def close(self):self.client.close()

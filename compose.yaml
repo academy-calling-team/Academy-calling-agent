@@ -1,0 +1,84 @@
+name: team8-collab-local
+x-backend-env: &backend-env
+  APP_MODE: development_mock
+  MYSQL_HOST: mysql
+  MYSQL_PORT: '3306'
+  MYSQL_DATABASE: team8_local
+  MYSQL_USER: team8_local_app
+  MYSQL_PASSWORD: ${TEAM8_MYSQL_PASSWORD:?Run infra/setup-local.py first}
+  REDIS_URL: redis://redis:6379/1
+  INTERNAL_API_KEY: ${TEAM8_INTERNAL_KEY:?Run infra/setup-local.py first}
+  CORS_ORIGINS: http://127.0.0.1:3000,http://localhost:3000
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${TEAM8_MYSQL_ROOT_PASSWORD:?Run infra/setup-local.py first}
+      MYSQL_DATABASE: team8_local
+      MYSQL_USER: team8_local_app
+      MYSQL_PASSWORD: ${TEAM8_MYSQL_PASSWORD}
+    ports: ['127.0.0.1:13307:3306']
+    volumes: [mysql-data:/var/lib/mysql]
+    healthcheck:
+      test: [CMD-SHELL, 'MYSQL_PWD="$${MYSQL_PASSWORD}" mysql -u"$${MYSQL_USER}" -D team8_local -e "SELECT 1" >/dev/null']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    command: [redis-server, --appendonly, 'yes']
+    ports: ['127.0.0.1:16380:6379']
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, PING]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+  init:
+    build: {context: ., dockerfile: backend/Dockerfile}
+    image: team8-collab-local-backend:dev
+    environment: *backend-env
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    command: [sh, -c, 'python manage.py init-db && python manage.py seed-mock']
+  api:
+    image: team8-collab-local-backend:dev
+    environment: *backend-env
+    ports: ['127.0.0.1:18770:18770', '127.0.0.1:18780:18780']
+    depends_on:
+      init: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:18770/ready", timeout=2)']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  worker:
+    build: {context: ., dockerfile: infra/Dockerfile.voice-local}
+    network_mode: service:api
+    environment:
+      INTERNAL_KEY: ${TEAM8_INTERNAL_KEY}
+      BACKEND_URL: http://127.0.0.1:18770
+      WORKER_PORT: '18780'
+      WORKER_HOST: 0.0.0.0
+      MOCK_SCENARIO: answered
+      MOCK_DELAY_SEC: '2'
+    volumes: [worker-receipts:/srv/repository/voice/.data]
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:18780/docs", timeout=2)']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  queue:
+    image: team8-collab-local-backend:dev
+    network_mode: service:api
+    environment: *backend-env
+    command: [python, run_queue.py, --worker-url, 'http://127.0.0.1:18780']
+    depends_on:
+      worker: {condition: service_healthy}
+volumes:
+  mysql-data:
+  redis-data:
+  worker-receipts:

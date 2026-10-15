@@ -60,7 +60,8 @@ class CallRequest(Strict):
     call_id: str = Field(min_length=1, max_length=36)
     inquiry_id: str = Field(min_length=1, max_length=36)
     attempt_no: int = Field(ge=1)
-    to: str = Field(min_length=1)
+    # 백엔드 목업 학원은 번호가 없어서 null로 온다. 실제 발신(is_mock=false)에서는 필수 (10/13 백엔드 합의)
+    to: str | None = Field(min_length=1)
     academy_name: str = Field(min_length=1)
     student: Student
     questions: list[Question] = Field(min_length=1, max_length=6)
@@ -70,10 +71,12 @@ class CallRequest(Strict):
     is_mock: bool
 
     @model_validator(mode="after")
-    def unique_questions(self):
+    def coherent(self):
         ids = [q.question_id for q in self.questions]
         if len(ids) != len(set(ids)):
             raise ValueError("Duplicate question_id")
+        if self.to is None and not self.is_mock:
+            raise ValueError("to is required for real calls")
         return self
 
 
@@ -85,7 +88,11 @@ class Receipt:
 
 
 class ReceiptStore:
-    """접수 기록을 SQLite에 저장한다. 응답(202) 전에 커밋해서 워커가 재시작해도 조회된다."""
+    """접수 기록을 SQLite에 저장한다. 응답(202) 전에 커밋해서 워커가 재시작해도 조회된다.
+
+    전달 상태: delivered_at(백엔드가 받음), rejected_at(백엔드가 거절함, 자동으로 다시 보내지 않음).
+    둘 다 비어 있으면 아직 못 보낸 건이라 재시작할 때 다시 보낸다.
+    """
 
     def __init__(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -94,8 +101,14 @@ class ReceiptStore:
             db.execute(
                 "CREATE TABLE IF NOT EXISTS receipts ("
                 "call_id TEXT PRIMARY KEY, payload_hash TEXT NOT NULL, payload TEXT NOT NULL,"
-                " scenario TEXT NOT NULL, received_at TEXT NOT NULL, delivered_at TEXT)"
+                " scenario TEXT NOT NULL, received_at TEXT NOT NULL, delivered_at TEXT,"
+                " rejected_at TEXT, last_error TEXT)"
             )
+            # 0.2.0에서 만든 접수 기록 파일에는 거절 열이 없어서 추가한다
+            columns = {row[1] for row in db.execute("PRAGMA table_info(receipts)")}
+            for column in ("rejected_at", "last_error"):
+                if column not in columns:
+                    db.execute(f"ALTER TABLE receipts ADD COLUMN {column} TEXT")
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.path, timeout=5)
@@ -132,18 +145,34 @@ class ReceiptStore:
                 (datetime.now(timezone.utc).isoformat(), call_id),
             )
 
+    def mark_rejected(self, call_id: str, error: str) -> None:
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE receipts SET rejected_at = ?, last_error = ? WHERE call_id = ?",
+                (datetime.now(timezone.utc).isoformat(), error[:500], call_id),
+            )
+
     def pending(self) -> list[str]:
         with closing(self._connect()) as db:
             rows = db.execute(
-                "SELECT call_id FROM receipts WHERE delivered_at IS NULL ORDER BY received_at"
+                "SELECT call_id FROM receipts WHERE delivered_at IS NULL AND rejected_at IS NULL"
+                " ORDER BY received_at"
             ).fetchall()
         return [call_id for (call_id,) in rows]
+
+    def rejected(self) -> dict[str, str]:
+        """거절된 건과 이유. 원인을 확인한 뒤 사람이 판단해서 다시 보낸다."""
+        with closing(self._connect()) as db:
+            rows = db.execute(
+                "SELECT call_id, last_error FROM receipts WHERE rejected_at IS NOT NULL ORDER BY received_at"
+            ).fetchall()
+        return dict(rows)
 
 
 def create_app(internal_key: str, store: ReceiptStore, sender: Sender | None = None,
                scenario_mode: str = "answered") -> FastAPI:
     """sender가 없으면 접수와 조회만 한다 (결과는 보내지 않음)."""
-    app = FastAPI(title="8조 음성팀 목업 워커", version="0.2.0")
+    app = FastAPI(title="8조 음성팀 목업 워커", version="0.3.0")
 
     def require_key(x_internal_key: str | None = Header(None)) -> None:
         if not x_internal_key or not secrets.compare_digest(x_internal_key, internal_key):
@@ -184,7 +213,7 @@ def main() -> None:
     sender = Sender(backend_url, key, delay_sec=float(os.getenv("MOCK_DELAY_SEC", "2")))
     threading.Thread(target=sender.deliver_pending, args=(store,), daemon=True).start()
     port = int(os.getenv("WORKER_PORT", "18780"))
-    uvicorn.run(create_app(key, store, sender, mode), host="127.0.0.1", port=port)
+    uvicorn.run(create_app(key, store, sender, mode), host=os.getenv("WORKER_HOST", "127.0.0.1"), port=port)
 
 
 if __name__ == "__main__":

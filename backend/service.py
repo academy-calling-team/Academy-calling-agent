@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from schema import metadata, users, academies, inquiries, questions, calls, events, results, answers, control
 from schema import outbox, delivery_leases, corrections, academy_policies
 from schema import accounts,sessions,review_holds,review_actions,fallback_tasks
+from worker_errors import WorkerRejected, WorkerProtocolError
 
 def uid(): return str(uuid4())
 def digest(value): return hashlib.sha256(value.encode()).hexdigest()
@@ -213,18 +214,34 @@ class Service:
                 c.execute(update(calls).where(calls.c.id==cid).values(delivery_count=row['delivery_count']+1))
                 payload=row['dispatch_payload']
             # No DB transaction or scheduler lock spans network I/O. A callback can commit here.
+            rejection=None
             try:
                 reply=worker.accept(payload)
                 ok=reply.get('call_id')==cid and reply.get('accepted') is True
+            except WorkerRejected as error:
+                ok=False; rejection=f'worker_http_{error.status_code}'
+            except WorkerProtocolError:
+                ok=False; rejection='worker_protocol_error'
             except (TimeoutError,ConnectionError): ok=False
             with self.engine.begin() as c:
                 self.lock(c)
                 lease=c.execute(select(delivery_leases).where(delivery_leases.c.call_id==cid)).mappings().one()
                 if lease['claim_id']==claim:
-                    c.execute(update(calls).where(calls.c.id==cid,calls.c.status.in_(['reserved','delivery_unknown']))
-                        .values(status='accepted' if ok else 'delivery_unknown'))
+                    current=c.execute(select(calls).where(calls.c.id==cid)).mappings().one()
+                    if current['status'] in ['reserved','delivery_unknown']:
+                        if rejection:
+                            # A declined dispatch never becomes an automatic redial or SMS fallback.
+                            c.execute(update(calls).where(calls.c.id==cid).values(status='finished'))
+                            c.execute(update(inquiries).where(inquiries.c.id==current['inquiry_id']).values(
+                                status='failed',failure_reason=rejection,fallback_required=False))
+                            values=dict(call_id=cid,reason=rejection,open=True,created_at=self.now())
+                            if c.execute(select(review_holds).where(review_holds.c.inquiry_id==current['inquiry_id'])).first():
+                                c.execute(update(review_holds).where(review_holds.c.inquiry_id==current['inquiry_id']).values(**values))
+                            else:c.execute(review_holds.insert().values(inquiry_id=current['inquiry_id'],**values))
+                        else:
+                            c.execute(update(calls).where(calls.c.id==cid).values(status='accepted' if ok else 'delivery_unknown'))
                     c.execute(update(delivery_leases).where(delivery_leases.c.call_id==cid).values(lease_until=self.now()))
-            sent.append(dict(call_id=cid,accepted=ok))
+            sent.append(dict(call_id=cid,accepted=ok,**({'rejection':rejection} if rejection else {})))
         return sent
     def correct_result(self,cid,body):
         """Local reviewer service only. Never changes a worker's original report or call state."""
@@ -319,13 +336,18 @@ class Service:
                 questions.c.inquiry_id==call['inquiry_id'])).mappings()}
             if {a.question_id:a.question_code for a in body.answers}!=expected:
                 raise HTTPException(422,'Result must include every requested question with matching ID/code')
-            if body.callback_at is not None and utc(body.callback_at)<=self.now():
+            expired=call['deadline']<=self.now()
+            if body.callback_at is not None and utc(body.callback_at)<=self.now() and not (expired or call['status']=='timeout'):
                 raise HTTPException(422,'Callback time must be in the future')
             if call['outcome'] is not None and call['outcome']!=body.outcome:
                 raise HTTPException(409,'Result outcome conflicts with terminal event')
             latest=c.execute(select(func.max(calls.c.attempt_no)).where(calls.c.inquiry_id==call['inquiry_id'])).scalar_one()
             state=c.execute(select(inquiries.c.status).where(inquiries.c.id==call['inquiry_id'])).scalar_one()
-            applied=call['attempt_no']==latest and call['status']!='timeout' and state not in ['completed','failed']
+            if expired and call['status'] not in ['finished','timeout']:
+                c.execute(update(calls).where(calls.c.id==cid).values(status='timeout'))
+                if call['attempt_no']==latest and state not in ['completed','failed']:
+                    self.fail(c,call['inquiry_id'],'delivery_or_result_timeout')
+            applied=not expired and call['attempt_no']==latest and call['status']!='timeout' and state not in ['completed','failed']
             if applied:
                 if body.outcome=='answered' and body.disclosure_played is not True:
                     c.execute(update(calls).where(calls.c.id==cid).values(status='finished',outcome=body.outcome))

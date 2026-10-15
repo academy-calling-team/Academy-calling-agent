@@ -1,0 +1,200 @@
+[
+ {
+  "start": 1.6,
+  "end": 2.22,
+  "who": "사람",
+  "human_sim": 0.248,
+  "text": "내 여세요.",
+  "who_emb": "AI",
+  "why": "대본 0.75"
+ },
+ {
+  "start": 4.65,
+  "end": 8.63,
+  "who": "AI",
+  "human_sim": 0.134,
+  "text": "안녕하세요. 학부님을 대신에 문는 AI 상입니다.",
+  "who_emb": "AI",
+  "why": "AI 말투"
+ },
+ {
+  "start": 9.06,
+  "end": 12.09,
+  "who": "AI",
+  "human_sim": 0.057,
+  "text": "이 통화는 녹음니다. 잠시 통화 괜찮으실까요?",
+  "who_emb": "AI",
+  "why": "AI 말투"
+ },
+ {
+  "start": 13.16,
+  "end": 14.01,
+  "who": "사람",
+  "human_sim": 0.284,
+  "text": "네 괜찮습니다.",
+  "who_emb": "AI",
+  "why": "대본 0.73"
+ },
+ {
+  "start": 15.42,
+  "end": 16.09,
+  "who": "AI",
+  "human_sim": 0.067,
+  "text": "감사합니다.",
+  "who_emb": "AI",
+  "why": "AI 말투"
+ },
+ {
+  "start": 16.59,
+  "end": 21.59,
+  "who": "AI",
+  "human_sim": 0.073,
+  "text": "중학교 2학년 수학반에 지금 등록할 자가 있는지 먼저 여고 싶습니다.",
+  "who_emb": "AI",
+  "why": "AI 말투"
+ },
+ {
+  "start": 23.07,
+  "end": 24.53,
+  "who": "사람",
+  "human_sim": 0.447,
+  "text": "네 지금 두 자 남아 있습니다.",
+  "who_emb": "AI",
+  "why": "대본 0.73"
+ },
+ {
+  "start": 26.06,
+  "end": 28.38,
+  "who": "AI",
+  "human_sim": 0.113,
+  "text": "두 자 남아 있다는 말씀이죠?",
+  "who_emb": "AI",
+  "why": "AI 말투"
+ },
+ {
+  "start": 28.97,
+  "end": 32.67,
+  "who": "AI",
+  "human_sim": 0.094,
+  "text": "그럼 중2 수학 수업은 무슨 요일 몇 시에 진행요?",
+  "who_emb": "AI",
+  "why": "AI 말투"
+ },
+ {
+  "start": 33.89,
+  "end": 36.78,
+  "who": "사람",
+  "human_sim": 0.481,
+  "text": "화요일이랑 목요일 저 7시터 9시까지입니다",
+  "who_emb": "AI",
+  "why": "대본 0.68"
+ },
+ {
+  "start": 38.75,
+  "end": 42.69,
+  "who": "AI",
+  "human_sim": 0.098,
+  "text": "화요일과 목요일 저 7시터 9시까지가 맞을까요?",
+  "who_emb": "AI",
+  "why": "AI 말투"
+ },
+ {
+  "start": 43.64,
+  "end": 44.41,
+  "who": "사람",
+  "human_sim": 0.279,
+  "text": "네 맞습니다.",
+  "who_emb": "AI",
+  "why": "대본 1.00"
+ },
+ {
+  "start": 45.9,
+  "end": 49.73,
+  "who": "AI",
+  "human_sim": 0.079,
+  "text": "네 감사합니다. 이번 주에 학부 상도 가능할까요?",
+  "who_emb": "AI",
+  "why": "AI 말투"
+ },
+ {
+  "start": 50.18,
+  "end": 53.41,
+  "who": "AI",
+  "human_sim": 0.163,
+  "text": "가능하다면 조일과 시도 알려주시면 좋겠습니다.",
+  "who_emb": "AI",
+  "why": "AI 말투"
+ },
+ {
+  "start": 55.1,
+  "end": 58.56,
+  "who": "사람",
+  "human_sim": 0.469,
+  "text": "네 가능합니다. 수요일 오 3시 금요일 오 4시",
+  "who_emb": "AI",
+  "why": "대본 0.67"
+ },
+ {
+  "start": 60.5,
+  "end": 64.88,
+  "who": "AI",
+  "human_sim": 0.112,
+  "text": "일주일 오 3시 또는 금요일 오 4시가 가능하다는 말씀이죠",
+  "who_emb": "AI",
+  "why": "AI 말투"
+ },
+ {
+  "start": 66.02,
+  "end": 66.23,
+  "who": "사람",
+  "human_sim": 0.283,
+  "text": "네",
+  "who_emb": "사람",
+  "why": "대본 1.00"
+ },
+ {
+  "start": 68.1,
+  "end": 75.57,
+  "who": "AI",
+  "human_sim": 0.178,
+  "text": "정리하자 중2 수학반은 두 자 남아 있고 수업은 화요일과 목요일 저 7시터 9시까지.",
+  "who_emb": "AI",
+  "why": "직접 확인"
+ },
+ {
+  "start": 76.09,
+  "end": 81.09,
+  "who": "AI",
+  "human_sim": 0.145,
+  "text": "상담은 수요일 오 3시 또는 금요일 오 4시에 가능하다고 이해했습니다.",
+  "who_emb": "AI",
+  "why": "AI 말투"
+ },
+ {
+  "start": 81.85,
+  "end": 84.79,
+  "who": "AI",
+  "human_sim": 0.049,
+  "text": "맞으시면 이로 학부님께 전해겠습니다.",
+  "who_emb": "AI",
+  "why": "AI 말투"
+ },
+ {
+  "start": 85.22,
+  "end": 86.71,
+  "who": "AI",
+  "human_sim": -0.026,
+  "text": "확인해주셔서 감사합니다.",
+  "who_emb": "AI",
+  "why": "AI 말투"
+ },
+ {
+  "start": 87.17,
+  "end": 88.24,
+  "who": "AI",
+  "human_sim": 0.02,
+  "text": "좋은 하루 보요.",
+  "who_emb": "AI",
+  "why": "AI 말투"
+ }
+]

@@ -1,0 +1,686 @@
+<meta charset="utf-8">
+<title>통화 응답 지연 뷰어</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: 위에 파일·재생 막대, 가운데 전체 미리보기와 확대 파형(화자 색), 아래에 응답 간격 표와 요약 */
+:root {
+  --bg: #eef1f4;
+  --panel: #ffffff;
+  --ink: #16202b;
+  --muted: #5a6776;
+  --line: #d6dde5;
+  --human: #12788c;
+  --ai: #b8660b;
+  --unknown: #8b97a4;
+  --silence: #c3ccd5;
+  --gap: rgba(207, 44, 104, 0.13);
+  --gap-ink: #b0215a;
+  --accent: #2148c9;
+  --accent-ink: #ffffff;
+  --head: #16202b;
+  --font-ui: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "Consolas", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1319; --panel: #151c24; --ink: #e5ecf2; --muted: #98a6b4; --line: #2a3541;
+    --human: #4cc3d6; --ai: #f0a24e; --unknown: #6f7c8a; --silence: #33404d;
+    --gap: rgba(244, 96, 150, 0.17); --gap-ink: #ff86b0; --accent: #8db1ff; --accent-ink: #0e1319; --head: #e5ecf2;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1319; --panel: #151c24; --ink: #e5ecf2; --muted: #98a6b4; --line: #2a3541;
+  --human: #4cc3d6; --ai: #f0a24e; --unknown: #6f7c8a; --silence: #33404d;
+  --gap: rgba(244, 96, 150, 0.17); --gap-ink: #ff86b0; --accent: #8db1ff; --accent-ink: #0e1319; --head: #e5ecf2;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.5 var(--font-ui); margin: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 18px 16px 40px; display: grid; gap: 14px; }
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+h1 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.01em; color: var(--head); text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; }
+.badge { font: 500 11px/1 var(--font-data); letter-spacing: 0.04em; padding: 4px 7px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
+.badge.example { border-color: var(--gap-ink); color: var(--gap-ink); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-width: 0; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.drop { flex: 1 1 320px; border: 1.5px dashed var(--line); border-radius: 8px; padding: 10px 12px; color: var(--muted); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.drop.over { border-color: var(--accent); color: var(--ink); }
+.drop strong { color: var(--ink); font-weight: 500; }
+button, select, label.filebtn {
+  font: 500 13px var(--font-ui); color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 10px; cursor: pointer; min-height: 32px; display: inline-flex; align-items: center; gap: 6px;
+}
+button:hover, label.filebtn:hover, select:hover { border-color: var(--muted); }
+button:focus-visible, select:focus-visible, label.filebtn:focus-within, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.mark-a { border-color: var(--human); color: var(--human); }
+button.mark-b { border-color: var(--ai); color: var(--ai); }
+button:disabled { opacity: 0.45; cursor: default; }
+label.filebtn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.time { font: 500 13px var(--font-data); font-variant-numeric: tabular-nums; min-width: 128px; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 12px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.canvas-box { position: relative; width: 100%; }
+canvas { display: block; width: 100%; touch-action: none; }
+#overview { height: 46px; cursor: pointer; border-bottom: 1px solid var(--line); }
+#main { height: 230px; cursor: crosshair; }
+.hint { color: var(--muted); font-size: 12px; }
+.hint kbd { font: 500 11px var(--font-data); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--ink); }
+.markers { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.readout { font: 500 14px var(--font-data); font-variant-numeric: tabular-nums; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); }
+.readout b { color: var(--gap-ink); font-weight: 500; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.stat { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+.stat span { display: block; color: var(--muted); font-size: 11px; letter-spacing: 0.04em; }
+.stat b { font: 500 18px var(--font-data); font-variant-numeric: tabular-nums; }
+.stat.warn b { color: var(--gap-ink); }
+.table-box { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+td.num { font-family: var(--font-data); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.gap-v { font-weight: 500; }
+td.gap-v.over { color: var(--gap-ink); }
+tr.excluded td { color: var(--muted); text-decoration: line-through; }
+tr.active td { background: var(--gap); }
+.pill { font: 500 11px var(--font-data); padding: 2px 6px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.pill.fixed { border-color: var(--accent); color: var(--accent); }
+.pill.manual { border-color: var(--ai); color: var(--ai); }
+.snip { color: var(--muted); max-width: 380px; }
+.snip .h { color: var(--human); }
+.snip .a { color: var(--ai); }
+td .acts { display: flex; gap: 6px; }
+td .acts button { min-height: 26px; padding: 2px 8px; font-size: 12px; }
+textarea { width: 100%; min-height: 90px; font: 12px/1.4 var(--font-data); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+.row2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.msg { font-size: 13px; color: var(--muted); }
+.msg.err { color: var(--gap-ink); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>통화 응답 지연 뷰어</h1>
+    <span class="sub" id="fileLabel">불러온 파일 없음</span>
+    <span class="badge example" id="exampleBadge">예시 · 합성음</span>
+  </header>
+
+  <section class="panel bar" aria-label="파일 불러오기">
+    <div class="drop" id="drop">
+      <span><strong>녹음 파일</strong>(WAV, m4a, mp3)과 <strong>분석 결과</strong>(<code>*_rows.json</code>)를 여기에 끌어다 놓으세요.</span>
+      <label class="filebtn">파일 고르기<input type="file" id="fileInput" multiple accept=".wav,.m4a,.mp3,.ogg,.json,audio/*,application/json"></label>
+    </div>
+    <span class="bar">
+      <label class="sub" for="thr">말소리 기준</label>
+      <select id="thr">
+        <option value="-50" selected>−50 dB (자동 분석과 같음)</option>
+        <option value="-60">−60 dB (작은 소리까지)</option>
+      </select>
+    </span>
+    <span class="msg" id="loadMsg">결과 파일이 없으면 소리 크기로 말 구간만 나눕니다. 구간을 누르고 1·2 키로 사람·AI를 정하세요.</span>
+  </section>
+
+  <section class="panel" aria-label="파형">
+    <div class="bar" style="margin-bottom:10px">
+      <button class="primary" id="playBtn" aria-label="재생">▶ 재생</button>
+      <span class="time" id="timeLabel">0:00.00 / 0:00.00</span>
+      <label class="sub" for="rate">속도</label>
+      <select id="rate">
+        <option value="0.5">0.5배</option>
+        <option value="0.75">0.75배</option>
+        <option value="1" selected>1배</option>
+      </select>
+      <button id="zoomIn" aria-label="확대">확대 +</button>
+      <button id="zoomOut" aria-label="축소">축소 −</button>
+      <button id="zoomAll">전체 보기</button>
+      <label class="sub"><input type="checkbox" id="follow" checked> 재생 위치 따라가기</label>
+      <span class="legend" style="margin-left:auto">
+        <span><i style="background:var(--human)"></i>사람(학원)</span>
+        <span><i style="background:var(--ai)"></i>AI</span>
+        <span><i style="background:var(--unknown)"></i>미정</span>
+        <span><i style="background:var(--gap-ink);opacity:.5"></i>응답 간격</span>
+      </span>
+    </div>
+    <div class="canvas-box"><canvas id="overview" aria-label="통화 전체 미리보기"></canvas></div>
+    <div class="canvas-box"><canvas id="main" tabindex="0" aria-label="확대 파형. 누르면 그 위치로 이동, 끌면 이동, 휠로 확대"></canvas></div>
+    <p class="hint">
+      <kbd>Space</kbd> 재생·멈춤 · <kbd>←</kbd><kbd>→</kbd> 0.1초 이동(<kbd>Shift</kbd> 1초) · <kbd>[</kbd> 사람 말 끝 찍기 · <kbd>]</kbd> AI 시작 찍기 · <kbd>Enter</kbd> 측정 추가 · 구간 누른 뒤 <kbd>1</kbd> 사람 <kbd>2</kbd> AI <kbd>3</kbd> 미정 · 휠 확대, 끌어서 이동 · 표시선은 끌어서 옮김
+    </p>
+  </section>
+
+  <section class="panel markers" aria-label="직접 재기">
+    <button class="mark-a" id="markA">[ 사람 말 끝</button>
+    <button class="mark-b" id="markB">] AI 시작</button>
+    <label class="sub"><input type="checkbox" id="snap" checked> 가까운 구간 경계에 맞춤</label>
+    <span class="readout" id="readout">간격 <b>–</b></span>
+    <button id="addMeasure" disabled>측정 추가</button>
+    <button id="applyFix" disabled>선택한 응답을 이 값으로 고치기</button>
+    <button id="clearMarks">표시 지우기</button>
+  </section>
+
+  <div class="row2">
+    <section class="panel" aria-label="요약">
+      <div class="stats" id="stats"></div>
+    </section>
+    <section class="panel" aria-label="응답 간격 목록">
+      <div class="bar" style="justify-content:space-between;margin-bottom:8px">
+        <span class="sub">사람 말 끝 → AI 첫 소리. 0초 이하 겹침은 응답에서 뺍니다. 행을 누르면 그 지점으로 갑니다.</span>
+        <span class="bar"><button id="copyCsv">CSV 복사</button><button id="resetEdits">수정 되돌리기</button></span>
+      </div>
+      <div class="table-box">
+        <table>
+          <thead><tr><th>#</th><th>사람 말 끝</th><th>AI 시작</th><th>간격</th><th>종류</th><th>앞 말 → 뒤 말</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <textarea id="csvBox" hidden aria-label="CSV"></textarea>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const S = {
+    name: '', isExample: true, sr: 8000, x: new Float32Array(0), dur: 0,
+    segs: [], gaps: [], manual: [], view: { t0: 0, t1: 1 }, markA: null, markB: null,
+    selSeg: -1, selGap: -1, peaks: null, block: 64, audio: new Audio(), url: '', drag: null,
+  };
+  S.audio.preservesPitch = true;
+
+  // ---------- 오디오 읽기 ----------
+  function parseWav(buf) {
+    const dv = new DataView(buf);
+    const tag = (o) => String.fromCharCode(dv.getUint8(o), dv.getUint8(o + 1), dv.getUint8(o + 2), dv.getUint8(o + 3));
+    if (buf.byteLength < 12 || tag(0) !== 'RIFF' || tag(8) !== 'WAVE') return null;
+    let o = 12, fmt = null;
+    while (o + 8 <= buf.byteLength) {
+      const id = tag(o); let size = dv.getUint32(o + 4, true); const body = o + 8;
+      if (id === 'fmt ') {
+        let format = dv.getUint16(body, true);
+        if (format === 0xfffe && size >= 26) format = dv.getUint16(body + 24, true);
+        fmt = { format, ch: dv.getUint16(body + 2, true), sr: dv.getUint32(body + 4, true), bits: dv.getUint16(body + 14, true) };
+      } else if (id === 'data' && fmt) {
+        // ClawOps가 보내는 일부 WAV는 길이 칸이 0이다. 그때는 파일 끝까지를 소리로 본다.
+        if (size === 0 || body + size > buf.byteLength) size = buf.byteLength - body;
+        return decodePcm(dv, body, size, fmt);
+      }
+      o = body + size + (size & 1);
+    }
+    return null;
+  }
+  function decodePcm(dv, off, size, f) {
+    const bps = f.bits / 8, frames = Math.floor(size / (bps * f.ch)), out = new Float32Array(frames);
+    const ulaw = (u) => { u = ~u & 0xff; const s = u & 0x80, e = (u >> 4) & 7, m = u & 15; let v = ((m << 3) + 132) << e; v -= 132; return (s ? -v : v) / 32768; };
+    const alaw = (a) => { a ^= 0x55; const s = a & 0x80, e = (a >> 4) & 7, m = a & 15; let v = e ? ((m << 4) + 264) << (e - 1) : (m << 4) + 8; return (s ? v : -v) / 32768; };
+    for (let i = 0; i < frames; i++) {
+      let acc = 0;
+      for (let c = 0; c < f.ch; c++) {
+        const p = off + (i * f.ch + c) * bps;
+        let v;
+        if (f.format === 3 && f.bits === 32) v = dv.getFloat32(p, true);
+        else if (f.format === 7) v = ulaw(dv.getUint8(p));
+        else if (f.format === 6) v = alaw(dv.getUint8(p));
+        else if (f.bits === 16) v = dv.getInt16(p, true) / 32768;
+        else if (f.bits === 8) v = (dv.getUint8(p) - 128) / 128;
+        else if (f.bits === 24) { const b = dv.getUint8(p) | (dv.getUint8(p + 1) << 8) | (dv.getInt8(p + 2) << 16); v = b / 8388608; }
+        else if (f.bits === 32) v = dv.getInt32(p, true) / 2147483648;
+        else v = 0;
+        acc += v;
+      }
+      out[i] = acc / f.ch;
+    }
+    return { x: out, sr: f.sr };
+  }
+  async function decodeAudio(file) {
+    const buf = await file.arrayBuffer();
+    const w = /\.wav$/i.test(file.name) ? parseWav(buf) : null;
+    if (w) return w;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    try {
+      const ab = await ctx.decodeAudioData(buf.slice(0));
+      const out = new Float32Array(ab.length);
+      for (let c = 0; c < ab.numberOfChannels; c++) { const d = ab.getChannelData(c); for (let i = 0; i < d.length; i++) out[i] += d[i] / ab.numberOfChannels; }
+      return { x: out, sr: ab.sampleRate };
+    } finally { ctx.close && ctx.close(); }
+  }
+  function wavBlob(x, sr) {
+    const n = x.length, buf = new ArrayBuffer(44 + n * 2), dv = new DataView(buf);
+    const w = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+    dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, sr, true); dv.setUint32(28, sr * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+    w(36, 'data'); dv.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) dv.setInt16(44 + i * 2, Math.max(-1, Math.min(1, x[i])) * 32767, true);
+    return new Blob([buf], { type: 'audio/wav' });
+  }
+  function setAudio(x, sr) {
+    S.x = x; S.sr = sr; S.dur = x.length / sr;
+    const B = S.block, nb = Math.ceil(x.length / B), mn = new Float32Array(nb), mx = new Float32Array(nb);
+    for (let b = 0; b < nb; b++) {
+      let lo = 1, hi = -1;
+      for (let i = b * B, e = Math.min(x.length, i + B); i < e; i++) { const v = x[i]; if (v < lo) lo = v; if (v > hi) hi = v; }
+      mn[b] = lo; mx[b] = hi;
+    }
+    S.peaks = { mn, mx };
+    if (S.url) URL.revokeObjectURL(S.url);
+    S.url = URL.createObjectURL(wavBlob(x, sr));
+    S.audio.src = S.url;
+    S.audio.playbackRate = +$('rate').value;
+    S.view = { t0: 0, t1: S.dur };
+  }
+
+  // ---------- 말 구간 ----------
+  // 소리 크기로 말 구간 나누기. 기준은 '말소리 기준' 값과 바닥 소음+12dB 중 큰 쪽(자동 분석의 경계 기준은 −50dBFS)
+  function energySegments(minDb) {
+    minDb = minDb ?? +$('thr').value;
+    const hop = Math.round(S.sr * 0.01), n = Math.floor(S.x.length / hop), db = new Float32Array(n);
+    for (let f = 0; f < n; f++) { let s = 0; for (let i = f * hop; i < (f + 1) * hop; i++) s += S.x[i] * S.x[i]; db[f] = 10 * Math.log10(s / hop + 1e-10); }
+    const sorted = Array.from(db).sort((a, b) => a - b), floor = sorted[Math.floor(n * 0.1)] ?? -100;
+    const thr = Math.max(floor + 12, minDb);
+    const segs = []; let st = -1, lastOn = -1;
+    for (let f = 0; f < n; f++) {
+      if (db[f] > thr) { if (st < 0) st = f; lastOn = f; }
+      else if (st >= 0 && f - lastOn > 25) { segs.push([st, lastOn + 1]); st = -1; }
+    }
+    if (st >= 0) segs.push([st, lastOn + 1]);
+    return segs.filter(([a, b]) => b - a >= 12).map(([a, b]) => ({ start: a * 0.01, end: b * 0.01, who: '?', text: '' }));
+  }
+  function computeGaps() {
+    const gaps = [];
+    for (let i = 0; i + 1 < S.segs.length; i++) {
+      const a = S.segs[i], b = S.segs[i + 1];
+      if (a.who === '사람' && b.who === 'AI') {
+        const g = +(b.start - a.end).toFixed(2);
+        if (g > 0) gaps.push({ he: a.end, as: b.start, gap: g, h: a.text, a: b.text, kind: '자동', excluded: false });
+      }
+    }
+    const old = new Map(S.gaps.map((g) => [g.key, g]));
+    gaps.forEach((g, i) => {
+      g.key = 'a' + g.he.toFixed(2);
+      const prev = old.get(g.key);
+      if (prev && prev.kind === '수정') Object.assign(g, { he: prev.he, as: prev.as, gap: prev.gap, kind: '수정' });
+      if (prev) g.excluded = prev.excluded;
+    });
+    S.gaps = gaps;
+  }
+
+  // ---------- 예시 (합성음) ----------
+  function makeExample() {
+    const sr = 8000, dur = 31, x = new Float32Array(sr * dur);
+    const segs = [
+      ['사람', 0.9, 1.6, '네, ○○수학학원입니다.'],
+      ['AI', 3.3, 9.1, '안녕하세요, 학부모님을 대신해 문의드리는 AI 상담원입니다. 이 통화는 녹음됩니다. 잠시 통화 괜찮으실까요?'],
+      ['사람', 10.4, 11.2, '네, 괜찮아요.'],
+      ['AI', 12.7, 16.4, '감사합니다. 중2 수학반에 지금 등록할 자리가 있을까요?'],
+      ['사람', 17.6, 19.3, '네, 지금 두 자리 남아 있어요.'],
+      ['AI', 20.9, 23.1, '두 자리 남아 있다는 말씀이죠?'],
+      ['사람', 24.0, 24.7, '네, 맞아요.'],
+      ['AI', 26.2, 29.5, '그럼 중2 수학 수업 요일과 시간은 어떻게 되나요?'],
+    ];
+    let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
+    let lp = 0;
+    for (const [who, s, e] of segs) {
+      for (let i = Math.round(s * sr); i < Math.round(e * sr); i++) {
+        const t = i / sr, k = t - s, len = e - s;
+        const edge = Math.min(1, k / 0.04, (len - k) / 0.04);
+        const syl = 0.55 + 0.45 * Math.sin(2 * Math.PI * (who === 'AI' ? 4.6 : 3.8) * k) ** 2;
+        let v;
+        if (who === 'AI') { const f0 = 205 + 12 * Math.sin(2 * Math.PI * 0.7 * k); v = 0.5 * Math.sin(2 * Math.PI * f0 * t) + 0.25 * Math.sin(4 * Math.PI * f0 * t) + 0.12 * rnd(); }
+        else { lp = 0.82 * lp + 0.18 * rnd(); v = 1.6 * lp + 0.35 * Math.sin(2 * Math.PI * 150 * t); }
+        x[i] = Math.max(-1, Math.min(1, v * syl * edge * 0.6));
+      }
+    }
+    return { x, sr, segs: segs.map(([who, start, end, text]) => ({ who, start, end, text })) };
+  }
+
+  // ---------- 그리기 ----------
+  const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  function fit(c) {
+    const r = c.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.round(r.width * d)), h = Math.max(1, Math.round(r.height * d));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    return { w, h, d };
+  }
+  const whoColor = (who) => who === '사람' ? css('--human') : who === 'AI' ? css('--ai') : css('--unknown');
+  function segAt(t) { for (let i = 0; i < S.segs.length; i++) if (t >= S.segs[i].start && t < S.segs[i].end) return i; return -1; }
+  function drawWave(ctx, w, h, t0, t1, top, height) {
+    if (!S.peaks) return;
+    const { mn, mx } = S.peaks, B = S.block, mid = top + height / 2, amp = height / 2 * 0.92;
+    let si = 0; const sil = css('--silence');
+    for (let px = 0; px < w; px++) {
+      const ta = t0 + (px / w) * (t1 - t0), tb = t0 + ((px + 1) / w) * (t1 - t0);
+      const b0 = Math.max(0, Math.floor(ta * S.sr / B)), b1 = Math.min(mn.length, Math.max(b0 + 1, Math.ceil(tb * S.sr / B)));
+      let lo = 1, hi = -1;
+      for (let b = b0; b < b1; b++) { if (mn[b] < lo) lo = mn[b]; if (mx[b] > hi) hi = mx[b]; }
+      if (hi < lo) continue;
+      while (si < S.segs.length && S.segs[si].end <= ta) si++;
+      const seg = si < S.segs.length && S.segs[si].start < tb ? S.segs[si] : null;
+      ctx.fillStyle = seg ? whoColor(seg.who) : sil;
+      const y0 = mid - hi * amp, y1 = mid - lo * amp;
+      ctx.fillRect(px, y0, 1, Math.max(1, y1 - y0));
+    }
+  }
+  function fmt(t) { if (!isFinite(t)) return '–'; const m = Math.floor(t / 60), s = t - m * 60; return `${m}:${s.toFixed(2).padStart(5, '0')}`; }
+  function drawOverview() {
+    const c = $('overview'), { w, h, d } = fit(c), ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, w, h);
+    drawWave(ctx, w, h, 0, S.dur || 1, 2 * d, h - 4 * d);
+    const x0 = (S.view.t0 / S.dur) * w, x1 = (S.view.t1 / S.dur) * w;
+    ctx.strokeStyle = css('--accent'); ctx.lineWidth = 1.5 * d; ctx.strokeRect(x0, d, Math.max(2, x1 - x0), h - 2 * d);
+    const p = (S.audio.currentTime / S.dur) * w; ctx.fillStyle = css('--ink'); ctx.fillRect(p, 0, d, h);
+  }
+  function drawMain() {
+    const c = $('main'), { w, h, d } = fit(c), ctx = c.getContext('2d');
+    const { t0, t1 } = S.view, X = (t) => ((t - t0) / (t1 - t0)) * w, ruler = 18 * d, top = ruler + 4 * d, H = h - top - 4 * d;
+    ctx.clearRect(0, 0, w, h);
+    // 응답 간격 띠
+    ctx.font = `500 ${11 * d}px ${css('--font-data')}`; ctx.textBaseline = 'top';
+    S.gaps.forEach((g, i) => {
+      if (g.as < t0 || g.he > t1) return;
+      ctx.fillStyle = css('--gap'); ctx.fillRect(X(g.he), top, X(g.as) - X(g.he), H);
+      if (i === S.selGap) { ctx.strokeStyle = css('--gap-ink'); ctx.lineWidth = d; ctx.strokeRect(X(g.he), top, X(g.as) - X(g.he), H); }
+      const label = g.gap.toFixed(2) + 's', lx = (X(g.he) + X(g.as)) / 2 - ctx.measureText(label).width / 2;
+      ctx.fillStyle = g.excluded ? css('--muted') : css('--gap-ink'); ctx.fillText(label, lx, top + 3 * d);
+    });
+    // 선택한 구간
+    if (S.selSeg >= 0 && S.segs[S.selSeg]) { const s = S.segs[S.selSeg]; ctx.fillStyle = css('--line'); ctx.globalAlpha = 0.5; ctx.fillRect(X(s.start), top, X(s.end) - X(s.start), H); ctx.globalAlpha = 1; }
+    drawWave(ctx, w, h, t0, t1, top, H);
+    // 눈금
+    ctx.fillStyle = css('--muted'); ctx.strokeStyle = css('--line'); ctx.lineWidth = d;
+    const span = t1 - t0, steps = [0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 30, 60], step = steps.find((s) => span / s <= 12) || 120;
+    for (let t = Math.ceil(t0 / step) * step; t <= t1; t += step) {
+      const x = Math.round(X(t)); ctx.fillRect(x, ruler - 5 * d, d, 5 * d);
+      ctx.fillText(step < 1 ? t.toFixed(2) : fmt(t).replace(/\.00$/, ''), x + 3 * d, 2 * d);
+    }
+    ctx.beginPath(); ctx.moveTo(0, ruler); ctx.lineTo(w, ruler); ctx.stroke();
+    // 직접 찍은 표시선
+    const mark = (t, color, txt) => {
+      if (t == null || t < t0 || t > t1) return;
+      const x = X(t); ctx.fillStyle = color; ctx.fillRect(x - d, top, 2 * d, H);
+      ctx.fillRect(x - d, top, 7 * d, 4 * d);
+      ctx.fillText(txt, x + 4 * d, top + H - 14 * d);
+    };
+    mark(S.markA, css('--human'), '사람 끝');
+    mark(S.markB, css('--ai'), 'AI 시작');
+    // 재생 위치
+    const p = X(S.audio.currentTime); ctx.fillStyle = css('--ink'); ctx.fillRect(p, ruler, 1.5 * d, h - ruler);
+  }
+  function draw() { drawOverview(); drawMain(); $('timeLabel').textContent = `${fmt(S.audio.currentTime)} / ${fmt(S.dur)}`; }
+
+  // ---------- 표·요약 ----------
+  function pct(v, p) { const s = [...v].sort((a, b) => a - b); return s[Math.max(1, Math.ceil(p / 100 * s.length)) - 1]; }
+  function median(v) { const s = [...v].sort((a, b) => a - b), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; }
+  function allRows() { return [...S.gaps, ...S.manual]; }
+  function renderTable() {
+    const tb = $('rows'); tb.innerHTML = '';
+    allRows().forEach((g, i) => {
+      const tr = document.createElement('tr');
+      if (g.excluded) tr.classList.add('excluded');
+      if (i === S.selGap) tr.classList.add('active');
+      const kindCls = g.kind === '수정' ? 'fixed' : g.kind === '직접' ? 'manual' : '';
+      tr.innerHTML = `<td class="num">${i + 1}</td><td class="num">${fmt(g.he)}</td><td class="num">${fmt(g.as)}</td>
+        <td class="num gap-v ${g.gap > 1.5 ? 'over' : ''}">${g.gap.toFixed(2)}초</td>
+        <td><span class="pill ${kindCls}">${g.kind}</span></td>
+        <td class="snip"><span class="h"></span>${g.h || g.a ? ' → ' : ''}<span class="a"></span></td>
+        <td><div class="acts"><button data-act="ex">${g.excluded ? '넣기' : '빼기'}</button>${g.kind === '직접' ? '<button data-act="del">지우기</button>' : ''}</div></td>`;
+      tr.querySelector('.h').textContent = (g.h || '').slice(0, 28);
+      tr.querySelector('.a').textContent = (g.a || '').slice(0, 28);
+      tr.addEventListener('click', (e) => {
+        const act = e.target.dataset && e.target.dataset.act;
+        if (act === 'ex') { g.excluded = !g.excluded; save(); refresh(); return; }
+        if (act === 'del') { S.manual.splice(S.manual.indexOf(g), 1); S.selGap = -1; save(); refresh(); return; }
+        selectGap(i);
+      });
+      tb.appendChild(tr);
+    });
+    if (!allRows().length) tb.innerHTML = '<tr><td colspan="7" class="msg">아직 응답 간격이 없습니다. 구간을 사람·AI로 정하거나 표시선을 찍어 측정을 추가하세요.</td></tr>';
+    const v = allRows().filter((g) => !g.excluded).map((g) => g.gap);
+    const st = v.length ? [
+      ['응답 수', v.length], ['평균', (v.reduce((a, b) => a + b, 0) / v.length).toFixed(2) + '초'],
+      ['중앙값', median(v).toFixed(2) + '초'], ['p95', pct(v, 95).toFixed(2) + '초'],
+      ['1.5초 넘음', `${v.filter((x) => x > 1.5).length}개 (${Math.round(100 * v.filter((x) => x > 1.5).length / v.length)}%)`],
+    ] : [['응답 수', 0], ['평균', '–'], ['중앙값', '–'], ['p95', '–'], ['1.5초 넘음', '–']];
+    $('stats').innerHTML = st.map(([k, val], i) => `<div class="stat ${i === 3 && v.length && pct(v, 95) > 1.5 ? 'warn' : ''}"><span>${k}</span><b>${val}</b></div>`).join('');
+  }
+  function updateReadout() {
+    const ok = S.markA != null && S.markB != null;
+    $('readout').innerHTML = ok ? `간격 <b>${(S.markB - S.markA).toFixed(2)}초</b>` : `간격 <b>–</b>`;
+    $('addMeasure').disabled = !ok;
+    $('applyFix').disabled = !(ok && S.selGap >= 0 && S.selGap < S.gaps.length);
+  }
+  function refresh() { renderTable(); updateReadout(); draw(); }
+
+  function selectGap(i) {
+    S.selGap = i; const g = allRows()[i];
+    S.markA = g.he; S.markB = g.as;
+    const pad = Math.max(1.2, (g.as - g.he) * 1.5), mid = (g.he + g.as) / 2;
+    S.view = clampView(mid - pad, mid + pad);
+    S.audio.currentTime = Math.max(0, g.he - 1.0);
+    refresh();
+  }
+  function clampView(t0, t1) {
+    const span = Math.min(S.dur, Math.max(0.2, t1 - t0));
+    t0 = Math.max(0, Math.min(S.dur - span, t0));
+    return { t0, t1: t0 + span };
+  }
+
+  // ---------- 저장 (이 브라우저에만) ----------
+  const key = () => 'latency-viewer:' + S.name;
+  function save() {
+    if (S.isExample) return;
+    try {
+      localStorage.setItem(key(), JSON.stringify({
+        v: 2, thr: +$('thr').value, fromEnergy: S.fromEnergy, segs: S.segs,
+        gaps: S.gaps.map(({ key, he, as, gap, kind, excluded }) => ({ key, he, as, gap, kind, excluded })), manual: S.manual,
+      }));
+    } catch (e) { /* 저장 불가 환경 */ }
+  }
+  function restore() {
+    try {
+      const d = JSON.parse(localStorage.getItem(key()) || 'null');
+      if (!d) return false;
+      if (d.v === 2 && Array.isArray(d.segs)) {
+        S.segs = d.segs; S.fromEnergy = !!d.fromEnergy; $('thr').value = String(d.thr ?? -50);
+      } else if (d.labels) {
+        // 10/14 첫 뷰어는 −60dB로 나누고 구간 순서대로 표시를 저장했다. 같은 기준으로 다시 나눠 표시를 입힌다.
+        if (S.fromEnergy) { const segs = energySegments(-60); if (segs.length === d.labels.length) { S.segs = segs; $('thr').value = '-60'; } }
+        if (d.labels.length === S.segs.length) d.labels.forEach((w, i) => { S.segs[i].who = w; });
+      }
+      S.gaps = d.gaps || []; computeGaps(); S.manual = d.manual || [];
+      return true;
+    } catch (e) { return false; }
+  }
+  // 기준을 바꾸면 다시 나누고, 사람·AI 표시는 가장 많이 겹치는 이전 구간에서 가져온다
+  $('thr').addEventListener('change', () => {
+    if (!S.fromEnergy || S.isExample) return;
+    const old = S.segs;
+    S.segs = energySegments().map((s) => {
+      let best = null, bo = 0;
+      for (const o of old) { const ov = Math.min(s.end, o.end) - Math.max(s.start, o.start); if (ov > bo) { bo = ov; best = o; } }
+      return { ...s, who: best ? best.who : '?' };
+    });
+    S.selSeg = -1; computeGaps(); save(); refresh();
+    $('loadMsg').textContent = `말소리 기준 ${$('thr').value} dB로 말 구간 ${S.segs.length}개를 다시 나눴습니다. 사람·AI 표시는 겹치는 구간을 따라 옮겼으니, 짧은 조각은 다시 확인하세요.`;
+  });
+
+  // ---------- 불러오기 ----------
+  let pendingRows = null;
+  async function loadFiles(files) {
+    const list = [...files];
+    const audio = list.find((f) => /\.(wav|m4a|mp3|ogg|aac|flac)$/i.test(f.name) || (f.type || '').startsWith('audio/'));
+    const jsons = list.filter((f) => /\.json$/i.test(f.name));
+    const msg = $('loadMsg'); msg.classList.remove('err');
+    try {
+      for (const j of jsons) {
+        const d = JSON.parse(await j.text());
+        if (Array.isArray(d) && d.length && 'start' in d[0] && 'end' in d[0]) pendingRows = d.map((r) => ({ start: +r.start, end: +r.end, who: r.who === '사람' || r.who === 'AI' ? r.who : '?', text: r.text || '' }));
+        else if (d && Array.isArray(d.labeled)) pendingRows = d.labeled.map(([s, e]) => ({ start: s, end: e, who: '?', text: '' }));
+        else if (d && Array.isArray(d.gaps) && !Array.isArray(d.turns)) throw new Error(`${j.name}은 간격 파일입니다. 화자 색을 칠하려면 같은 이름의 *_rows.json을 넣어 주세요.`);
+        else throw new Error(`${j.name}에서 말 구간을 찾지 못했습니다. one_call.py가 만든 *_rows.json을 넣어 주세요.`);
+      }
+      if (audio) {
+        msg.textContent = `${audio.name} 읽는 중…`;
+        const { x, sr } = await decodeAudio(audio);
+        S.isExample = false; S.name = audio.name.replace(/(_16k)?\.[^.]+$/, '');
+        setAudio(x, sr);
+        S.fromEnergy = !pendingRows;
+        S.segs = pendingRows || energySegments(); S.gaps = []; S.manual = []; S.selGap = -1; S.selSeg = -1; S.markA = S.markB = null;
+        computeGaps();
+        const restored = restore();
+        $('fileLabel').textContent = `${audio.name} · ${fmt(S.dur)} · ${sr} Hz`;
+        $('exampleBadge').hidden = true;
+        msg.textContent = pendingRows
+          ? `말 구간 ${S.segs.length}개, 응답 간격 ${S.gaps.length}개를 불러왔습니다.${restored ? ' 이 브라우저에 저장된 수정도 다시 적용했습니다.' : ''}`
+          : `결과 파일이 없어 소리 크기(${$('thr').value} dB 기준)로 말 구간 ${S.segs.length}개를 나눴습니다. 구간을 누르고 1(사람)·2(AI)로 정하세요.${restored ? ' 이 브라우저에 저장된 표시를 다시 입혔습니다.' : ''}`;
+        pendingRows = null;
+        refresh();
+      } else if (pendingRows) {
+        if (!S.isExample && S.dur) {
+          S.segs = pendingRows; S.fromEnergy = false; pendingRows = null; computeGaps(); save(); refresh();
+          msg.textContent = `말 구간 ${S.segs.length}개를 지금 녹음에 입혔습니다.`;
+        } else msg.textContent = '분석 결과를 읽었습니다. 같은 통화의 녹음 파일도 넣어 주세요.';
+      }
+    } catch (e) {
+      msg.textContent = (e && e.message) || '파일을 읽지 못했습니다. WAV·m4a·mp3 녹음과 *_rows.json만 넣을 수 있습니다.';
+      msg.classList.add('err');
+    }
+  }
+  const drop = $('drop');
+  ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', (e) => loadFiles(e.dataTransfer.files));
+  document.addEventListener('dragover', (e) => e.preventDefault());
+  document.addEventListener('drop', (e) => { e.preventDefault(); if (e.dataTransfer && e.dataTransfer.files.length) loadFiles(e.dataTransfer.files); });
+  $('fileInput').addEventListener('change', (e) => { loadFiles(e.target.files); e.target.value = ''; });
+
+  // ---------- 재생 ----------
+  function togglePlay() {
+    if (!S.dur) return;
+    if (S.audio.paused) S.audio.play().catch(() => {}); else S.audio.pause();
+  }
+  S.audio.addEventListener('play', () => { $('playBtn').textContent = '❚❚ 멈춤'; loop(); });
+  S.audio.addEventListener('pause', () => { $('playBtn').textContent = '▶ 재생'; draw(); });
+  S.audio.addEventListener('ended', () => { $('playBtn').textContent = '▶ 재생'; draw(); });
+  function loop() {
+    if (S.audio.paused) return;
+    const t = S.audio.currentTime;
+    if ($('follow').checked && (t > S.view.t1 || t < S.view.t0)) { const span = S.view.t1 - S.view.t0; S.view = clampView(t - span * 0.1, t + span * 0.9); }
+    draw(); requestAnimationFrame(loop);
+  }
+  $('playBtn').addEventListener('click', togglePlay);
+  $('rate').addEventListener('change', (e) => { S.audio.playbackRate = +e.target.value; });
+  function seek(t) { S.audio.currentTime = Math.max(0, Math.min(S.dur, t)); draw(); }
+
+  // ---------- 확대·이동 ----------
+  function zoom(f, at) { const { t0, t1 } = S.view; at = at ?? (t0 + t1) / 2; S.view = clampView(at - (at - t0) * f, at + (t1 - at) * f); draw(); }
+  $('zoomIn').addEventListener('click', () => zoom(0.5, S.audio.currentTime));
+  $('zoomOut').addEventListener('click', () => zoom(2));
+  $('zoomAll').addEventListener('click', () => { S.view = { t0: 0, t1: S.dur }; draw(); });
+  const main = $('main');
+  const tAt = (e) => { const r = main.getBoundingClientRect(); return S.view.t0 + ((e.clientX - r.left) / r.width) * (S.view.t1 - S.view.t0); };
+  main.addEventListener('wheel', (e) => {
+    if (!S.dur) return; e.preventDefault();
+    if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) { const span = S.view.t1 - S.view.t0, dx = (e.deltaX || e.deltaY) / main.clientWidth * span; S.view = clampView(S.view.t0 + dx, S.view.t1 + dx); draw(); }
+    else zoom(e.deltaY > 0 ? 1.25 : 0.8, tAt(e));
+  }, { passive: false });
+  main.addEventListener('pointerdown', (e) => {
+    if (!S.dur) return;
+    main.setPointerCapture(e.pointerId);
+    const r = main.getBoundingClientRect(), pxPerSec = r.width / (S.view.t1 - S.view.t0), t = tAt(e);
+    const near = (m) => m != null && Math.abs(m - t) * pxPerSec < 7;
+    S.drag = near(S.markA) ? { type: 'A' } : near(S.markB) ? { type: 'B' } : { type: 'pan', x: e.clientX, t0: S.view.t0, t1: S.view.t1, moved: false };
+  });
+  main.addEventListener('pointermove', (e) => {
+    if (!S.drag) return;
+    if (S.drag.type === 'pan') {
+      const dx = e.clientX - S.drag.x; if (Math.abs(dx) > 3) S.drag.moved = true;
+      if (S.drag.moved) { const dt = dx / main.clientWidth * (S.drag.t1 - S.drag.t0); S.view = clampView(S.drag.t0 - dt, S.drag.t1 - dt); draw(); }
+    } else { const t = Math.max(0, Math.min(S.dur, tAt(e))); if (S.drag.type === 'A') S.markA = t; else S.markB = t; updateReadout(); draw(); }
+  });
+  main.addEventListener('pointerup', (e) => {
+    const d = S.drag; S.drag = null; if (!d) return;
+    if (d.type === 'pan' && !d.moved) { const t = tAt(e); seek(t); S.selSeg = segAt(t); draw(); }
+  });
+  $('overview').addEventListener('pointerdown', (e) => {
+    if (!S.dur) return;
+    const r = e.currentTarget.getBoundingClientRect(), t = ((e.clientX - r.left) / r.width) * S.dur, span = S.view.t1 - S.view.t0;
+    S.view = clampView(t - span / 2, t + span / 2); seek(t);
+  });
+
+  // ---------- 표시선·측정 ----------
+  function snapTime(t, prefer) {
+    if (!$('snap').checked) return t;
+    let best = t, bd = 0.25;
+    for (const s of S.segs) for (const [edge, kind] of [[s.end, 'end'], [s.start, 'start']]) {
+      if (prefer && kind !== prefer) continue;
+      const dd = Math.abs(edge - t); if (dd < bd) { bd = dd; best = edge; }
+    }
+    return best;
+  }
+  function setMark(which) { const t = S.audio.currentTime; if (which === 'A') S.markA = snapTime(t, 'end'); else S.markB = snapTime(t, 'start'); updateReadout(); draw(); }
+  $('markA').addEventListener('click', () => setMark('A'));
+  $('markB').addEventListener('click', () => setMark('B'));
+  $('clearMarks').addEventListener('click', () => { S.markA = S.markB = null; S.selGap = -1; refresh(); });
+  function addMeasure() {
+    if (S.markA == null || S.markB == null) return;
+    const he = Math.min(S.markA, S.markB), as = Math.max(S.markA, S.markB);
+    const hs = S.segs[segAt(he - 0.01)], as2 = S.segs[segAt(as + 0.01)];
+    S.manual.push({ key: 'm' + Date.now(), he, as, gap: +(as - he).toFixed(2), kind: '직접', excluded: false, h: hs ? hs.text : '', a: as2 ? as2.text : '' });
+    S.selGap = allRows().length - 1; save(); refresh();
+  }
+  $('addMeasure').addEventListener('click', addMeasure);
+  $('applyFix').addEventListener('click', () => {
+    const g = S.gaps[S.selGap]; if (!g || S.markA == null || S.markB == null) return;
+    g.he = Math.min(S.markA, S.markB); g.as = Math.max(S.markA, S.markB); g.gap = +(g.as - g.he).toFixed(2); g.kind = '수정';
+    save(); refresh();
+  });
+  $('resetEdits').addEventListener('click', () => {
+    if (S.isExample) return;
+    try { localStorage.removeItem(key()); } catch (e) { /* 무시 */ }
+    S.manual = []; S.gaps.forEach((g) => { g.kind = '자동'; g.excluded = false; }); S.gaps = []; computeGaps(); S.selGap = -1; refresh();
+  });
+  $('copyCsv').addEventListener('click', () => {
+    const lines = ['file,no,kind,human_end,ai_start,gap,included'];
+    allRows().forEach((g, i) => lines.push([S.name || 'example', i + 1, g.kind, g.he.toFixed(2), g.as.toFixed(2), g.gap.toFixed(2), g.excluded ? 0 : 1].join(',')));
+    const text = lines.join('\n'), box = $('csvBox');
+    box.value = text; box.hidden = false;
+    const done = () => { $('copyCsv').textContent = '복사됨'; setTimeout(() => { $('copyCsv').textContent = 'CSV 복사'; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => { box.focus(); box.select(); });
+    else { box.focus(); box.select(); }
+  });
+
+  // ---------- 키보드 ----------
+  document.addEventListener('keydown', (e) => {
+    if (e.target.closest('input, select, textarea')) return;
+    const k = e.key;
+    if (k === ' ') { e.preventDefault(); togglePlay(); }
+    else if (k === 'ArrowLeft' || k === 'ArrowRight') { e.preventDefault(); seek(S.audio.currentTime + (k === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 1 : 0.1)); }
+    else if (k === '[') setMark('A');
+    else if (k === ']') setMark('B');
+    else if (k === 'Enter') addMeasure();
+    else if (k === '+' || k === '=') zoom(0.5, S.audio.currentTime);
+    else if (k === '-') zoom(2);
+    else if ((k === '1' || k === '2' || k === '3') && S.selSeg >= 0) {
+      S.segs[S.selSeg].who = k === '1' ? '사람' : k === '2' ? 'AI' : '?';
+      computeGaps(); save(); refresh();
+    }
+  });
+
+  // ---------- 시작: 예시 ----------
+  const ex = makeExample();
+  setAudio(ex.x, ex.sr); S.segs = ex.segs; computeGaps();
+  $('fileLabel').textContent = '예시 통화 31초 (합성음, 실제 녹음 아님)';
+  S.view = { t0: 0, t1: S.dur };
+  refresh();
+  new ResizeObserver(() => draw()).observe(main);
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => draw());
+  new MutationObserver(() => draw()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+})();
+</script>
