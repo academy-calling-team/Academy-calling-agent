@@ -1,0 +1,5 @@
+FROM team8-fe-dev-api:06e07b1
+WORKDIR /srv/repository
+COPY voice/mock_worker/ ./voice/mock_worker/
+ENV PYTHONUNBUFFERED=1
+CMD ["python", "voice/mock_worker/app.py"]

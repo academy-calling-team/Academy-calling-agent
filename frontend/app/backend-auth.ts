@@ -1,10 +1,8 @@
-import { env } from 'cloudflare:workers';
 import { cookies } from 'next/headers';
-import { getChatGPTUser } from './chatgpt-auth';
 
 export const SESSION_COOKIE = 'hakwon_backend_session';
 export function backendUrl() {
-  const value = (env as unknown as Record<string, unknown>).ACADEMY_BACKEND_URL;
+  const value = process.env.ACADEMY_BACKEND_URL;
   if (typeof value !== 'string' || !value.trim()) return null;
   const url = new URL(value);
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash)
@@ -23,7 +21,7 @@ export async function backendRequest(path: '/auth/register' | '/auth/login' | '/
   });
 }
 export async function currentIdentity() {
-  if (!backendUrl()) return getChatGPTUser();
+  if (!backendUrl()) return null;
   const token = await sessionToken();
   if (!token) return null;
   const response = await backendRequest('/auth/me', undefined, token);
@@ -34,5 +32,5 @@ export async function currentIdentity() {
     role: data.role, expiresAt: data.expires_at };
 }
 export function sessionCookie(request: Request, token = '', maxAge = 0) {
-  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${new URL(request.url).protocol === 'https:' ? '; Secure' : ''}`;
+  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${new URL(process.env.FRONTEND_ORIGIN || request.url).protocol === 'https:' ? '; Secure' : ''}`;
 }
