@@ -10,17 +10,17 @@
 
 ## 프론트 담당과 화면 시험을 할 팀원
 
-검증 환경은 Node 24와 npm이다. 이 전달 소스를 풀고 frontend에서 실행한다.
+검증 환경은 Node 24와 npm이다. 이 브랜치의 코드를 받은 뒤 frontend에서 실행한다.
 
 ```powershell
-npm ci
+npm.cmd ci
 Copy-Item .env.node.example .env.local
-npm run dev
+npm.cmd run dev
 ```
 
 이미 .env.local이 있으면 덮어쓰지 말고 ACADEMY_BACKEND_URL을 위 /shared 주소로, FRONTEND_ORIGIN을 http://127.0.0.1:3000으로 확인한다. 브라우저는 http://127.0.0.1:3000 에서 연다. 새 개발계정으로 회원가입/로그인→새상담→가상시험학원→학생조건/질문→접수→결과를 확인한다. 학원·학생 정보와 계정은 목업이다. DB암호·INTERNAL_KEY·AWS자격증명은 프론트 실행에 필요 없다.
 
-정식 Node 실행 확인은 npm run build 후 npm start. 표준 Next.js의 standalone 실행을 사용하며 기존 Cloudflare 플러그인은 필요 없다. 기존 화면·문의 API는 유지했고, 현재 화면에서 쓰지 않는 D1 초안/ChatGPT로그인은 Node공동환경에서 사용하지 않는다. 과거 원본과 데이터는 원래 브랜치/환경에 보존된다.
+정식 Node 실행 확인은 npm.cmd run build 후 npm.cmd start. 표준 Next.js의 standalone 실행을 사용하며 기존 Cloudflare 플러그인은 필요 없다. 기존 화면·문의 API는 유지했고, 현재 화면에서 쓰지 않는 D1 초안/ChatGPT로그인은 Node공동환경에서 사용하지 않는다. 과거 원본과 데이터는 원래 브랜치/환경에 보존된다.
 
 ## 백엔드·음성 담당의 개인 코드 시험
 
@@ -44,6 +44,6 @@ PC에서 공동서버 접근만 확인하려면 PowerShell에서 infra/shared-sm
 
 파트담당은개인브랜치에서수정·검증하고PR로검토한다. 검토된버전만배포담당이서버에반영한다. PC의백엔드와서버큐를같은공유DB로동시에실행하지않는다. 개인시험은위로컬DB를사용한다.
 
-현재 소스는 backend/shared-collaboration-env 로컬 작업 브랜치와 ZIP으로 제공한다. 원격 GitHub에 push/병합하지 않았다. 최초 안내문의 재시도·실통화·실측 지연 등 최종 요구 완료로 해석하지 않는다.
+연동 수정본은 backend/shared-collaboration-env 브랜치에서 검토한다. main 반영과 공동 서버 배포는 별도 절차다. 최초 안내문의 재시도·실통화·실측 지연 등 최종 요구 완료로 해석하지 않는다.
 
 배포·재시작·로그·복구는 [운영 절차](서버_운영과_배포.md) 참고.

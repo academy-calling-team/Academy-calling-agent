@@ -1,22 +1,21 @@
-# 프론트 Node 공동 개발 환경
+# 프론트엔드 · Node 실행
 
-기존 상담 화면·가입/로그인·문의 접수/조회 기능을 표준 Next.js Node에서 실행한다. 공동백엔드는 team8_dev를 사용하는 /shared이다.
+기존 화면을 표준 Next.js·Node로 실행하고 공동 백엔드에 연결합니다. 검증 환경은 Node.js 24.x입니다.
 
-검증 환경: Node24, npm, Next16.3.4. frontend폴더에서:
+`frontend`에서 최초 실행:
 
 ```powershell
-npm ci
+npm.cmd ci
 Copy-Item .env.node.example .env.local
-npm run dev
+npm.cmd run dev
 ```
 
-기존 .env.local이 있으면 덮어쓰지 않고 값을 확인한다. 브라우저는 http://127.0.0.1:3000.
+기존 `.env.local`은 덮어쓰지 않고 `.env.node.example`의 주소와 비교합니다. 접속 주소는 http://127.0.0.1:3000 입니다.
 
-ACADEMY_BACKEND_URL=https://team8-api.3.35.222.227.sslip.io/shared
-FRONTEND_ORIGIN=http://127.0.0.1:3000
+- 개발: `npm.cmd run dev`
+- 타입 검사: `npm.cmd run typecheck`
+- 빌드·정식 실행: `npm.cmd run build` → `npm.cmd start`
 
-정식 실행은 npm run build → npm start. 타입 검사는 npm run typecheck. 현재PC에서실제설치·빌드·standalone기동·공동서버워커전체왕복을검증했다.
+로그인은 공동 백엔드 기준이며, 현재 쓰지 않는 D1 초안 저장과 ChatGPT 로그인 대체 경로는 사용하지 않습니다. 공동 서버의 답변은 음성 목업 결과입니다.
 
-DB/API키를 프론트 설정에 넣지 않는다. 로컬Node서버가로그인쿠키를백엔드토큰으로중계한다. 이전Cloudflare플러그인설정과D1데이터는원래환경에보존되며,Node실행에서는현재상담흐름에필요한API만사용한다. 임시초안API는현재사용불가응답을준다.
-
-세 파트 사용방법과 개인격리환경은 [공동 개발 안내](../docs/collaboration/README.md), 배포/로그/복구는 [서버 운영](../docs/collaboration/서버_운영과_배포.md) 참고.
+[공동 환경·개인 백엔드 연결](../docs/collaboration/README.md)

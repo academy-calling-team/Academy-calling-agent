@@ -1,13 +1,3 @@
-## 공동 개발 환경 · 2026-10-14
-
-공동 API: https://team8-api.3.35.222.227.sslip.io/shared/docs
-
-PC프론트→공동API/DB→큐→음성목업워커→결과표시까지실제연결검증했다. 프론트는frontend에서npm ci→.env.node.example을.env.local로복사→npm run dev.
-
-[세 파트 실행·개인 격리 환경](docs/collaboration/README.md) · [운영·배포·복구](docs/collaboration/서버_운영과_배포.md)
-
-아래는 기존 프로젝트 안내다. 현재 공동 환경 주소·실행 상태는 위 문서를 따른다.
-
 # 학원 문의 대행 보이스 에이전트
 
 학부모가 고른 문의 항목으로 AI가 학원에 전화하고, 받은 답을 문의자별로 저장하는 시스템.
@@ -50,3 +40,11 @@ prompts/       생성형 AI 사용 기록 (과목 요건)
 ## 문서
 
 정리된 문서는 노션 "종프 8조 홈"에 있고, 확정된 버전은 `docs/`에도 올림.
+
+## 백엔드·프론트엔드 연동
+
+공동 API와 음성 목업 워커를 이용해 PC 화면의 문의 접수부터 결과 표시까지 연결한 개발 구성입니다. 실제 전화는 발신하지 않습니다.
+
+- [프론트 실행](frontend/README.md)
+- [공동 주소·개인 시험 환경](docs/collaboration/README.md)
+- [서버 운영·배포](docs/collaboration/서버_운영과_배포.md)
