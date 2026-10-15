@@ -14,6 +14,8 @@ class AuthStore:
         if not 1<=session_seconds<=86400:raise ValueError('Invalid session lifetime')
         self.service=service;self.session_seconds=session_seconds
     def register(self,body):
+        if not body.terms_agreed:
+            raise HTTPException(422, 'Terms consent required')
         hashed=PASSWORDS.hash(body.password.get_secret_value())
         with self.service.engine.begin() as c:
             self.service.lock(c)
@@ -22,8 +24,15 @@ class AuthStore:
             user_id=uid()
             # An unreachable legacy digest satisfies the old schema without issuing an old token.
             c.execute(users.insert().values(id=user_id,token_hash=digest(secrets.token_urlsafe(32))))
-            c.execute(accounts.insert().values(user_id=user_id,login_name=body.login_name,password_hash=hashed,
-                role='member',enabled=True,failed_logins=0))
+            c.execute(accounts.insert().values(
+                user_id=user_id,
+                login_name=body.login_name,
+                password_hash=hashed,
+                role='member',
+                enabled=True,
+                failed_logins=0,
+                terms_agreed_at=self.service.now()
+            ))
         return dict(inquirer_id=user_id,login_name=body.login_name,role='member')
     def login(self,body):
         with self.service.engine.connect() as c:

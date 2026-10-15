@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Literal
-from pydantic import Field,SecretStr,field_validator,model_validator
+from pydantic import Field,SecretStr,field_validator,model_validator,StrictBool
 from contracts import StrictModel,EventInput
 
 class Credentials(StrictModel):
@@ -11,6 +11,8 @@ class Credentials(StrictModel):
     def length(cls,value):
         if not 12<=len(value.get_secret_value())<=128:raise ValueError('Password length must be 12-128')
         return value
+class RegistrationCredentials(Credentials):
+    terms_agreed: StrictBool
 class CallbackReview(StrictModel):
     action:Literal['schedule','cancel']
     callback_at:datetime|None=None

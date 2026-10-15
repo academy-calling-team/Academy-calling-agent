@@ -67,7 +67,7 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
         def tick(): return service.tick(worker)
     if with_auth:
         from auth6 import AuthStore
-        from contracts6 import Credentials,CallbackReview,FallbackReview
+        from contracts6 import Credentials,RegistrationCredentials,CallbackReview,FallbackReview
         from contracts import CorrectionInput
         from ops6 import Operations
         service.allow_legacy_tokens=False
@@ -75,7 +75,8 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
         ops=Operations(service,queue_client)
         def administrator(token:str=Depends(auth)):return auth_store.admin(token)
         @app.post('/auth/register',status_code=201)
-        def register(body:Credentials):return auth_store.register(body)
+        def register(body: RegistrationCredentials):
+            return auth_store.register(body)
         @app.post('/auth/login')
         def login(body:Credentials):return auth_store.login(body)
         @app.post('/auth/logout')

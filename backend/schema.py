@@ -80,7 +80,9 @@ accounts=week6('accounts',
     Column('login_name',String(32),nullable=False,unique=True),
     Column('password_hash',String(500),nullable=False),Column('role',String(16),nullable=False,default='member'),
     Column('enabled',Boolean,nullable=False,default=True),
-    Column('failed_logins',Integer,nullable=False,default=0),Column('locked_until',DateTime))
+    Column('failed_logins',Integer,nullable=False,default=0),
+    Column('locked_until',DateTime),
+    Column('terms_agreed_at',DateTime,nullable=True))
 sessions=week6('sessions',Column('token_hash',String(64),primary_key=True),
     Column('id',String(36),unique=True,nullable=False),
     Column('user_id',String(36),ForeignKey(accounts.c.user_id),nullable=False,index=True),
