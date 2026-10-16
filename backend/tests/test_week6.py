@@ -10,7 +10,7 @@ from test_backend import env,create,tick,get,payload,send,event
 from test_extensions import queue
 from schema import accounts,sessions,inquiries,calls,results,fallback_tasks,review_holds,review_actions,provider_calls,provider_inbox
 from contracts import CorrectionInput,ResultInput
-from contracts6 import Credentials,CallbackReview,FallbackReview
+from contracts6 import Credentials,RegistrationCredentials,CallbackReview,FallbackReview
 from auth6 import AuthStore
 from api import create_app
 from worker import make_result
@@ -87,7 +87,7 @@ def test_fallback_dismissal_does_not_send(env):
 def test_auth_password_hash_session_expiry_revocation_and_owner(env):
     e=env;store=AuthStore(e['s'],session_seconds=60)
     credentials=Credentials(login_name='u'+uuid4().hex[:20],password='local_only_fixture_password_123')
-    registered=store.register(credentials);issued=store.login(credentials);token=issued['access_token']
+    registered=store.register(RegistrationCredentials(**credentials.model_dump(),terms_agreed=True));issued=store.login(credentials);token=issued['access_token']
     with e['engine'].connect() as c:
         account=c.execute(select(accounts).where(accounts.c.user_id==registered['inquirer_id'])).mappings().one()
         session=c.execute(select(sessions).where(sessions.c.user_id==registered['inquirer_id'])).mappings().one()
@@ -107,7 +107,7 @@ def create_without_legacy(e):
 
 def test_auth_failed_attempts_commit_lock_and_recover(env):
     e=env;store=AuthStore(e['s']);name='u'+uuid4().hex[:20]
-    right=Credentials(login_name=name,password='local_only_fixture_password_123');store.register(right)
+    right=Credentials(login_name=name,password='local_only_fixture_password_123');store.register(RegistrationCredentials(**right.model_dump(),terms_agreed=True))
     wrong=Credentials(login_name=name,password='wrong_local_fixture_password_123')
     for _ in range(5):
         with pytest.raises(HTTPException) as error:store.login(wrong)
@@ -119,8 +119,9 @@ def test_auth_failed_attempts_commit_lock_and_recover(env):
 
 def test_disabled_account_and_duplicate_registration(env):
     e=env;store=AuthStore(e['s']);body=Credentials(login_name='u'+uuid4().hex[:20],password='local_only_fixture_password_123')
-    user=store.register(body)['inquirer_id'];token=store.login(body)['access_token']
-    with pytest.raises(HTTPException) as error:store.register(body)
+    registration=RegistrationCredentials(**body.model_dump(),terms_agreed=True)
+    user=store.register(registration)['inquirer_id'];token=store.login(body)['access_token']
+    with pytest.raises(HTTPException) as error:store.register(registration)
     assert error.value.status_code==409
     with e['engine'].begin() as c:c.execute(update(accounts).where(accounts.c.user_id==user).values(enabled=False))
     with pytest.raises(HTTPException):store.identity(token)
@@ -133,7 +134,7 @@ def auth_client(env):
     client.close()
 def login(client):
     body=dict(login_name='u'+uuid4().hex[:20],password='local_only_fixture_password_123')
-    registered=client.post('/auth/register',json=body);assert registered.status_code==201
+    registered=client.post('/auth/register',json={**body,'terms_agreed':True});assert registered.status_code==201
     signed=client.post('/auth/login',json=body);assert signed.status_code==200
     return {'Authorization':'Bearer '+signed.json()['access_token']},registered.json()['inquirer_id']
 

@@ -85,6 +85,7 @@ CREATE TABLE w6_accounts (
 	enabled BOOL NOT NULL,
 	failed_logins INTEGER NOT NULL,
 	locked_until DATETIME,
+	terms_agreed_at DATETIME,
 	PRIMARY KEY (user_id),
 	FOREIGN KEY(user_id) REFERENCES w5_inquirers (id),
 	UNIQUE (login_name)
