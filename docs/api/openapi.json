@@ -354,7 +354,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Credentials"
+                "$ref": "#/components/schemas/RegistrationCredentials"
               }
             }
           },
@@ -1082,6 +1082,35 @@
           "turns"
         ],
         "title": "Latency"
+      },
+      "RegistrationCredentials": {
+        "properties": {
+          "login_name": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9_]+$",
+            "title": "Login Name"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "title": "Password",
+            "writeOnly": true
+          },
+          "terms_agreed": {
+            "type": "boolean",
+            "title": "Terms Agreed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "login_name",
+          "password",
+          "terms_agreed"
+        ],
+        "title": "RegistrationCredentials"
       },
       "ResultInput": {
         "properties": {

@@ -76,6 +76,7 @@
 | enabled | BOOLEAN | 예 |   | True |
 | failed_logins | INTEGER | 예 |   | 0 |
 | locked_until | DATETIME | 아니오 |   |  |
+| terms_agreed_at | DATETIME | 아니오 |   |  |
 - None: login_name
 
 ## w5_calls

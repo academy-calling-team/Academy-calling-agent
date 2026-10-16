@@ -33,13 +33,23 @@ def portable(tmp_path):
 
 
 def login(client):
-    credentials = {'login_name':'demo_' + uuid4().hex[:12], 'password':'Synthetic_Test_Pass123!'}
+    credentials = {
+        'login_name': 'demo_' + uuid4().hex[:12],
+        'password': 'Synthetic_Test_Pass123!',
+        'terms_agreed': True,
+    }
     registered = client.post('/auth/register', json=credentials)
     assert registered.status_code == 201, registered.text
-    logged = client.post('/auth/login', json=credentials)
+
+    login_credentials = {
+        'login_name': credentials['login_name'],
+        'password': credentials['password'],
+    }
+    logged = client.post('/auth/login', json=login_credentials)
     assert logged.status_code == 200, logged.text
+
     data = logged.json()
-    return data, {'Authorization':'Bearer ' + data['access_token']}
+    return data, {'Authorization': 'Bearer ' + data['access_token']}
 
 
 def test_login_inquiry_result_duplicate_and_ownership(portable):
@@ -78,14 +88,39 @@ def test_login_inquiry_result_duplicate_and_ownership(portable):
 
 def test_password_validation_does_not_echo_password(portable):
     _, _, client = portable
-    response = client.post('/auth/register', json={'login_name':'demo', 'password':'short'})
+    response = client.post('/auth/register', json={
+        'login_name': 'demo',
+        'password': 'short',
+        'terms_agreed': True,
+    })
     assert response.status_code == 422
     assert 'short' not in response.text
 
+def test_registration_rejects_without_terms_consent(portable):
+    _, _, client = portable
+
+    response = client.post('/auth/register', json={
+        'login_name': 'demo_no_consent',
+        'password': 'Synthetic_Test_Pass123!',
+        'terms_agreed': False,
+    })
+
+    assert response.status_code == 422, response.text
+
+
+def test_registration_requires_terms_consent_field(portable):
+    _, _, client = portable
+
+    response = client.post('/auth/register', json={
+        'login_name': 'demo_missing_consent',
+        'password': 'Synthetic_Test_Pass123!',
+    })
+
+    assert response.status_code == 422, response.text
 
 def test_schema_shape():
     assert len(metadata.tables) == 21
-    assert sum(len(t.columns) for t in metadata.tables.values()) == 125
+    assert sum(len(t.columns) for t in metadata.tables.values()) == 126
     assert sum(len(t.foreign_keys) for t in metadata.tables.values()) == 20
 
 
@@ -151,3 +186,25 @@ def test_server_factory_uses_repository_settings_without_connecting_to_db(monkey
         assert client.get('/api/options').status_code == 200
         assert client.get('/openapi.json').json()['info']['version'] == '0.4.0'
         assert client.get('/api/inquiries').status_code == 401
+
+def test_registration_saves_terms_agreed_at(portable):
+    engine, _, client = portable
+
+    response = client.post('/auth/register', json={
+        'login_name': 'demo_terms_timestamp',
+        'password': 'Synthetic_Test_Pass123!',
+        'terms_agreed': True,
+    })
+
+    assert response.status_code == 201, response.text
+
+    with engine.connect() as connection:
+        row = connection.execute(
+            select(metadata.tables['w6_accounts'].c.terms_agreed_at)
+            .where(
+                metadata.tables['w6_accounts'].c.login_name
+                == 'demo_terms_timestamp'
+            )
+        ).scalar_one()
+
+    assert row is not None
