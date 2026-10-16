@@ -1,0 +1,10 @@
+import { cpSync, existsSync, mkdirSync } from 'node:fs';
+import path from 'node:path';
+const target=path.resolve('.next/standalone');
+if (!existsSync(path.join(target,'server.js'))) throw new Error('Standalone build is missing');
+cpSync('public',path.join(target,'public'),{recursive:true});
+mkdirSync(path.join(target,'.next'),{recursive:true});
+cpSync('.next/static',path.join(target,'.next/static'),{recursive:true});
+mkdirSync(path.join(target,'app'),{recursive:true});
+cpSync('app/shell.html',path.join(target,'app/shell.html'));
+console.log('Standalone public files and page prepared.');

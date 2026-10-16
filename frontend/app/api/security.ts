@@ -1,5 +1,6 @@
 export function writable(request: Request) {
-  return request.headers.get('origin') === new URL(request.url).origin &&
+  const expectedOrigin = new URL(process.env.FRONTEND_ORIGIN || request.url).origin;
+  return request.headers.get('origin') === expectedOrigin &&
     request.headers.get('content-type')?.split(';')[0] === 'application/json';
 }
 export function json(data: unknown, status=200) {
