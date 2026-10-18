@@ -1,0 +1,10 @@
+# Reuse the installed Python runtime; dependencies are refreshed from the release.
+FROM team8-fe-dev-api:06e07b1
+WORKDIR /srv/backend
+COPY backend/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+COPY backend/ ./
+ARG COMMIT_SHA
+ENV DEPLOY_COMMIT_SHA=${COMMIT_SHA}
+LABEL org.opencontainers.image.revision=${COMMIT_SHA}
+CMD ["python", "-m", "uvicorn", "serve6:build", "--factory", "--host", "0.0.0.0", "--port", "18771", "--root-path", "/shared"]

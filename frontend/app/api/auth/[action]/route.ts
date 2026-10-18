@@ -12,13 +12,18 @@ export async function POST(request: Request, context: { params: Promise<{ action
   if (!['register', 'login', 'logout'].includes(action)) return json({ message: '잘못된 요청입니다.' }, 404);
   try {
     if (!backendUrl()) return json({ message: '계정 서비스를 사용할 수 없습니다.' }, 503);
-    let body: { login_name: string; password: string } | undefined;
+    let body: { login_name: string; password: string; terms_agreed?: boolean } | undefined;
     if (action !== 'logout') {
       const input = await request.json() as Record<string, unknown>;
       if (!input || typeof input.login_name !== 'string' || typeof input.password !== 'string' ||
           !/^[a-z][a-z0-9_]{2,31}$/.test(input.login_name) || [...input.password].length < 12 || [...input.password].length > 128)
         return json({ message: messages[422] }, 422);
       body = { login_name: input.login_name, password: input.password };
+      if (action === 'register') {
+        if (input.terms_agreed !== true)
+          return json({ message: '회원가입을 진행하려면 이용약관에 동의해 주세요.' }, 422);
+        body.terms_agreed = input.terms_agreed;
+      }
     }
     const token = action === 'logout' ? await sessionToken() : undefined;
     if (action === 'logout' && !token) {

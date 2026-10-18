@@ -37,6 +37,10 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
             with engine.connect() as c: c.execute(text('SELECT 1'))
         except Exception: raise HTTPException(503,'Database unavailable') from None
         return dict(status='ok',database='ok',mode='development_mock')
+    @app.get('/version')
+    def version():
+        import os
+        return dict(commit=os.environ.get('DEPLOY_COMMIT_SHA', 'untracked'))
     @app.get('/api/options')
     def options():
         return dict(question_codes=QUESTION_LABELS,regions=REGIONS,

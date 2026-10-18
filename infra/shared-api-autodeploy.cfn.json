@@ -1,0 +1,46 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Team8 shared development API deploy access: GitHub main OIDC to one SSM document and one EC2 instance. No access keys or new compute.",
+  "Metadata": {"com.aws.cloudformation.Context": {"why": "Reuse EC2 and public GitHub source; no inbound SSH changes, no artifact bucket", "must": ["Only this repository main may assume deploy role", "Existing DB and runtime secret files stay on EC2"]}},
+  "Resources": {
+    "GitHubOidc": {
+      "Type": "AWS::IAM::OIDCProvider",
+      "Properties": {"Url": "https://token.actions.githubusercontent.com", "ClientIdList": ["sts.amazonaws.com"]},
+      "Metadata": {"com.aws.cloudformation.Context": {"why": "Short-lived federation instead of stored AWS keys", "must": ["Audience sts.amazonaws.com"]}}
+    },
+    "DeployDocument": {
+      "Type": "AWS::SSM::Document",
+      "Properties": {
+        "Name": "team8-deploy-shared-api", "DocumentType": "Command", "DocumentFormat": "JSON",
+        "Content": {
+          "schemaVersion": "2.2", "description": "Deploy a full Git SHA using the installed release controller",
+          "parameters": {"CommitSha": {"type": "String", "allowedPattern": "^[0-9a-f]{40}$", "interpolationType": "ENV_VAR"}},
+          "mainSteps": [{"action": "aws:runShellScript", "name": "Deploy", "inputs": {"timeoutSeconds": "1200", "runCommand": ["set -eu", "python3 /opt/team8-shared-api/deploy/deploy.py \"$SSM_CommitSha\""]}}]
+        }
+      },
+      "Metadata": {"com.aws.cloudformation.Context": {"why": "Fixed deployment command, validated revision parameter", "must": ["No arbitrary shell command parameter", "Controller must be installed before workflow activation"]}}
+    },
+    "DeployRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": "team8-github-shared-deploy", "MaxSessionDuration": 3600,
+        "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{
+          "Effect": "Allow", "Principal": {"Federated": {"Ref": "GitHubOidc"}}, "Action": "sts:AssumeRoleWithWebIdentity",
+          "Condition": {"StringEquals": {
+            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+            "token.actions.githubusercontent.com:sub": "repo:academy-calling-team@338982952/Academy-calling-agent@1408278136:ref:refs/heads/main"
+          }}
+        }]},
+        "Policies": [{"PolicyName": "DeployOneSharedApi", "PolicyDocument": {"Version": "2012-10-17", "Statement": [
+          {"Effect": "Allow", "Action": "ssm:SendCommand", "Resource": [
+            {"Fn::Sub": "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:document/${DeployDocument}"},
+            {"Fn::Sub": "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/i-0042b1e737bed426a"}
+          ]},
+          {"Effect": "Allow", "Action": "ssm:GetCommandInvocation", "Resource": "*"}
+        ]}}]
+      },
+      "Metadata": {"com.aws.cloudformation.Context": {"why": "Dedicated functional role name referenced in workflow", "must": ["Exact immutable owner/repository IDs and main branch", "SendCommand only to deploy document and existing instance", "GetCommandInvocation has no resource-level scope"]}}
+    }
+  },
+  "Outputs": {"DeployRoleArn": {"Value": {"Fn::GetAtt": ["DeployRole", "Arn"]}}, "DeployDocumentName": {"Value": {"Ref": "DeployDocument"}}}
+}
