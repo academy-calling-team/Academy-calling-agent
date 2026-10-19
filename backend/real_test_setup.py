@@ -20,8 +20,11 @@ def main():
             if action=='status':
                 active=c.execute(select(calls.c.id).where(calls.c.status.not_in(['finished','timeout']))).all()
                 pending=c.execute(select(inquiries.c.id).where(inquiries.c.status.in_(['queued','retry_wait']))).all()
+                pending_real=c.execute(select(inquiries.c.id).join(academies,
+                    inquiries.c.academy_id==academies.c.id).where(academies.c.is_mock==False,
+                    inquiries.c.status.in_(['queued','retry_wait']))).all()
                 row=c.execute(select(academies).where(academies.c.id==TEST_ACADEMY_ID)).mappings().first()
-                print(json.dumps(dict(active_calls=len(active),pending_inquiries=len(pending),
+                print(json.dumps(dict(active_calls=len(active),pending_inquiries=len(pending),pending_real_inquiries=len(pending_real),
                     academy_prepared=row is not None,phone_configured=bool(row and row['phone']))));return
             if action=='owner':
                 owner=c.execute(select(accounts.c.user_id).where(accounts.c.login_name==request['login_name'],
