@@ -67,7 +67,7 @@ jobs:
         run: |
           npm ci
           npm run typecheck
-          node --test scripts/auth-consent.test.mjs
+          node --test scripts/auth-consent.test.mjs scripts/real-call-form.test.mjs
           npm run build
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
