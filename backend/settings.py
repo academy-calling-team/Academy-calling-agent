@@ -54,4 +54,4 @@ def cors_origins():
 
 def require_mock_mode():
     if required('APP_MODE') != 'development_mock':
-        raise ValueError('Only development_mock is supported; real dialing is not implemented')
+        raise ValueError('Use development_mock; real test calls require explicit server authorization')

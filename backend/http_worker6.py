@@ -1,10 +1,11 @@
-"""Mock worker HTTP adapter. Only transport uncertainty triggers receipt lookup."""
+"""Voice HTTP adapter. Real dispatch requires persisted test authorization."""
 from urllib.parse import urlparse, quote
 import httpx
 from worker_errors import WorkerRejected, WorkerProtocolError
 
 class WorkerHttpAdapter:
-    def __init__(self,url,internal_key,transport=None):
+    def __init__(self,url,internal_key,transport=None,authorize_real=None):
+        self.authorize_real=authorize_real
         parsed=urlparse(url)
         local=parsed.hostname in {'127.0.0.1','localhost'}
         if parsed.username or parsed.password or parsed.query or parsed.fragment:
@@ -21,7 +22,10 @@ class WorkerHttpAdapter:
         except (httpx.RequestError,ValueError):return None
         return reply if isinstance(reply,dict) and reply.get('call_id')==cid and reply.get('accepted') is True else None
     def accept(self,payload):
-        if payload.get('is_mock') is not True:raise ValueError('Real dialing is disabled in this development adapter')
+        if payload.get('is_mock') is not True:
+            if self.authorize_real is None:
+                raise ValueError('Real dialing is disabled without explicit test authorization')
+            if not self.authorize_real(payload):raise WorkerRejected(403)
         try:
             r=self.client.post('/internal/calls',json=payload)
         except httpx.RequestError:

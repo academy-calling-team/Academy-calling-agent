@@ -12,6 +12,7 @@ from schema import metadata, users, academies, inquiries, questions, calls, even
 from schema import outbox, delivery_leases, corrections, academy_policies
 from schema import accounts,sessions,review_holds,review_actions,fallback_tasks
 from worker_errors import WorkerRejected, WorkerProtocolError
+from real_test import RealTestPolicy, phone
 
 def uid(): return str(uuid4())
 def digest(value): return hashlib.sha256(value.encode()).hexdigest()
@@ -42,10 +43,26 @@ class Policy:
             raise ValueError('Policy limits must be positive')
 
 class Service:
-    def __init__(self, engine, policy=None, clock=None,allow_legacy_tokens=True):
+    def __init__(self, engine, policy=None, clock=None,allow_legacy_tokens=True,real_test=None):
         self.engine, self.policy = engine, policy or Policy()
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self.allow_legacy_tokens=allow_legacy_tokens
+        self.real_test=real_test or RealTestPolicy()
+    def attempt_limit(self,c,academy_id):
+        mock=c.execute(select(academies.c.is_mock).where(academies.c.id==academy_id)).scalar_one()
+        return self.policy.max_attempts if mock else 1
+    def authorize_real_dispatch(self,payload):
+        # Resolve the academy and owner from persisted state, never caller claims.
+        with self.engine.connect() as c:
+            call=c.execute(select(calls).where(calls.c.id==payload.get('call_id'))).mappings().first()
+            if not call or call['status'] not in ['reserved','delivery_unknown']:return False
+            row=c.execute(select(inquiries).where(inquiries.c.id==call['inquiry_id'])).mappings().one()
+            ac=c.execute(select(academies).where(academies.c.id==row['academy_id'])).mappings().one()
+            account=c.execute(select(accounts.c.enabled).where(accounts.c.user_id==row['inquirer_id'])).scalar()
+            return bool(account and self.real_test.permits(ac,row['inquirer_id'])
+                and call['attempt_no']==1 and payload.get('is_mock') is False
+                and phone(payload.get('to'))==phone(ac['phone'])
+                and fingerprint(payload)==fingerprint(call['dispatch_payload']))
     def now(self): return utc(self.clock())
     def initialize(self):
         metadata.create_all(self.engine)
@@ -79,8 +96,11 @@ class Service:
             if prev:
                 if prev['payload_hash']!=fingerprint(payload): raise HTTPException(409,'Idempotency key conflict')
                 return dict(inquiry_id=prev['id'],status=prev['status'],duplicate=True)
-            if c.execute(select(academies.c.id).where(academies.c.id==body.academy_id)).first() is None:
+            ac=c.execute(select(academies).where(academies.c.id==body.academy_id)).mappings().first()
+            if ac is None:
                 raise HTTPException(404,'Academy not found')
+            if not ac['is_mock'] and not self.real_test.permits(ac,owner):
+                raise HTTPException(409,'실통화 시험은 서버 설정과 지정 시험 계정 확인 후 접수할 수 있습니다.')
             iid=uid()
             c.execute(inquiries.insert().values(id=iid,inquirer_id=owner,academy_id=body.academy_id,
                 request_key=key,payload_hash=fingerprint(payload),student=payload['student'],status='queued',
@@ -120,7 +140,8 @@ class Service:
                            ('transcript','recording_url','result_id','rejection_reason')}
                     final['review_revision']=review['revision'] if review else 0
             return aware(dict(inquiry_id=iid,inquirer_id=owner,status=row['status'],student=row['student'],
-                academy={'academy_id':ac['id'],'name':ac['name']},
+                academy={'academy_id':ac['id'],'name':ac['name'],'is_mock':ac['is_mock'],
+                         **self.real_test.public(ac)},
                 questions=[dict(question_id=q['id'],question_code=q['code']) for q in qs],
                 attempts=history,result=final,failure_reason=row['failure_reason'],
                 fallback_required=row['fallback_required'],fallback_status=fallback.status if fallback else None,
@@ -161,6 +182,8 @@ class Service:
                 if c.execute(select(review_holds.c.inquiry_id).where(
                     review_holds.c.inquiry_id==row['id'],review_holds.c.open==True)).first():continue
                 ac=c.execute(select(academies).where(academies.c.id==row['academy_id'])).mappings().one()
+                if not ac['is_mock'] and not self.real_test.permits(ac,row['inquirer_id']):
+                    self.fail(c,row['id'],'real_test_disabled');continue
                 if not self.opened(ac): continue
                 rule=c.execute(select(academy_policies).where(
                     academy_policies.c.academy_id==ac['id'])).mappings().first()
@@ -175,7 +198,7 @@ class Service:
                     if local_active>=rule['max_concurrent']: continue
                     if latest_start and latest_start+timedelta(seconds=rule['cooldown_seconds'])>self.now(): continue
                 attempt=c.execute(select(func.count()).select_from(calls).where(calls.c.inquiry_id==row['id'])).scalar_one()+1
-                if attempt>self.policy.max_attempts:
+                if attempt>self.attempt_limit(c,ac['id']):
                     self.fail(c,row['id'],'retry_exhausted'); continue
                 cid=uid()
                 qs=c.execute(select(questions).where(questions.c.inquiry_id==row['id']).order_by(questions.c.position)).mappings()
@@ -278,6 +301,13 @@ class Service:
         latest=c.execute(select(func.max(calls.c.attempt_no)).where(calls.c.inquiry_id==call['inquiry_id'])).scalar_one()
         state=c.execute(select(inquiries.c.status).where(inquiries.c.id==call['inquiry_id'])).scalar_one()
         if call['attempt_no']!=latest or state in ['completed','failed']: return False
+        academy_id=c.execute(select(inquiries.c.academy_id).where(inquiries.c.id==call['inquiry_id'])).scalar_one()
+        attempt_limit=self.attempt_limit(c,academy_id)
+        is_mock=c.execute(select(academies.c.is_mock).where(academies.c.id==academy_id)).scalar_one()
+        if not is_mock and outcome=='answered':
+            # Record the answer, including callback metadata, without scheduling another call.
+            c.execute(update(inquiries).where(inquiries.c.id==call['inquiry_id']).values(status='completed'))
+            return True
         if outcome=='answered' and callback_requested and callback_at is None:
             c.execute(update(inquiries).where(inquiries.c.id==call['inquiry_id']).values(status='retry_wait'))
             hold_values=dict(call_id=call['id'],reason='callback_time_unknown',open=True,created_at=self.now())
@@ -288,7 +318,7 @@ class Service:
         retry=outcome in ['no_answer','busy','machine'] or callback_at is not None
         if outcome=='answered' and callback_at is None:
             c.execute(update(inquiries).where(inquiries.c.id==call['inquiry_id']).values(status='completed'))
-        elif retry and not permanent and call['attempt_no']<self.policy.max_attempts:
+        elif retry and not permanent and call['attempt_no']<attempt_limit:
             at=utc(callback_at) if callback_at else self.now()+timedelta(seconds=self.policy.retry_seconds)
             c.execute(update(inquiries).where(inquiries.c.id==call['inquiry_id']).values(status='retry_wait',next_at=at))
         else:
@@ -387,7 +417,7 @@ class Service:
             if body.action=='schedule':
                 if utc(body.callback_at)<=self.now():raise HTTPException(422,'Callback must be in the future')
                 attempts=c.execute(select(func.count()).select_from(calls).where(calls.c.inquiry_id==iid)).scalar_one()
-                if attempts>=self.policy.max_attempts:raise HTTPException(409,'Call attempt limit reached')
+                if attempts>=self.attempt_limit(c,inquiry['academy_id']):raise HTTPException(409,'Call attempt limit reached')
                 c.execute(update(inquiries).where(inquiries.c.id==iid).values(next_at=utc(body.callback_at)))
             else:
                 c.execute(update(inquiries).where(inquiries.c.id==iid).values(status='completed'))

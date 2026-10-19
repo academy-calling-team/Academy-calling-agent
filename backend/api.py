@@ -13,7 +13,7 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
     if not internal_key: raise ValueError('Internal key must be configured')
     service=service or Service(engine)
     app=FastAPI(title='8조 백엔드 개발 API',version='0.4.0',
-        description='노션 초안 기반 검토용 구현. 로컬 MySQL·Redis 목업 검증; 실통화·팀 연동·AWS 배포는 별도 확인.')
+        description='공동 개발 API. 일반 학원은 목업, 지정 시험 학원은 서버 허용·번호·계정 확인 후 실제 전화 최대 1회. 실제 발신은 별도 시험으로 확인.')
     app.state.service=service
     @app.exception_handler(RequestValidationError)
     async def validation_error(request,error):
@@ -49,7 +49,8 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
     @app.get('/api/academies')
     def list_academies():
         with engine.connect() as c:
-            return [dict(academy_id=r['id'],name=r['name'],region=r['region'],is_mock=r['is_mock'])
+            return [dict(academy_id=r['id'],name=r['name'],region=r['region'],is_mock=r['is_mock'],
+                         **service.real_test.public(r))
                     for r in c.execute(select(academies)).mappings()]
     @app.post('/api/inquiries',status_code=201)
     def create(body:InquiryInput,token:str=Depends(auth),

@@ -1,7 +1,7 @@
 export const states = { queued:'처리 대기', calling:'통화 중', retry_wait:'재시도 대기', completed:'상담 완료', failed:'처리 실패' };
 export const active = status => ['queued','calling','retry_wait'].includes(status);
 export const reasons = { unknown:'학원에서 답변을 확인하지 못했습니다.', refused:'학원에서 답변을 거절했습니다.', not_asked:'이 질문을 아직 묻지 못했습니다.' };
-export const failureReasons = { retry_exhausted:'연결 재시도 횟수를 모두 사용했습니다.', no_answer:'학원에서 전화를 받지 않았습니다.', busy:'학원이 통화 중입니다.', rejected:'학원에서 통화를 거절했습니다.', machine:'자동 응답으로 연결되었습니다.', invalid_number:'학원 전화번호를 확인해야 합니다.', disclosure_missing:'상담 안내가 확인되지 않아 중단되었습니다.', delivery_or_result_timeout:'통화 연결 또는 결과 확인 시간이 초과되었습니다.' };
+export const failureReasons = { real_test_disabled:'실통화 시험이 비활성화되어 발신하지 않았습니다.', retry_exhausted:'연락 시도 한도에 도달했습니다. 실통화 시험은 자동 재발신하지 않습니다.', no_answer:'학원에서 전화를 받지 않았습니다.', busy:'학원이 통화 중입니다.', rejected:'학원에서 통화를 거절했습니다.', machine:'자동 응답으로 연결되었습니다.', invalid_number:'학원 전화번호를 확인해야 합니다.', disclosure_missing:'상담 안내가 확인되지 않아 중단되었습니다.', delivery_or_result_timeout:'통화 연결 또는 결과 확인 시간이 초과되었습니다.' };
 export function fieldLabel(kind, code) {
   if(kind==='grade' && /^[EMH]\d$/.test(code)) return `${{E:'초등학교',M:'중학교',H:'고등학교'}[code[0]]} ${code.slice(1)}학년`;
   return ({subject:{KOR:'국어',ENG:'영어',MATH:'수학',SCI:'과학',SOC:'사회'},level:{HIGH:'상급',MID:'중급',LOW:'기초'}}[kind]||{})[code]||code;

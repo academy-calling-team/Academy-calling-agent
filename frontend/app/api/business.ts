@@ -23,7 +23,11 @@ export async function businessRequest(request: Request, path: string, body?: unk
     });
     if (!upstream.ok) {
       const status = messages[upstream.status] ? upstream.status : 502;
-      const response = json({ message: messages[status] || '상담 서비스에 연결할 수 없습니다. 다시 시도해 주세요.' }, status);
+      const failure = await upstream.json().catch(() => ({}));
+      const realTestMessage = '실통화 시험은 서버 설정과 지정 시험 계정 확인 후 접수할 수 있습니다.';
+      const message = status === 409 && failure && typeof failure === 'object' &&
+        'detail' in failure && failure.detail === realTestMessage ? realTestMessage : messages[status];
+      const response = json({ message: message || '상담 서비스에 연결할 수 없습니다. 다시 시도해 주세요.' }, status);
       if (status === 401) response.headers.set('Set-Cookie', sessionCookie(request));
       return response;
     }
