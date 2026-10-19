@@ -141,42 +141,130 @@ def judge(question_code: str, reply: str) -> tuple[bool, bool | None, str | None
     return False, None, "unknown"
 
 
-def build_answers(questions: list[dict], turns: list[Turn]) -> list[dict]:
-    """요청한 질문마다 답변 행을 하나씩 만든다. 못 물었거나 못 받은 항목도 빼지 않는다.
+def positions(questions: list[dict], turns: list[Turn]) -> tuple[list[int | None], int | None]:
+    """요청한 질문마다 AI가 처음 물은 발화 위치(못 찾으면 None)와 상담 질문 위치.
 
     AI는 지시한 순서대로 묻는다. 그래서 각 질문은 앞 질문을 찾은 발화 다음부터 찾는다.
     처음부터 찾으면 앞 질문의 단어에 걸린다(10/19 실통화: 통학 차량 질문의 "운행 지역과 시간이"가
     수업 시간 질문으로 잡혀 통학 차량 대답을 수업 시간 대답으로 집었다). 순서대로 못 찾으면 처음부터 다시 찾는다.
+    상담은 마지막에 묻고, 첫인사(고지 발화)는 건너뛴다(10/19 공동 시험: 첫인사를 "상담 가능하신가요?"로 끝냄).
     """
-    answers = []
-    start = 0
+    found, start = [], 0
     for q in questions:
-        _, keywords = QUESTIONS[q["question_code"]]
+        keywords = QUESTIONS[q["question_code"]][1]
         i = locate(turns, keywords, start)
         if i is None:
             i = locate(turns, keywords)
+        if i is not None:
+            start = max(start, i + 1)
+        found.append(i)
+    greeting = next((i for i, t in enumerate(turns) if t.speaker == "agent"), None)
+    if greeting is not None and "녹음" in turns[greeting].text:
+        start = max(start, greeting + 1)
+    return found, locate(turns, CONSULT[1], start)
+
+
+def reply_blocks(turns: list[Turn], i: int, end: int) -> list[tuple[str, str]]:
+    """i번째 AI 질문부터 end 전까지, 학원이 이어서 한 말 묶음마다 (바로 앞 AI 발화, 학원 말)."""
+    blocks, prev, said = [], turns[i].text, []
+    for t in turns[i + 1:end]:
+        if t.speaker == "agent":
+            if said:
+                blocks.append((prev, " ".join(said)))
+                said = []
+            prev = t.text
+        else:
+            said.append(t.text)
+    if said:
+        blocks.append((prev, " ".join(said)))
+    return blocks
+
+
+def _mentions(text: str, keywords: tuple[str, ...]) -> bool:
+    for word in NOT_QUESTION:
+        text = text.replace(word, "")
+    return any(k in text for k in keywords)
+
+
+# 되짚기에 학원이 "아니요, …"로 고쳐 말한 경우 (10/19 공동 시험: "네, 픽업합니다" → 되짚기 → "아니요, 픽업은 안 해요")
+CORRECTION = re.compile(r"^\s*(아니요|아니오|아뇨|아니)[\s,.!]*")
+
+
+def decide(code: str, blocks: list[tuple[str, str]], keywords: tuple[str, ...],
+           others: tuple[str, ...]) -> tuple[bool, bool | None, str | None, str]:
+    """질문 하나의 대답 묶음들로 최종 판정. 돌려주는 값: (answered, yes_no, reason, 근거가 된 학원 말)
+
+    - 바로 앞 AI 발화가 다른 질문 이야기면 건너뛴다. AI가 질문하다 끊기고 앞 질문을 되짚은 경우
+      그 되짚기에 한 "네, 맞습니다"를 이 질문의 대답으로 집지 않는다(10/19 공동 시험의 수업 시간).
+    - 처음으로 판정되는 대답을 쓴다. 그 뒤 되짚기에 맞다고 한 말은 판정을 바꾸지 않는다.
+    - 그 뒤 "아니요, …"로 고쳐 말하면 고친 말로 다시 판정한다. 고친 내용이 판정되지 않으면 미확인
+      (앞 대답과 어긋나 애매하면 미확인, 10/19 김규림 기준).
+    """
+    result = None
+    for prev, said in blocks:
+        if not _mentions(prev, keywords) and _mentions(prev, others):
+            continue
+        if result is None or not result[0]:
+            answered, yes_no, reason = judge(code, said)
+            if result is None or answered:
+                result = (answered, yes_no, reason, said)
+        elif CORRECTION.match(said):
+            answered, yes_no, reason = judge(code, CORRECTION.sub("", said, count=1))
+            result = (answered, yes_no, reason, said) if answered else (False, None, "unknown", said)
+    return result or (False, None, "unknown", "")
+
+
+# AI 발화가 '다른 질문 이야기'인지 볼 때 쓰는 주제어. 질문 찾기 키워드와 같되, 상담 질문에도 늘 나오는
+# "요일·시간"은 빼고 수업 시간만의 말을 쓴다(10/13 전사: "가능하다면 요일과 시간은…"이 수업 시간 이야기로 잡힘)
+TOPICS = {**{code: kws for code, (_, kws) in QUESTIONS.items()},
+          "class_time": ("수업 요일", "수업 시간", "유일"), "consult": CONSULT[1]}
+
+
+def _segments(questions: list[dict], turns: list[Turn]):
+    """질문마다 (질문 코드, 키워드, 다른 질문 주제어, 위치, 대답 묶음). 상담은 코드 "consult"로 맨 끝에."""
+    found, consult_at = positions(questions, turns)
+    items = [(q["question_code"], QUESTIONS[q["question_code"]][1], i) for q, i in zip(questions, found)]
+    items.append(("consult", CONSULT[1], consult_at))
+    starts = sorted(i for _, _, i in items if i is not None)
+    out = []
+    for code, keywords, i in items:
+        others = tuple(k for c, _, _ in items if c != code for k in TOPICS[c])
+        if i is None:
+            out.append((code, keywords, others, None, []))
+            continue
+        end = next((s for s in starts if s > i), len(turns))
+        out.append((code, keywords, others, i, reply_blocks(turns, i, end)))
+    return out
+
+
+def build_answers(questions: list[dict], turns: list[Turn]) -> list[dict]:
+    """요청한 질문마다 답변 행을 하나씩 만든다. 못 물었거나 못 받은 항목도 빼지 않는다.
+
+    대답은 그 질문부터 다음 질문 전까지 학원이 한 말 전체에서 decide()로 고른다
+    (바로 다음 한 마디만 보면 되짚기에서 고쳐 말한 것을 놓친다).
+    """
+    answers = []
+    for q, (code, keywords, others, i, blocks) in zip(questions, _segments(questions, turns)):
         if i is None:
             answers.append({**q, "asked": False, "answered": False, "yes_no": None,
                             "reason": "not_asked", "detail": "통화에서 이 질문을 확인하지 못함"})
             continue
-        start = max(start, i + 1)
-        reply = reply_after(turns, i)
-        answered, yes_no, reason = judge(q["question_code"], reply)
-        if q["question_code"] == "class_time" and answered:
+        answered, yes_no, reason, said = decide(code, blocks, keywords, others)
+        if code == "class_time" and answered:
             yes_no = None
         answers.append({**q, "asked": True, "answered": answered,
                         "yes_no": yes_no if answered else None,
                         "reason": None if answered else (reason or "unknown"),
-                        "detail": reply[:500] or "대답을 알아듣지 못함"})
+                        "detail": said[:500] or "대답을 알아듣지 못함"})
     return answers
 
 
-def consult_result(turns: list[Turn]) -> tuple[bool | None, list[str]]:
+def consult_result(turns: list[Turn], questions: list[dict] | None = None) -> tuple[bool | None, list[str]]:
     """(consult_accepted, available_times). 상담을 묻지 못했거나 판정이 안 되면 (None, [])."""
-    asked, reply = find_reply(turns, CONSULT[1])
-    if not asked:
+    code, keywords, others, i, blocks = _segments(questions or [], turns)[-1]
+    if i is None:
         return None, []
-    answered, yes_no, _ = judge("consult", reply)
+    answered, yes_no, _, said = decide(code, blocks, keywords, others)
     if not answered:
         return None, []
-    return yes_no, ([reply[:200]] if yes_no and reply else [])
+    return yes_no, ([said[:200]] if yes_no and said else [])
