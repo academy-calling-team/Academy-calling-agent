@@ -2,5 +2,6 @@ ARG API_IMAGE
 FROM ${API_IMAGE}
 WORKDIR /srv/repository
 COPY voice/mock_worker/ ./voice/mock_worker/
+COPY voice/call_worker/ ./voice/call_worker/
 ENV PYTHONUNBUFFERED=1
-CMD ["python", "voice/mock_worker/app.py"]
+CMD ["python", "voice/call_worker/worker.py"]
