@@ -38,7 +38,13 @@ docker compose ps
 
 수정한 로컬코드 반영은 docker compose up --build -d. 중지는 docker compose down. down -v는 저장데이터를 지우므로 사용하지 않는다. 현재 PC에는 Docker CLI가 없어 개인Compose기동은 실제검증하지 않았으며, 정의·환경변수·포트·모듈은 정적검증했다. 공동서버의실제MySQL/Redis/워커왕복과PC의정식Node기동은별도실검증완료다.
 
-PC에서 공동서버 접근만 확인하려면 PowerShell에서 infra/shared-smoke.ps1을 실행한다. 전용 합성계정·문의가공유DB에생기고,토큰/비밀번호는출력하지않는다.
+PC에서 공동서버 접근만 확인하려면 저장소 최상위 폴더(frontend가 아니라 그 위)에서 PowerShell을 열고 아래를 실행한다. 전용 합성계정·문의가 공유DB에 생기고, 토큰/비밀번호는 출력하지 않는다. 마지막에 `PASS`가 나오면 공동 API→큐→목업 워커 왕복이 된 것이다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File infra/shared-smoke.ps1
+```
+
+회원가입에는 약관 동의(`terms_agreed: true`)가 필수라서 스크립트도 가입할 때만 이 값을 보낸다.
 
 ## 공동 서버에 코드 반영
 

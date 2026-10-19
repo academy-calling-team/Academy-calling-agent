@@ -13,7 +13,9 @@ function Invoke-Utf8Json {
 $suffix = [Guid]::NewGuid().ToString('N').Substring(0,10)
 $credentials = @{ login_name = "pc_check_$suffix"; password = [Guid]::NewGuid().ToString('N') }
 $body = $credentials | ConvertTo-Json -Compress
-Invoke-Utf8Json "$apiBase/auth/register" -Method Post -Body $body | Out-Null
+# 회원가입만 약관 동의를 받는다. 로그인 본문에 넣으면 422로 거부된다.
+$registration = ($credentials + @{ terms_agreed = $true }) | ConvertTo-Json -Compress
+Invoke-Utf8Json "$apiBase/auth/register" -Method Post -Body $registration | Out-Null
 $session = Invoke-Utf8Json "$apiBase/auth/login" -Method Post -Body $body
 $headers = @{ Authorization = "Bearer $($session.access_token)"; 'Idempotency-Key' = "pc-check-$suffix" }
 try {
