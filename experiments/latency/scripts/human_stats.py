@@ -6,6 +6,8 @@
 - 부트스트랩: 플랫폼마다 응답을 복원 추출해 중앙값 차이를 20,000번 계산, 2.5와 97.5 백분위(시드 0).
   같은 통화 안의 응답이 독립이 아니라서 탐색적 값이다.
 - Mann-Whitney U: scipy.stats.mannwhitneyu 기본값(양측).
+- 통화 단위 비교(논문 7판): 같은 통화의 응답은 독립이 아니므로 통화별 중앙값에 Mann-Whitney를 쓰고,
+  통화를 복원 추출해 응답을 모은 뒤 중앙값 차이를 20,000번 계산한 2.5와 97.5 백분위를 구간으로 쓴다(시드 0, 별도 생성기).
 - 그림: 응답별 지연을 플랫폼마다 점으로 찍은 SVG(그림 2용). 1.5초 기준선, 중앙값, p95 표시.
 
 사용: python human_stats.py [csv 경로] [svg 저장 경로]
@@ -53,6 +55,16 @@ def boot_median_diff(a, b, rng, n=20000):
     return np.percentile(d, [2.5, 97.5])
 
 
+def boot_call_median_diff(a_calls, b_calls, rng, n=20000):
+    a_calls, b_calls = [np.array(c) for c in a_calls], [np.array(c) for c in b_calls]
+    d = []
+    for _ in range(n):
+        a = np.concatenate([a_calls[i] for i in rng.integers(0, len(a_calls), len(a_calls))])
+        b = np.concatenate([b_calls[i] for i in rng.integers(0, len(b_calls), len(b_calls))])
+        d.append(np.median(a) - np.median(b))
+    return np.percentile(d, [2.5, 97.5])
+
+
 def main():
     rows = load(CSV)
     by = {e: [r['gap'] for r in rows if r['engine'] == e] for e, _ in ENGINES}
@@ -76,6 +88,16 @@ def main():
           f"부트스트랩 95% 구간 {lo:.2f}~{hi:.2f}")
     print('대본 A~E 분위수 차이: ' + ', '.join(
         f"p{p} {np.percentile(ae['co'], p) - np.percentile(ae['va'], p):+.2f}" for p in (10, 25, 50, 75, 90)))
+
+    calls = {e: {} for e, _ in ENGINES}
+    for r in rows:
+        calls[r['engine']].setdefault(r['script'], []).append(r['gap'])
+    med = {e: [float(np.median(v)) for v in calls[e].values()] for e, _ in ENGINES}
+    for e, label in ENGINES:
+        print(f"{label} 통화별 중앙값: " + ', '.join(f'{s} {np.median(v):.2f}' for s, v in calls[e].items()))
+    lo, hi = boot_call_median_diff(list(calls['co'].values()), list(calls['va'].values()), np.random.default_rng(0))
+    print(f"통화 단위: 통화 중앙값 Mann-Whitney p={mannwhitneyu(med['co'], med['va']).pvalue:.3f}, "
+          f"통화 재추출 부트스트랩 95% 구간 {lo:.2f}~{hi:.2f}")
 
     write_svg(rows, by)
     print(f'그림: {SVG}')
