@@ -19,7 +19,7 @@ from sender import Sender  # noqa: E402
 
 from clawops import ClawOps, ClawOpsConfig  # noqa: E402
 from extract import find_reply, judge, to_turns  # noqa: E402
-from real_call import ProviderCalls, RealCalls, build_instruction  # noqa: E402
+from real_call import ProviderCalls, RealCalls, build_instruction, build_result  # noqa: E402
 from worker import create_app, resume_pending  # noqa: E402
 
 KEY = "test-key"
@@ -39,6 +39,26 @@ SEGMENTS = [
     {"speaker": "speaker_1", "start": 27.1, "end": 29.9, "text": "이번 주에 학부모 상담이 가능할까요?"},
     {"speaker": "speaker_0", "start": 31.0, "end": 33.5, "text": "수요일 오후 3시에 돼요"},
     {"speaker": "speaker_1", "start": 35.0, "end": 44.0, "text": "정리하면 차량 운행하고 자리는 두 자리 남았습니다. 감사합니다."},
+]
+
+
+# 10/19 단독 실통화(서비스 에이전트, 질문: 통학 차량·픽업·수업 시간)에서 받은 ClawOps 전사 그대로.
+# 대본은 "픽업은 안 해요"였지만 실제로는 "안 합니다"라고 말했고, AI의 통학 차량 질문에 "시간이"가 들어 있다
+REAL_1019 = [
+    {"speaker": "speaker_0", "start": 1.66, "text": "네, 여보세요?"},
+    {"speaker": "speaker_1", "start": 3.56, "text": "안녕하세요. 학부모님을 대신해 문의 드리는 AI 상담원입니다. 이 통화는 녹음됩니다. 잠시 통화 괜찮으실까요?"},
+    {"speaker": "speaker_0", "start": 13.04, "text": "네, 가능합니다."},
+    {"speaker": "speaker_1", "start": 15.30, "text": "감사합니다. 통학차량이 있는지, 있다면 운행 지역과 시간이 어떻게 되는지 여쭤봐도 될까 요?"},
+    {"speaker": "speaker_0", "start": 22.90, "text": "네, 침산동 쪽으로 다녀요."},
+    {"speaker": "speaker_1", "start": 26.42, "text": "침산동 쪽으로 운행하는 거죠? 운행  시간대도 알려주실 수 있을까요?"},
+    {"speaker": "speaker_0", "start": 34.34, "text": "운행은 시, 수업 시간 전후로 10분 정도입니다."},
+    {"speaker": "speaker_1", "start": 38.98, "text": "수업 시간 전후로 10분 정도 운행하는 거로 이해했습니다. 그럼 수업 후 픽업도 해주시나요?"},
+    {"speaker": "speaker_0", "start": 45.86, "text": "픽업은 안 합니다."},
+    {"speaker": "speaker_1", "start": 48.32, "text": "네, 수업 후 픽업은 하지 않으시는 거 맞죠? 중2 수학 수업 요일과 시간은 어떻게 되나요?"},
+    {"speaker": "speaker_0", "start": 55.80, "text": "화, 목 저녁 7시요."},
+    {"speaker": "speaker_1", "start": 58.96, "text": "화요일과 목요일 저녁 7시가 맞을까요? 그리고 이번 주에 학부모 상담이 가능한지, 가능하 다면 요일과 시간도 알려주실 수 있을까요?"},
+    {"speaker": "speaker_0", "start": 69.46, "text": "수요일 3시에 오세요."},
+    {"speaker": "speaker_1", "start": 72.52, "text": "네, 수요일 오후 3시에 가능하신 거죠? 그럼 정리해서 말씀드리겠습니다. 통학차량은 침산 동 쪽으로 수업 시간 전후 10분 정도 운행하고요. 수 업 후 픽업은 하지 않습니다. 수업은 화요일과 목요일 저녁 7시이며, 학부모 상담은 이번 주 수요일 오후 3시에 가능합니다. 맞으시면 이대로 학부모님께 전해드리겠습니다. 확인해 주셔서 감사합니다. 좋은 하루 보내세요."},
 ]
 
 
@@ -269,6 +289,24 @@ def test_agent_found_by_disclosure_and_first_question_used():
     assert find_reply(turns, ("상담",)) == (True, "수요일 오후 3시에 돼요")
 
 
+def test_real_call_1019_transcript_gives_expected_answers():
+    """10/19 실통화 전사: 예(통학 차량) / 아니오(픽업) / 시간(수업 시간) / 상담 가능이 모두 맞아야 한다."""
+    request = real_request(questions=[
+        {"question_id": "q1", "question_code": "shuttle"},
+        {"question_id": "q2", "question_code": "pickup"},
+        {"question_id": "q3", "question_code": "class_time"},
+    ])
+    result = build_result("c_1019", request, {"status": "completed", "duration": 103}, None, REAL_1019)
+    check_schema(result)
+    got = {a["question_code"]: (a["answered"], a["yes_no"], a["detail"]) for a in result["answers"]}
+    assert got["shuttle"] == (True, True, "네, 침산동 쪽으로 다녀요.")
+    assert got["pickup"] == (True, False, "픽업은 안 합니다.")
+    assert got["class_time"] == (True, None, "화, 목 저녁 7시요.")
+    assert result["unresolved"] == []
+    assert result["consult_accepted"] is True and result["available_times"] == ["수요일 3시에 오세요."]
+    assert result["disclosure_played"] is True
+
+
 def test_consult_not_asked_when_only_greeting_mentions_it():
     greeting_only = [s for s in SEGMENTS if "상담이 가능" not in s["text"]]
     assert find_reply(to_turns(greeting_only), ("상담",)) == (False, "")
@@ -280,6 +318,12 @@ def test_consult_not_asked_when_only_greeting_mentions_it():
     # '네'로 시작해도 부정어가 있으면 아니오
     ("pickup", "네, 그건 없어요", (True, False, None)),
     ("pickup", "수업 후 픽업은 안 해요", (True, False, None)),
+    # 어미가 바뀌어도 부정 (10/19 실통화에서 "안 합니다")
+    ("pickup", "픽업은 안 합니다.", (True, False, None)),
+    ("pickup", "픽업은 안 하고 있어요", (True, False, None)),
+    ("shuttle", "차량은 안 됩니다", (True, False, None)),
+    # '안녕', '안내'는 부정이 아니다
+    ("shuttle", "안녕하세요 네 운행해요", (True, True, None)),
     # '네'만 하면 예
     ("shuttle", "네", (True, True, None)),
     ("vacancy", "네 지금 두 자리 남아 있어요", (True, True, None)),
