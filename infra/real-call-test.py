@@ -100,8 +100,8 @@ def main():
                 test_account_prepared=bool(api.get('REAL_TEST_INQUIRER_ID')))));return
         if action=='prepare':print(json.dumps(db('prepare')));return
         # Do not interrupt in-flight calls or silently revive queued work after enabling.
-        if state['active_calls'] or (action in ['configure','enable'] and state['pending_inquiries']):
-            raise ValueError('Wait for active/pending inquiries to finish before changing call settings')
+        if state['active_calls'] or (action in ['configure','enable'] and state['pending_real_inquiries']):
+            raise ValueError('Wait for active calls/pending real inquiries before changing call settings')
         if action=='configure':
             if api.get('REAL_CALLS_ENABLED')=='1' or worker.get('REAL_CALLS_ENABLED')=='1':
                 raise ValueError('Disable real calls before configuring')
