@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "8조 백엔드 개발 API",
-    "description": "노션 초안 기반 검토용 구현. 로컬 MySQL·Redis 목업 검증; 실통화·팀 연동·AWS 배포는 별도 확인.",
+    "description": "공동 개발 API. 일반 학원은 목업, 지정 시험 학원은 서버 허용·번호·계정 확인 후 실제 전화 최대 1회. 실제 발신은 별도 시험으로 확인.",
     "version": "0.4.0"
   },
   "paths": {
@@ -10,6 +10,22 @@
       "get": {
         "summary": "Health",
         "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/version": {
+      "get": {
+        "summary": "Version",
+        "operationId": "version_version_get",
         "responses": {
           "200": {
             "description": "Successful Response",

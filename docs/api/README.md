@@ -47,7 +47,9 @@ inquiry_id는 문의, question_id는 개별 질문, call_id는 통화 시도, re
 
 내부 요청은 X-Internal-Key를 사용한다. 백엔드 루트 .env의 INTERNAL_API_KEY와 음성 voice/.env의 INTERNAL_KEY는 같은 값으로 설정한다. 내부키·제공업체 비밀키를 프론트에 전달하지 않는다. 외부 워커 URL은 백엔드 어댑터에서 HTTPS를 요구한다.
 
-발신 요청은 call_id, inquiry_id, attempt_no, to, academy_name, student, questions[{question_id,question_code}], fixed_checks, disclosure_text, policy{max_reask,max_seconds,is_retry}, is_mock 필드를 담는다. 현재 개발 어댑터와 음성 목업은 is_mock=true만 허용한다.
+발신 요청은 call_id, inquiry_id, attempt_no, to, academy_name, student, questions[{question_id,question_code}], fixed_checks, disclosure_text, policy{max_reask,max_seconds,is_retry}, is_mock 필드를 담는다. 일반 학원은 is_mock=true를 유지한다. 실통화 시험은 지정 학원·번호·계정·서버 활성화를 모두 확인한 뒤 is_mock=false로 동일 계약을 사용하며, 최대 1회만 시도한다. [실통화 시험 절차](../collaboration/실통화_시험.md)를 따른다.
+
+학원 목록과 문의 상세의 academy에는 is_test, can_submit, max_attempts, notice를 추가한다. 실제 번호·시험 계정 ID·키는 공개 응답에 포함하지 않는다. can_submit은 서버 준비 상태이며 최종 계정 권한은 문의 접수와 워커 전달 시 다시 검사한다.
 
 진행 이벤트는 event_id, type, timezone을 포함한 occurred_at을 사용한다. 지원 type은 initiated/ringing/answered/completed/no_answer/busy/rejected/machine/invalid_number/barge_in이다. 종료 이벤트만으로 답변을 만들지 않고 결과를 기다린다.
 
