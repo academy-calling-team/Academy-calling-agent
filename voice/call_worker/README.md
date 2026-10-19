@@ -24,7 +24,7 @@
 ## 처리 순서
 
 1. 접수 기록 저장(목업과 같은 SQLite) → 202
-2. ClawOps `POST /calls`로 발신. 기존 시험 에이전트(`CLAWOPS_AGENT_ID`)를 쓰고, 이번 문의의 질문은 `CallContext`로 넘긴다
+2. ClawOps `POST /calls`로 발신. 서비스 에이전트(`CLAWOPS_SERVICE_AGENT_ID`)를 쓰고, 이번 문의의 학원·학생·질문·고지 문구는 `CallContext`로 넘긴다. 학생 조건은 백엔드 코드(`M2`, `MATH`)가 아니라 "중학교 2학년, 과목 수학"처럼 풀어서 넘긴다
 3. ClawOps 통화 ID를 바로 저장한다. 같은 `call_id`는 다시 걸지 않는다
 4. 2초마다 `GET /calls/{id}`로 상태를 보고 진행 이벤트를 보낸다
 
@@ -57,10 +57,23 @@
 | `REAL_CALL_ALLOWED_TO` | 실제로 걸어도 되는 번호, 쉼표 구분. 하이픈은 무시 |
 | `CLAWOPS_API_KEY` | ClawOps API 키 |
 | `CLAWOPS_ACCOUNT_ID` | ClawOps 계정 ID |
-| `CLAWOPS_AGENT_ID` | 통화할 매니지드 에이전트 ID |
+| `CLAWOPS_SERVICE_AGENT_ID` | 서비스 에이전트 ID. `voice/engines/setup_service_agent.py create`로 만든다 |
 | `CLAWOPS_FROM_NUMBER` | 발신 번호(팀 070) |
 
 키 값은 Git, 단톡, 로그에 남기지 않는다.
+
+### 서비스 에이전트
+
+10/13 지연 비교용 시험 에이전트(`CLAWOPS_AGENT_ID`, 프롬프트 v3)는 학생(중2 수학)과 질문 세 개가 프롬프트에 박혀 있다.
+ClawOps의 `CallContext` 지시는 기본 프롬프트를 바꾸지 않고 위에 얹히므로, 그대로 쓰면 고른 질문과 v3 질문이 섞일 수 있다.
+그래서 같은 모델·음성 설정에 범용 프롬프트(`voice/prompts/service_agent_prompt.txt`)를 넣은 서비스 에이전트를 따로 만든다.
+시험 에이전트는 측정 조건을 지키려고 그대로 둔다.
+
+```
+python voice/engines/setup_service_agent.py create   # 만들고 ID를 voice/.env에 저장
+python voice/engines/setup_service_agent.py show     # 설정 확인
+python voice/engines/setup_service_agent.py update   # 프롬프트를 바꾼 뒤
+```
 
 ## 혼자 시험하기
 

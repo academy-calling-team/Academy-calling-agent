@@ -5,7 +5,7 @@
 
 실제 발신은 세 가지가 모두 맞을 때만 한다. 하나라도 아니면 지금 목업 워커처럼 422로 거절한다.
 1. REAL_CALLS_ENABLED=1
-2. CLAWOPS_API_KEY, CLAWOPS_ACCOUNT_ID, CLAWOPS_AGENT_ID, CLAWOPS_FROM_NUMBER 설정됨
+2. CLAWOPS_API_KEY, CLAWOPS_ACCOUNT_ID, CLAWOPS_SERVICE_AGENT_ID, CLAWOPS_FROM_NUMBER 설정됨
 3. 받는 번호가 REAL_CALL_ALLOWED_TO(쉼표 구분) 목록에 있음
 
 실행: python voice/call_worker/worker.py  (voice/.env 사용, README.md 참고)
@@ -100,7 +100,8 @@ def load_real(store_path: Path, sender: Sender) -> tuple[RealCalls | None, Provi
     if os.getenv("REAL_CALLS_ENABLED") != "1":
         log.info("real calls disabled (REAL_CALLS_ENABLED != 1): mock requests only")
         return None, None, frozenset()
-    names = ("CLAWOPS_API_KEY", "CLAWOPS_ACCOUNT_ID", "CLAWOPS_AGENT_ID", "CLAWOPS_FROM_NUMBER")
+    # 에이전트는 시험용(CLAWOPS_AGENT_ID, 프롬프트 v3)이 아니라 범용 프롬프트의 서비스 에이전트를 쓴다
+    names = ("CLAWOPS_API_KEY", "CLAWOPS_ACCOUNT_ID", "CLAWOPS_SERVICE_AGENT_ID", "CLAWOPS_FROM_NUMBER")
     missing = [n for n in names if not os.getenv(n)]
     allowed = frozenset(normalize(n) for n in os.getenv("REAL_CALL_ALLOWED_TO", "").split(",") if normalize(n))
     if missing or not allowed:

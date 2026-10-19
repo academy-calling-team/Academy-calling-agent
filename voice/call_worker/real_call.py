@@ -41,20 +41,34 @@ class ProviderCalls:
         return row[0] if row else None
 
 
+# 백엔드 코드(docs/api/README.md) → AI가 그대로 읽을 수 있는 말
+SCHOOL = {"E": "초등학교", "M": "중학교", "H": "고등학교"}
+SUBJECT = {"KOR": "국어", "ENG": "영어", "MATH": "수학", "SCI": "과학", "SOC": "사회"}
+LEVEL = {"HIGH": "상위권", "MID": "중간", "LOW": "기초"}
+
+
+def describe_student(s: dict) -> str:
+    grade = s["grade"]
+    school = SCHOOL.get(grade[:1])
+    grade_text = f"{school} {grade[1:]}학년" if school and grade[1:].isdigit() else grade
+    return (f"{grade_text}, 과목 {SUBJECT.get(s['subject'], s['subject'])}, "
+            f"수준 {LEVEL.get(s['level'], s['level'])}, {s['region']} 거주")
+
+
 def build_instruction(request: dict) -> tuple[str, dict]:
-    """이번 통화에만 적용할 지시와 변수. 에이전트 기본 프롬프트(v3)의 말투·고지 규칙은 그대로 쓴다."""
+    """이번 통화에만 적용할 지시와 변수. 서비스 에이전트의 범용 프롬프트가 말투·고지·확인 규칙을 맡는다."""
     s = request["student"]
     asks = [QUESTIONS[q["question_code"]][0] for q in request["questions"]] + [CONSULT[0]]
     lines = "\n".join(f"{i}. {text}" for i, text in enumerate(asks, 1))
     instruction = (
         f"{request['academy_name']}에 학부모를 대신해 문의하는 통화다.\n"
-        f"첫인사에서 다음을 알린다: {request['disclosure_text']}\n"
-        f"학생: {s['region']} 거주, 학년 {s['grade']}, 과목 {s['subject']}, 수준 {s['level']}.\n"
+        f"첫인사의 고지 문구: {request['disclosure_text']}\n"
+        f"학생: {describe_student(s)}.\n"
         f"아래 순서로 한 번에 하나씩 묻고, 답을 들은 뒤 다음으로 넘어간다. 목록에 없는 것은 묻지 않는다.\n{lines}\n"
         f"답이 불분명하면 최대 {request['policy']['max_reask']}번만 다시 묻는다. "
         f"모두 들으면 짧게 요약해 확인받고 인사한 뒤 끊는다."
     )
-    variables = {"academy_name": request["academy_name"], "student": s,
+    variables = {"academy_name": request["academy_name"], "student": describe_student(s),
                  "questions": [q["question_code"] for q in request["questions"]]}
     return instruction, variables
 

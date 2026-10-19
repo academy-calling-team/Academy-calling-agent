@@ -271,4 +271,7 @@ def test_judge_rules(code, reply, expected):
 def test_instruction_lists_only_requested_questions():
     instruction, variables = build_instruction(real_request())
     assert "픽업" in instruction and "레벨 테스트" not in instruction
+    # 백엔드 코드(M2, MATH, MID)가 아니라 AI가 읽을 수 있는 말로 넘긴다
+    assert "중학교 2학년, 과목 수학, 수준 중간, 대구 북구 침산동 거주" in instruction
+    assert "M2" not in instruction and "MATH" not in instruction
     assert variables["questions"] == ["shuttle", "vacancy", "pickup"]
