@@ -18,7 +18,7 @@ from samples import SAMPLE_REQUEST  # noqa: E402
 from sender import Sender  # noqa: E402
 
 from clawops import ClawOps, ClawOpsConfig  # noqa: E402
-from extract import find_reply, judge, to_turns  # noqa: E402
+from extract import build_answers, find_reply, judge, to_turns  # noqa: E402
 from real_call import ProviderCalls, RealCalls, build_instruction, build_result  # noqa: E402
 from worker import create_app, resume_pending  # noqa: E402
 
@@ -59,6 +59,35 @@ REAL_1019 = [
     {"speaker": "speaker_1", "start": 58.96, "text": "화요일과 목요일 저녁 7시가 맞을까요? 그리고 이번 주에 학부모 상담이 가능한지, 가능하 다면 요일과 시간도 알려주실 수 있을까요?"},
     {"speaker": "speaker_0", "start": 69.46, "text": "수요일 3시에 오세요."},
     {"speaker": "speaker_1", "start": 72.52, "text": "네, 수요일 오후 3시에 가능하신 거죠? 그럼 정리해서 말씀드리겠습니다. 통학차량은 침산 동 쪽으로 수업 시간 전후 10분 정도 운행하고요. 수 업 후 픽업은 하지 않습니다. 수업은 화요일과 목요일 저녁 7시이며, 학부모 상담은 이번 주 수요일 오후 3시에 가능합니다. 맞으시면 이대로 학부모님께 전해드리겠습니다. 확인해 주셔서 감사합니다. 좋은 하루 보내세요."},
+]
+
+
+# 10/19 공동 시험의 다른 한 통 전사(ClawOps 화면 그대로). 학원이 픽업을 "합니다"라고 했다가 되짚기에 "아니요, 안 해요"로
+# 고쳤고, AI가 "수업 요일과..."를 말하다 끊기고 픽업을 다시 되짚어 "네, 맞습니다"가 수업 시간 질문 바로 뒤에 왔다.
+# 첫인사도 "상담 가능하신가요?"로 끝나 상담 질문처럼 보인다
+REAL_1019_RECONFIRM = [
+    {"speaker": "speaker_0", "start": 1, "text": "네, 여보세요."},
+    {"speaker": "speaker_1", "start": 3, "text": "안녕하세요. 학부모님을 대신해 문의드리는 AI 상담원입니다. 개발용 예시로 AI가 진행하는 녹음 통화입니다. 상담 가능하신가요?"},
+    {"speaker": "speaker_0", "start": 14, "text": "네, 가능합니다."},
+    {"speaker": "speaker_1", "start": 16, "text": "네, 통학 차량이 있는지 궁금합니다. 있다면 운행 지역과 시간도 알려주실 수 있을까요?"},
+    {"speaker": "speaker_0", "start": 25, "text": "네, 침산동 쪽으로 다니고 수업 전후로 20분 있습니다."},
+    {"speaker": "speaker_1", "start": 30, "text": "네, 침산동 쪽으로 다니고 수업 전후 20분 운행이 있다는 말씀이시죠?"},
+    {"speaker": "speaker_0", "start": 36, "text": "네, 맞습니다."},
+    {"speaker": "speaker_1", "start": 36, "text": "그럼 수업 후 픽업도..."},
+    {"speaker": "speaker_1", "start": 39, "text": "네, 그럼 수업 후 픽업도 해주시는지요?"},
+    {"speaker": "speaker_0", "start": 43, "text": "네, 픽업합니다."},
+    {"speaker": "speaker_1", "start": 46, "text": "네, 수업 후에 픽업도 해주신다는 거죠?"},
+    {"speaker": "speaker_0", "start": 49, "text": "아니요, 픽업은 안 해요."},
+    {"speaker": "speaker_1", "start": 50, "text": "수업 요일과..."},
+    {"speaker": "speaker_1", "start": 53, "text": "아, 픽업은 안 하신다는 말씀이시죠?"},
+    {"speaker": "speaker_0", "start": 56, "text": "네, 맞습니다."},
+    {"speaker": "speaker_1", "start": 56, "text": "그럼 수업 요일과 시간은 어떻게 되나요?"},
+    {"speaker": "speaker_0", "start": 61, "text": "화, 목 저녁 7시요."},
+    {"speaker": "speaker_1", "start": 64, "text": "화요일과 목요일 저녁 7시 맞으실까요?"},
+    {"speaker": "speaker_0", "start": 68, "text": "네, 맞습니다."},
+    {"speaker": "speaker_1", "start": 70, "text": "네, 이번 주에 학부모 상담이 가능하신지요? 가능하다면 요일과 시간도 알려주실 수 있을까요?"},
+    {"speaker": "speaker_0", "start": 78, "text": "수요일 3시에 오세요."},
+    {"speaker": "speaker_1", "start": 81, "text": "네, 수요일 오후 3시에 오면 된다는 거죠? 정리해보면 통학 차량은 침산동 쪽으로 수업 전후 20분 운행이 있고, 수업 후 픽업은 하지 않으시며, 수업은 화요일과 목요일 저녁 7시입니다. 그리고 이번 주 학부모 상담은 수요일 오후 3시에 가능합니다. 맞으시면 이대로 학부모님께 전해드리겠습니다. 확인해 주셔서 감사합니다. 좋은 하루 보내세요."},
 ]
 
 
@@ -305,6 +334,36 @@ def test_real_call_1019_transcript_gives_expected_answers():
     assert result["unresolved"] == []
     assert result["consult_accepted"] is True and result["available_times"] == ["수요일 3시에 오세요."]
     assert result["disclosure_played"] is True
+
+
+def test_real_call_1019_corrected_in_reconfirm_and_interrupted_question():
+    """되짚기에서 고쳐 말한 대답(픽업)과 끊긴 질문 뒤 앞 질문 되짚기(수업 시간), 첫인사의 '상담'을 맞게 처리한다."""
+    request = real_request(questions=[
+        {"question_id": "q1", "question_code": "shuttle"},
+        {"question_id": "q2", "question_code": "pickup"},
+        {"question_id": "q3", "question_code": "class_time"},
+    ])
+    result = build_result("c_1019b", request, {"status": "completed", "duration": 100}, None, REAL_1019_RECONFIRM)
+    check_schema(result)
+    got = {a["question_code"]: (a["answered"], a["yes_no"], a["detail"]) for a in result["answers"]}
+    assert got["shuttle"] == (True, True, "네, 침산동 쪽으로 다니고 수업 전후로 20분 있습니다.")
+    assert got["pickup"] == (True, False, "아니요, 픽업은 안 해요.")
+    assert got["class_time"] == (True, None, "화, 목 저녁 7시요.")
+    assert result["unresolved"] == []
+    assert result["consult_accepted"] is True and result["available_times"] == ["수요일 3시에 오세요."]
+
+
+def test_correction_without_content_becomes_unknown():
+    turns = to_turns([
+        {"speaker": "A", "start": 0, "text": "AI 상담원입니다. 녹음됩니다."},
+        {"speaker": "H", "start": 1, "text": "네"},
+        {"speaker": "A", "start": 2, "text": "수업 후 픽업도 해 주시나요?"},
+        {"speaker": "H", "start": 3, "text": "네, 해요."},
+        {"speaker": "A", "start": 4, "text": "픽업해 주신다는 거죠?"},
+        {"speaker": "H", "start": 5, "text": "아니요."},
+    ])
+    [answer] = build_answers([{"question_id": "q1", "question_code": "pickup"}], turns)
+    assert (answer["answered"], answer["reason"]) == (False, "unknown")
 
 
 def test_consult_not_asked_when_only_greeting_mentions_it():

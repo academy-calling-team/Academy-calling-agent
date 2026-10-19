@@ -224,7 +224,7 @@ def build_result(call_id: str, request: dict, call: dict, summary: dict | None, 
     turns = to_turns(segments) if connected else []
     if connected and turns:
         answers = build_answers(request["questions"], turns)
-        consult, times = consult_result(turns)
+        consult, times = consult_result(turns, request["questions"])
         disclosure = disclosure_played(turns)
     else:
         reason, detail = ("unknown", "전사를 받지 못해 확인하지 못함") if connected else ("not_asked", NOT_CONNECTED_DETAIL)
