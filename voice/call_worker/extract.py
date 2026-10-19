@@ -61,22 +61,35 @@ def to_turns(segments: list[dict]) -> list[Turn]:
 NOT_QUESTION = ("상담원",)
 
 
-def find_reply(turns: list[Turn], keywords: tuple[str, ...]) -> tuple[bool, str]:
-    """(AI가 물었는지, 학원 대답). AI가 키워드로 처음 물은 뒤부터 다음 AI 발화 전까지 학원이 한 말을 잇는다."""
-    for i, turn in enumerate(turns):
-        text = turn.text
+def locate(turns: list[Turn], keywords: tuple[str, ...], start: int = 0) -> int | None:
+    """start번째 발화부터 보아, AI가 키워드로 질문한 첫 발화의 위치."""
+    for i in range(start, len(turns)):
+        if turns[i].speaker != "agent":
+            continue
+        text = turns[i].text
         for word in NOT_QUESTION:
             text = text.replace(word, "")
-        if turn.speaker == "agent" and any(k in text for k in keywords):
-            reply = []
-            for later in turns[i + 1:]:
-                if later.speaker == "agent":
-                    if reply:
-                        break
-                    continue  # AI가 질문을 두 발화로 나눠 말한 경우
-                reply.append(later.text)
-            return True, " ".join(reply)
-    return False, ""
+        if any(k in text for k in keywords):
+            return i
+    return None
+
+
+def reply_after(turns: list[Turn], i: int) -> str:
+    """i번째 AI 질문 뒤부터 다음 AI 발화 전까지 학원이 한 말."""
+    reply = []
+    for later in turns[i + 1:]:
+        if later.speaker == "agent":
+            if reply:
+                break
+            continue  # AI가 질문을 두 발화로 나눠 말한 경우
+        reply.append(later.text)
+    return " ".join(reply)
+
+
+def find_reply(turns: list[Turn], keywords: tuple[str, ...], start: int = 0) -> tuple[bool, str]:
+    """(AI가 물었는지, 학원 대답). AI가 키워드로 처음 물은 뒤부터 다음 AI 발화 전까지 학원이 한 말을 잇는다."""
+    i = locate(turns, keywords, start)
+    return (False, "") if i is None else (True, reply_after(turns, i))
 
 
 def disclosure_played(turns: list[Turn]) -> bool:
@@ -90,7 +103,8 @@ VISIT = ("방문하", "오셔서", "직접 오")  # 상담 질문에서는 '오�
 UNKNOWN = ("확인해", "확인하고", "확인 후", "여쭤", "원장님께", "원장님한테", "모르", "알아보", "담당", "나중에 연락")
 HEDGE = ("아마", "보통", "상황", "그때그때", "경우에 따라", "될 수도", "있을 수도", "글쎄")
 POSITIVE_IDIOMS = ("상관없", "문제없", "걱정 없", "대기 없")  # '없'이 들어가도 긍정인 말. 부정어 검사 전에 지운다
-NEGATIVE = ("없", "안 해", "안해", "안 돼", "안돼", "않", "아니", "어려", "못 ", "못해", "불가", "마감", "다 찼", "꽉 차")
+# "안 해요/안 합니다/안 하고요/안 돼요/안 됩니다"처럼 어미가 바뀌어도 잡는다 (10/19 실통화의 "픽업은 안 합니다")
+NEGATIVE = re.compile(r"없|안\s?(해|합|하|돼|됩|되)|않|아니|어려|못\s?해|못\s|불가|마감|다\s?찼|꽉\s?차")
 POSITIVE = ("네", "예", "있", "해요", "해 드", "돼요", "됩니다", "가능", "운행", "다녀요", "남아", "남았", "맞아요", "그럼요", "물론")
 TIME = re.compile(r"[월화수목금토일](요일)?|\d+\s*시|\d+:\d+|오전|오후|저녁|아침|점심|방과\s*후|주말|평일")
 
@@ -120,7 +134,7 @@ def judge(question_code: str, reply: str) -> tuple[bool, bool | None, str | None
         return (True, None, None) if TIME.search(text) else (False, None, "unknown")
     for idiom in POSITIVE_IDIOMS:
         text = text.replace(idiom, "")
-    if has(NEGATIVE) or (question_code == "vacancy" and "대기" in text):
+    if NEGATIVE.search(text) or (question_code == "vacancy" and "대기" in text):
         return True, False, None
     if has(POSITIVE) or (question_code == "consult" and TIME.search(text)):
         return True, True, None
@@ -128,15 +142,25 @@ def judge(question_code: str, reply: str) -> tuple[bool, bool | None, str | None
 
 
 def build_answers(questions: list[dict], turns: list[Turn]) -> list[dict]:
-    """요청한 질문마다 답변 행을 하나씩 만든다. 못 물었거나 못 받은 항목도 빼지 않는다."""
+    """요청한 질문마다 답변 행을 하나씩 만든다. 못 물었거나 못 받은 항목도 빼지 않는다.
+
+    AI는 지시한 순서대로 묻는다. 그래서 각 질문은 앞 질문을 찾은 발화 다음부터 찾는다.
+    처음부터 찾으면 앞 질문의 단어에 걸린다(10/19 실통화: 통학 차량 질문의 "운행 지역과 시간이"가
+    수업 시간 질문으로 잡혀 통학 차량 대답을 수업 시간 대답으로 집었다). 순서대로 못 찾으면 처음부터 다시 찾는다.
+    """
     answers = []
+    start = 0
     for q in questions:
         _, keywords = QUESTIONS[q["question_code"]]
-        asked, reply = find_reply(turns, keywords)
-        if not asked:
+        i = locate(turns, keywords, start)
+        if i is None:
+            i = locate(turns, keywords)
+        if i is None:
             answers.append({**q, "asked": False, "answered": False, "yes_no": None,
                             "reason": "not_asked", "detail": "통화에서 이 질문을 확인하지 못함"})
             continue
+        start = max(start, i + 1)
+        reply = reply_after(turns, i)
         answered, yes_no, reason = judge(q["question_code"], reply)
         if q["question_code"] == "class_time" and answered:
             yes_no = None
