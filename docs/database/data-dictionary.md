@@ -1,4 +1,4 @@
-# 6주차 백엔드 · 로컬 검증용
+# 백엔드 데이터 사전
 
 자동 생성 기준: 실제 SQLAlchemy metadata.
 
@@ -44,7 +44,7 @@
 | enabled | BOOLEAN | 예 |   | True |
 | max_concurrent | INTEGER | 예 |   | 1 |
 | cooldown_seconds | INTEGER | 예 |   | 300 |
-| closed_dates | JSON | 예 |   | <function list at 0x000001EFBE3A04A0> |
+| closed_dates | JSON | 예 |   | list() |
 
 ## w5_inquiries
 
@@ -62,8 +62,8 @@
 | next_at | DATETIME | 예 |   |  |
 | failure_reason | VARCHAR(80) | 아니오 |   |  |
 | fallback_required | BOOLEAN | 예 |   | False |
-- w5_uq_request: inquirer_id, request_key
 - w5_ck_status: status IN ('queued','calling','retry_wait','completed','failed')
+- w5_uq_request: inquirer_id, request_key
 
 ## w6_accounts
 
@@ -93,8 +93,8 @@
 | deadline | DATETIME | 예 |   |  |
 | dispatch_payload | JSON | 예 |   |  |
 | delivery_count | INTEGER | 예 |   | 0 |
-- w5_uq_attempt: inquiry_id, attempt_no
 - w5_ck_attempt: attempt_no > 0
+- w5_uq_attempt: inquiry_id, attempt_no
 
 ## w5_questions
 

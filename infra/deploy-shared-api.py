@@ -156,6 +156,8 @@ print('Schema compatibility: OK')
         updated=installed.with_suffix('.next')
         shutil.copy2(release/'infra/deploy-shared-api.py',updated)
         updated.chmod(0o700); updated.replace(installed)
+        helper=BASE/'deploy/real-call-test.py'
+        shutil.copy2(release/'infra/real-call-test.py',helper);helper.chmod(0o700)
         # Keep one stopped generation for rollback; its network namespace is preserved.
         for name in NAMES:
             output=subprocess.check_output(['docker','ps','-a','--filter',f'name=^{name}-previous-','--format','{{.Names}}'],text=True)

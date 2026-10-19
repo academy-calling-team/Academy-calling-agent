@@ -4,6 +4,7 @@ import uvicorn
 from api import create_app
 from local_runtime import local_engine
 from service import Service
+from real_test import RealTestPolicy
 from settings import internal_key, redis_url, cors_origins, require_mock_mode
 
 def build():
@@ -12,7 +13,7 @@ def build():
     origins = cors_origins()
     queue_url = redis_url()
     engine = local_engine()
-    service = Service(engine, allow_legacy_tokens=False)
+    service = Service(engine, allow_legacy_tokens=False, real_test=RealTestPolicy.from_env())
     client = redis.Redis.from_url(queue_url, socket_connect_timeout=2, socket_timeout=3)
     app = create_app(engine, key, service, with_auth=True, queue_client=client, origins=origins)
     @app.on_event('shutdown')

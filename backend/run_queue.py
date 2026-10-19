@@ -1,4 +1,4 @@
-"""Explicit local mock runner. Never calls a telephone provider."""
+"""Queue runner: mock by default; configured HTTP worker handles authorized real tests."""
 import argparse
 import json
 import time
@@ -6,6 +6,7 @@ import redis
 from redis.exceptions import RedisError
 from local_runtime import local_engine
 from service import Service
+from real_test import RealTestPolicy
 from redis_queue import RedisQueue
 from worker import MockWorker,make_result
 from contracts import ResultInput
@@ -16,24 +17,25 @@ def parse_args(argv=None):
     parser=argparse.ArgumentParser()
     parser.add_argument('--once',action='store_true')
     parser.add_argument('--simulate-results',action='store_true',help='Store explicitly synthetic answers, not measured voice results')
-    parser.add_argument('--worker-url',help='Mock voice worker URL; local HTTP or remote HTTPS')
+    parser.add_argument('--worker-url',help='Voice worker URL; local HTTP or remote HTTPS')
     args=parser.parse_args(argv)
     if args.worker_url and args.simulate_results:
         parser.error('--worker-url cannot be combined with --simulate-results')
     return args
 
-def build_worker(args,engine):
-    if args.worker_url:return WorkerHttpAdapter(args.worker_url,internal_key())
+def build_worker(args,engine,service=None):
+    if args.worker_url:return WorkerHttpAdapter(args.worker_url,internal_key(),
+        authorize_real=service.authorize_real_dispatch if service else None)
     return MockWorker(engine,'local-mock-runner-placeholder')
 
 def main():
     args=parse_args()
     require_mock_mode()
-    engine=local_engine(); service=Service(engine,allow_legacy_tokens=False)
+    engine=local_engine(); service=Service(engine,allow_legacy_tokens=False,real_test=RealTestPolicy.from_env())
     client=redis.Redis.from_url(redis_url(),decode_responses=True,
         socket_connect_timeout=2,socket_timeout=3)
     # Uses the existing mock contract with an in-process placeholder; no external credential needed.
-    worker=build_worker(args,engine)
+    worker=build_worker(args,engine,service)
     queue=RedisQueue(service,client)
     try:
         while True:

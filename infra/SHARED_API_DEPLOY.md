@@ -23,6 +23,8 @@
 
 ## 운영 확인
 
+2026-10-19 변경: Actions는 일회용 MySQL·Redis로 백엔드 전체 테스트를 실행한다. 실통화 시험 설정은 [시험 절차](../docs/collaboration/실통화_시험.md)에 따라 별도로 입력·활성화한다. 배포만으로 발신을 활성화하지 않는다.
+
 1. Actions의 검사와 deploy job이 모두 성공했는지 확인한다.
 2. `/version`의 커밋과 main 커밋을 비교한다.
 3. `/docs`의 회원가입에 terms_agreed가 필수로 표시되는지 확인한다.
