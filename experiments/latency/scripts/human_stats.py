@@ -1,6 +1,7 @@
 """사람이 직접 잰 응답 지연(data/human_result/human_1013.csv)으로 논문과 비교 문서의 통계를 다시 계산한다.
 
-- 포함 기준: latency 열이 1인 행만 쓴다. H 통화, 응답이 아닌 간격(note에 이유)은 0이다.
+- 포함 기준: latency 열이 1인 행만 쓴다. H 통화, 응답이 아니거나 경계가 애매해 뺀 간격(note에 이유)은 0이다.
+- 민감도: H 통화가 아닌데 latency 0으로 뺀 Vapi 간격을 다시 넣은 중앙값도 출력한다(논문 5.1).
 - p90, p95, 최대: nearest-rank(정렬한 값의 ceil(p/100*n)번째).
 - 대본 A~E 분위수 차이: numpy 기본(선형 보간) 분위수의 차이.
 - 부트스트랩: 플랫폼마다 응답을 복원 추출해 중앙값 차이를 20,000번 계산, 2.5와 97.5 백분위(시드 0).
@@ -28,10 +29,12 @@ AE = {'A', 'B', 'C', 'D', 'E'}
 ENGINES = [('co', 'ClawOps'), ('va', 'Vapi')]
 
 
-def load(path):
+def load(path, excluded=False):
     rows = []
     for r in csv.DictReader(open(path, encoding='utf-8')):
-        if r['latency'] != '1' or not r['gap_manual']:
+        if not r['gap_manual'] or (r['latency'] != '1') != excluded:
+            continue
+        if excluded and r['name'].endswith('_H'):
             continue
         _, engine, script = r['name'].split('_')
         rows.append({'engine': engine, 'script': script, 'no': r['no'], 'gap': float(r['gap_manual'])})
@@ -98,6 +101,11 @@ def main():
     lo, hi = boot_call_median_diff(list(calls['co'].values()), list(calls['va'].values()), np.random.default_rng(0))
     print(f"통화 단위: 통화 중앙값 Mann-Whitney p={mannwhitneyu(med['co'], med['va']).pvalue:.3f}, "
           f"통화 재추출 부트스트랩 95% 구간 {lo:.2f}~{hi:.2f}")
+
+    out = [r for r in load(CSV, excluded=True) if r['engine'] == 'va']
+    d2 = [r['gap'] for r in out if r['script'] == 'D2']
+    print(f"민감도: 뺀 Vapi 간격 {len(out)}개를 모두 넣으면 Vapi 중앙값 {np.median(va + [r['gap'] for r in out]):.2f}, "
+          f"D2 {len(d2)}개만 넣으면 {np.median(va + d2):.2f}")
 
     write_svg(rows, by)
     print(f'그림: {SVG}')
