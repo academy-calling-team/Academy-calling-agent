@@ -28,6 +28,7 @@ jobs:
         run: |
           PYTHONPATH=backend python -m pytest -q backend/tests/test_portable_smoke.py
           PYTHONPATH=voice/mock_worker python -m pytest -q voice/mock_worker/test_app.py
+          python -m pytest -q voice/call_worker/test_worker.py
           python -m py_compile infra/deploy-shared-api.py
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
