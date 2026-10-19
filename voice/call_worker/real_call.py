@@ -3,6 +3,7 @@
 웹훅 대신 상태를 몇 초마다 조회한다. 그래서 공동 서버에 외부 공개 경로를 새로 열 필요가 없다.
 같은 call_id로 전화를 두 번 걸지 않도록, 발신 직후 ClawOps 통화 ID를 접수 기록 옆에 저장한다.
 """
+import json
 import logging
 import sqlite3
 import time
@@ -22,13 +23,33 @@ NOT_CONNECTED_DETAIL = "연결되지 않아 확인하지 못함"
 
 
 class ProviderCalls:
-    """call_id ↔ ClawOps 통화 ID. 접수 기록과 같은 SQLite 파일의 별도 표."""
+    """call_id ↔ ClawOps 통화 ID, 그리고 보낸 진행 이벤트. 접수 기록과 같은 SQLite 파일의 별도 표.
+
+    이벤트 본문을 보내기 전에 저장해 두고, 다시 보낼 때는 저장한 본문을 그대로 보낸다.
+    같은 event_id에 다른 본문(예: occurred_at만 다름)을 보내면 백엔드가 409로 거절하기 때문이다.
+    """
 
     def __init__(self, path):
         self.path = path
         with closing(sqlite3.connect(path, timeout=5)) as db, db:
             db.execute("CREATE TABLE IF NOT EXISTS provider_calls (call_id TEXT PRIMARY KEY,"
                        " provider_call_id TEXT NOT NULL, created_at TEXT NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS call_events (call_id TEXT NOT NULL, event_type TEXT NOT NULL,"
+                       " body TEXT NOT NULL, PRIMARY KEY (call_id, event_type))")
+
+    def event_body(self, call_id: str, event_type: str, make) -> dict:
+        """저장된 본문이 있으면 그것을, 없으면 make()로 만들어 저장한 뒤 돌려준다."""
+        with closing(sqlite3.connect(self.path, timeout=5)) as db, db:
+            db.execute("INSERT OR IGNORE INTO call_events VALUES (?, ?, ?)",
+                       (call_id, event_type, json.dumps(make(), ensure_ascii=False)))
+            (body,) = db.execute("SELECT body FROM call_events WHERE call_id = ? AND event_type = ?",
+                                 (call_id, event_type)).fetchone()
+        return json.loads(body)
+
+    def event_types(self, call_id: str) -> list[str]:
+        with closing(sqlite3.connect(self.path, timeout=5)) as db:
+            rows = db.execute("SELECT event_type FROM call_events WHERE call_id = ? ORDER BY rowid", (call_id,)).fetchall()
+        return [t for (t,) in rows]
 
     def save(self, call_id: str, provider_call_id: str) -> None:
         with closing(sqlite3.connect(self.path, timeout=5)) as db, db:
@@ -68,8 +89,9 @@ def build_instruction(request: dict) -> tuple[str, dict]:
         f"답이 불분명하면 최대 {request['policy']['max_reask']}번만 다시 묻는다. "
         f"모두 들으면 짧게 요약해 확인받고 인사한 뒤 끊는다."
     )
+    # ClawOps Variables의 값은 문자열·숫자·참거짓만 된다(배열·객체는 400). 백엔드의 질문 배열은 그대로 두고 여기서만 바꾼다
     variables = {"academy_name": request["academy_name"], "student": describe_student(s),
-                 "questions": [q["question_code"] for q in request["questions"]]}
+                 "questions": ", ".join(q["question_code"] for q in request["questions"])}
     return instruction, variables
 
 
@@ -111,7 +133,12 @@ class RealCalls:
             store.mark_rejected(call_id, "ClawOps 통화 ID가 없음, 사람이 확인")
             return False
         deadline = time.monotonic() + request["policy"]["max_seconds"] + 120
+        # 재시작해서 이어 받는 경우: 전에 만든 이벤트는 같은 본문으로 다시 보내 둔다(백엔드는 중복으로 처리)
         sent: list[str] = []
+        for kind in self.provider_calls.event_types(call_id):
+            if not self._event(store, call_id, kind):
+                return False
+            sent.append(kind)
         call = {}
         while time.monotonic() < deadline:
             call = self.clawops.get_call(provider_id)
@@ -120,7 +147,7 @@ class RealCalls:
             if status == "in-progress" and call.get("answeredBy") == "machine":
                 event = "machine"
             if event and event not in sent:
-                if not self._event(store, call_id, len(sent) + 1, event):
+                if not self._event(store, call_id, event):
                     return False
                 sent.append(event)
             if status in FINAL:
@@ -135,9 +162,11 @@ class RealCalls:
             segments, summary = self._transcript(provider_id)
         return self._finish(store, call_id, request, call, summary, segments)
 
-    def _event(self, store, call_id: str, number: int, kind: str) -> bool:
-        body = {"event_id": f"evt_{call_id}_{number}", "type": kind,
-                "occurred_at": datetime.now(timezone.utc).isoformat()}
+    def _event(self, store, call_id: str, kind: str) -> bool:
+        """event_id는 순서 번호가 아니라 이벤트 종류로 정한다. 재시작해도 같은 종류는 같은 ID·같은 본문이다."""
+        body = self.provider_calls.event_body(call_id, kind, lambda: {
+            "event_id": f"evt_{call_id}_{kind}", "type": kind,
+            "occurred_at": datetime.now(timezone.utc).isoformat()})
         outcome, detail = self.post(f"/internal/calls/{call_id}/events", body)
         if outcome == "rejected":
             store.mark_rejected(call_id, f"events {detail}")
