@@ -56,7 +56,11 @@ class FakeClawOps:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
         if method == "POST" and path.endswith("/calls"):
-            self.created.append(json.loads(request.content))
+            body = json.loads(request.content)
+            # 실제 명세처럼 Variables 값은 문자열·숫자·참거짓만 받는다
+            if any(not isinstance(v, (str, int, float, bool)) for v in body["CallContext"].get("Variables", {}).values()):
+                return httpx.Response(400, json={"code": "validation_error", "error": "Variables values must be scalar"})
+            self.created.append(body)
             return httpx.Response(201, json={"callId": "CA_test_1", "status": "queued"})
         if method == "POST" and path.endswith("/transcript"):
             self.transcript_requests += 1
@@ -75,11 +79,20 @@ class FakeClawOps:
 
 
 class FakeBackend:
+    """실제 백엔드처럼 같은 event_id에 같은 본문은 중복(200), 다른 본문은 409로 거절한다."""
+
     def __init__(self):
         self.requests = []
+        self.event_bodies = {}
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
-        self.requests.append((request.url.path, json.loads(request.content)))
+        body = json.loads(request.content)
+        self.requests.append((request.url.path, body))
+        if request.url.path.endswith("/events"):
+            seen = self.event_bodies.setdefault(body["event_id"], body)
+            if seen != body:
+                return httpx.Response(409, json={"detail": "event_id reused with different body"})
+            return httpx.Response(200, json={"duplicate": seen is not body, "applied": True})
         return httpx.Response(200, json={"duplicate": False, "applied": True})
 
     def events(self):
@@ -216,6 +229,22 @@ def test_restart_without_provider_id_does_not_redial(parts):
     assert "c_lost" in store.rejected()
 
 
+def test_restart_resends_same_event_bodies_without_409(parts):
+    """재시작 전에 initiated·ringing을 보냈던 통화: 같은 ID·같은 본문으로 다시 보내고 이어서 끝까지 간다."""
+    clawops = FakeClawOps(["in-progress", "completed"])
+    _, backend, store, real, provider_calls = parts(clawops)
+    store.accept("c_resume", real_request(call_id="c_resume"), "real")
+    provider_calls.save("c_resume", "CA_test_1")
+    for kind in ("initiated", "ringing"):  # 재시작 전 워커가 보낸 이벤트
+        assert real._event(store, "c_resume", kind)
+    resume_pending(store, Sender("http://backend.test", KEY, delay_sec=0), real, provider_calls)
+    assert "c_resume" not in store.rejected()
+    assert backend.events() == ["initiated", "ringing", "initiated", "ringing", "answered", "completed"]
+    assert len(backend.event_bodies) == 4  # 다시 보낸 두 건은 같은 본문이라 중복 처리
+    assert backend.result()["outcome"] == "answered"
+    assert clawops.created == []
+
+
 def test_restart_with_provider_id_follows_existing_call(parts):
     clawops = FakeClawOps(["in-progress", "completed"])
     _, backend, store, real, provider_calls = parts(clawops)
@@ -274,4 +303,6 @@ def test_instruction_lists_only_requested_questions():
     # 백엔드 코드(M2, MATH, MID)가 아니라 AI가 읽을 수 있는 말로 넘긴다
     assert "중학교 2학년, 과목 수학, 수준 중간, 대구 북구 침산동 거주" in instruction
     assert "M2" not in instruction and "MATH" not in instruction
-    assert variables["questions"] == ["shuttle", "vacancy", "pickup"]
+    # ClawOps Variables 값은 문자열·숫자·참거짓만 된다
+    assert variables["questions"] == "shuttle, vacancy, pickup"
+    assert all(isinstance(v, (str, int, float, bool)) for v in variables.values())
