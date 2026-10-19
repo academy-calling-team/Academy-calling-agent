@@ -56,10 +56,18 @@ def to_turns(segments: list[dict]) -> list[Turn]:
     return turns
 
 
+# AI가 질문이 아닌데도 늘 하는 말. 키워드를 찾기 전에 지운다
+# (첫인사 "AI 상담원입니다"의 '상담'이 상담 질문으로 잡혀 "네 말씀하세요"를 상담 대답으로 집던 문제, 10/19 박찬원 재현)
+NOT_QUESTION = ("상담원",)
+
+
 def find_reply(turns: list[Turn], keywords: tuple[str, ...]) -> tuple[bool, str]:
     """(AI가 물었는지, 학원 대답). AI가 키워드로 처음 물은 뒤부터 다음 AI 발화 전까지 학원이 한 말을 잇는다."""
     for i, turn in enumerate(turns):
-        if turn.speaker == "agent" and any(k in turn.text for k in keywords):
+        text = turn.text
+        for word in NOT_QUESTION:
+            text = text.replace(word, "")
+        if turn.speaker == "agent" and any(k in text for k in keywords):
             reply = []
             for later in turns[i + 1:]:
                 if later.speaker == "agent":

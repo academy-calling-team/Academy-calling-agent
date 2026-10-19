@@ -186,6 +186,9 @@ def test_answered_call_sends_events_then_result(parts):
     assert by_code["vacancy"]["asked"] and by_code["vacancy"]["detail"] == "두 자리 남았어요"
     assert by_code["pickup"] == {"question_id": "q3", "question_code": "pickup", "asked": False, "answered": False,
                                  "yes_no": None, "reason": "not_asked", "detail": "통화에서 이 질문을 확인하지 못함"}
+    # 상담은 첫인사의 'AI 상담원'이 아니라 실제 상담 질문 뒤의 대답에서 뽑는다
+    assert result["consult_accepted"] is True
+    assert result["available_times"] == ["수요일 오후 3시에 돼요"]
     assert store.pending() == []
 
 
@@ -262,6 +265,13 @@ def test_agent_found_by_disclosure_and_first_question_used():
     assert turns[0].speaker == "academy" and turns[1].speaker == "agent"
     # 마지막 요약에도 '자리'가 나오지만 처음 물은 곳의 대답을 쓴다
     assert find_reply(turns, ("자리", "등록할 자")) == (True, "두 자리 남았어요")
+    # 첫인사 "AI 상담원입니다"는 상담 질문이 아니다
+    assert find_reply(turns, ("상담",)) == (True, "수요일 오후 3시에 돼요")
+
+
+def test_consult_not_asked_when_only_greeting_mentions_it():
+    greeting_only = [s for s in SEGMENTS if "상담이 가능" not in s["text"]]
+    assert find_reply(to_turns(greeting_only), ("상담",)) == (False, "")
 
 
 # 판정 규칙 (10/19 김규림 결정을 그대로 사례로 고정)
