@@ -60,14 +60,15 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Frontend install, types, consent contract, build
+      - name: Frontend install, types, browser contracts, build
         working-directory: frontend
         env:
-          NEXT_TELEMETRY_DISABLED: '1'
+          CI: 'true'
         run: |
           npm ci
           npm run typecheck
-          node --test scripts/auth-consent.test.mjs scripts/real-call-form.test.mjs
+          npx playwright install --with-deps chromium
+          npm test
           npm run build
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

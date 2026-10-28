@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAuth } from './useAuth';
 import { api, getSessionEpoch } from '../lib/api';
 import type { Academy, CatalogOptions, InquiryDetail, InquiryListItem } from '../lib/inquiry-model';
 
@@ -41,6 +42,9 @@ export function useCatalog(enabled = true) {
 }
 
 export function useInquiryList() {
+  const { ready, user, mockMode } = useAuth();
+  const owner = ready ? (user?.displayName || (mockMode ? 'preview' : '')) : '';
+  const enabled = ready && Boolean(owner);
   const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [rows, setRows] = useState<InquiryListItem[]>([]);
   const [details, setDetails] = useState<Record<string, InquiryDetail>>({});
@@ -51,6 +55,7 @@ export function useInquiryList() {
   const versionRef = useRef(0);
 
   const load = useCallback(async () => {
+    if (!enabled) return;
     const version = ++versionRef.current;
     const epoch = getSessionEpoch();
     setState('loading');
@@ -82,11 +87,23 @@ export function useInquiryList() {
       setState('error');
       setError((err as Error).message);
     }
-  }, [offset]);
+  }, [offset, enabled, owner]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!enabled) {
+      setState('idle');
+      setError('');
+      setRows([]);
+      setDetails({});
+      setHasNext(false);
+      setUpdated(null);
+      setOffset(0);
+    } else {
+      void load();
+    }
+    // Invalidate responses from a prior account, route or page.
+    return () => { versionRef.current += 1; };
+  }, [load, enabled, ready]);
 
   return {
     state,
@@ -102,6 +119,9 @@ export function useInquiryList() {
 }
 
 export function useInquiryDetail(id: string | undefined) {
+  const { ready, user, mockMode } = useAuth();
+  const owner = ready ? (user?.displayName || (mockMode ? 'preview' : '')) : '';
+  const enabled = ready && Boolean(owner);
   const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [detail, setDetail] = useState<InquiryDetail | null>(null);
   const [error, setError] = useState('');
@@ -110,6 +130,7 @@ export function useInquiryDetail(id: string | undefined) {
 
   const load = useCallback(async () => {
     if (!id) return;
+    if (!enabled) return;
     const version = ++versionRef.current;
     const epoch = getSessionEpoch();
     setState('loading');
@@ -125,11 +146,19 @@ export function useInquiryDetail(id: string | undefined) {
       setState('error');
       setError((err as Error).message);
     }
-  }, [id]);
+  }, [id, enabled, owner]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    setDetail(null);
+    setUpdated(null);
+    if (!enabled) {
+      setState(ready ? 'error' : 'idle');
+      setError(ready ? '로그인이 필요합니다.' : '');
+    } else {
+      void load();
+    }
+    return () => { versionRef.current += 1; };
+  }, [load, enabled, ready]);
 
   return { state, detail, error, updated, reload: load };
 }

@@ -23,10 +23,12 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), apiPlugin()],
     server: {
       port: 5173,
+      strictPort: true,
       host: '127.0.0.1',
     },
     preview: {
       port: 4173,
+      strictPort: true,
       host: '127.0.0.1',
     },
   };
