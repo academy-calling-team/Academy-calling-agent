@@ -1,0 +1,85 @@
+﻿set,case,item,truth,keyword,note,keyword_grade
+real_1013,co_A,vacancy,yes,yes,,ok
+real_1013,co_A,class_time,answered,answered,,ok
+real_1013,co_A,consult,yes,yes,,ok
+real_1013,co_A2,vacancy,yes,yes,,ok
+real_1013,co_A2,class_time,answered,answered,,ok
+real_1013,co_A2,consult,yes,unknown,,underclaim
+real_1013,co_B,vacancy,yes,yes,,ok
+real_1013,co_B,class_time,answered,answered,,ok
+real_1013,co_B,consult,yes,yes,,ok
+real_1013,co_C,vacancy,yes,yes,,ok
+real_1013,co_C,class_time,answered,answered,,ok
+real_1013,co_C,consult,yes,yes,,ok
+real_1013,co_D,vacancy,no,no,,ok
+real_1013,co_D,class_time,answered,answered,,ok
+real_1013,co_D,consult,yes,yes,,ok
+real_1013,co_D2,vacancy,yes,yes,,ok
+real_1013,co_D2,class_time,answered,answered,,ok
+real_1013,co_D2,consult,yes,yes,,ok
+real_1013,co_E,vacancy,unknown,unknown,,ok
+real_1013,co_E,class_time,answered,answered,,ok
+real_1013,co_E,consult,unknown,unknown,,ok
+real_1013,co_H,vacancy,yes,yes,,ok
+real_1013,co_H,class_time,answered,answered,,ok
+real_1013,co_H,consult,yes,yes,,ok
+real_1013,va_A,vacancy,yes,yes,,ok
+real_1013,va_A,class_time,answered,answered,,ok
+real_1013,va_A,consult,yes,yes,,ok
+real_1013,va_A2,vacancy,yes,yes,,ok
+real_1013,va_A2,class_time,answered,answered,,ok
+real_1013,va_A2,consult,yes,yes,,ok
+real_1013,va_B,vacancy,yes,yes,,ok
+real_1013,va_B,class_time,answered,answered,,ok
+real_1013,va_B,consult,yes,yes,,ok
+real_1013,va_C,vacancy,yes,yes,,ok
+real_1013,va_C,class_time,answered,answered,,ok
+real_1013,va_C,consult,yes,yes,,ok
+real_1013,va_D,vacancy,no,no,,ok
+real_1013,va_D,class_time,answered,answered,,ok
+real_1013,va_D,consult,yes,unknown,,underclaim
+real_1013,va_D2,vacancy,no,no,,ok
+real_1013,va_D2,class_time,answered,answered,,ok
+real_1013,va_D2,consult,yes,yes,,ok
+real_1013,va_E,vacancy,unknown,unknown,,ok
+real_1013,va_E,class_time,answered,answered,,ok
+real_1013,va_E,consult,unknown,unknown,,ok
+real_1013,va_H,vacancy,yes,yes,,ok
+real_1013,va_H,class_time,answered,answered,,ok
+real_1013,va_H,consult,yes,yes,,ok
+real_1019,1019_local,shuttle,yes,yes,,ok
+real_1019,1019_local,pickup,no,no,,ok
+real_1019,1019_local,class_time,answered,answered,,ok
+real_1019,1019_local,consult,yes,yes,,ok
+real_1019,1019_reconfirm,shuttle,yes,yes,,ok
+real_1019,1019_reconfirm,pickup,no,no,,ok
+real_1019,1019_reconfirm,class_time,answered,answered,,ok
+real_1019,1019_reconfirm,consult,yes,yes,,ok
+synthetic,S01,pickup,no,no,완곡한 부정 + 다른 요일 가능 (10/28 멘토 예시),ok
+synthetic,S01,consult,yes,yes,완곡한 부정 + 다른 요일 가능 (10/28 멘토 예시),ok
+synthetic,S02,consult,unknown,yes,안 되는 시간만 말함,overclaim
+synthetic,S03,consult,no,unknown,'것 같아요' 정중한 거절,underclaim
+synthetic,S04,shuttle,yes,yes,있지만 우리 지역은 안 감,ok
+synthetic,S05,shuttle,no,yes,있지만 중학생은 안 태움 (학생 기준 no),flip
+synthetic,S06,vacancy,unknown,unknown,추측 (아마),ok
+synthetic,S07,vacancy,no,no,대기 등록만 가능,ok
+synthetic,S08,level_fit,yes,yes,반은 있지만 꽉 참 (level_fit은 yes),ok
+synthetic,S09,pickup,yes,no,이중 부정,flip
+synthetic,S10,level_test,yes,no,없지는 않아요,flip
+synthetic,S11,pickup,yes,no,말버릇 '아니요',flip
+synthetic,S12,vacancy,no,no,스스로 정정 (있다→없다),ok
+synthetic,S13,class_time,unknown,unknown,반마다 달라서 상담 때 안내,ok
+synthetic,S14,class_time,refused,refused,전화로는 말 못 함,ok
+synthetic,S15,class_time,answered,answered,두 타임 시간,ok
+synthetic,S16,pickup,not_asked,not_asked,질문하지 않음,ok
+synthetic,S16,shuttle,yes,yes,질문하지 않음,ok
+synthetic,S17,shuttle,unknown,unknown,엉뚱한 대답(학원비),ok
+synthetic,S18,pickup,yes,yes,원하면 해 줌,ok
+synthetic,S19,consult,yes,yes,언제든 오세요,ok
+synthetic,S20,consult,unknown,unknown,원장님 일정 확인,ok
+synthetic,S21,vacancy,no,no,자리 없음 강조,ok
+synthetic,S22,level_test,no,yes,되짚기에서 학원이 정정 (예→아니오),flip
+synthetic,S23,pickup,no,yes,되묻기 후 대답,flip
+synthetic,S24,shuttle,no,no,AI 되짚기가 틀렸는데 학원이 정정하지 않고 넘어감,ok
+synthetic,S25,pickup,unknown,unknown,조건부 가능,ok
+synthetic,S26,vacancy,no,no,어려워요 = 아니오,ok
