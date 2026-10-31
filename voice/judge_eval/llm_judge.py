@@ -9,12 +9,17 @@ LLM은 판정과 함께 근거가 된 학원 발화 번호와 원문을 인용�
 import hashlib
 import json
 import re
+import time
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import httpx
 
 PROMPT_VERSION = "judge-v1"
+GROUNDED_MIN = 0.7
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+GEMINI_PACE_SEC = 8
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 QUESTION_TEXT = {
     "shuttle": "통학 차량이 있는지(있다면 운행 지역·시간)",
@@ -96,24 +101,56 @@ def _norm(s: str) -> str:
 
 
 def grounded(item: dict, turns) -> bool:
-    """인용 구절이 지목한 학원 발화 안에 실제로 있는가."""
+    """인용 구절이 지목한 학원 발화 안에 실제로 있는가. 전사의 받아쓰기 오류를 LLM이 고쳐 옮길 수 있어
+    완전 일치 대신 글자의 GROUNDED_MIN 이상이 순서대로 맞으면 인정한다(10/13 전사 '저 7시터' → 인용 '저녁 7시부터')."""
     idx = [i for i in item.get("evidence_turns", []) if 0 <= i < len(turns) and turns[i].speaker == "academy"]
     quote = _norm(item.get("evidence_quote", ""))
-    return bool(idx and quote) and quote in _norm(" ".join(turns[i].text for i in idx))
+    if not idx or not quote:
+        return False
+    said = _norm(" ".join(turns[i].text for i in idx))
+    if quote in said:
+        return True
+    matched = sum(m.size for m in SequenceMatcher(None, quote, said, autojunk=False).get_matching_blocks())
+    return matched / len(quote) >= GROUNDED_MIN
 
 
-def call_llm(codes, turns, model, api_key, cache_dir: Path | None = None, timeout=60.0) -> dict:
+def _post_gemini(codes, turns, model, api_key, timeout):
+    body = {"systemInstruction": {"parts": [{"text": SYSTEM}]},
+            "contents": [{"role": "user", "parts": [{"text": user_message(codes, turns)}]}],
+            "generationConfig": {"temperature": 0, "responseMimeType": "application/json",
+                                 "responseJsonSchema": schema(codes)["schema"]}}
+    time.sleep(GEMINI_PACE_SEC)  # 무료 등급 분당 제한에 맞춰 호출 간격을 둔다
+    for wait in (0, 30, 60, 90, 120, 180, 240):  # 제한에 걸리면 기다렸다 다시 부른다
+        time.sleep(wait)
+        r = httpx.post(GEMINI_URL.format(model=model), json=body, headers={"x-goog-api-key": api_key}, timeout=timeout)
+        if r.status_code not in (429, 500, 503):
+            break
+    if r.status_code >= 300:
+        raise RuntimeError(f"Gemini {r.status_code}: {r.text[:800]}")
+    data = r.json()
+    text = "".join(p.get("text", "") for p in data["candidates"][0]["content"]["parts"])
+    u = data.get("usageMetadata", {})
+    return {"result": json.loads(text), "model": data.get("modelVersion", model),
+            "usage": {"prompt_tokens": u.get("promptTokenCount", 0), "completion_tokens": u.get("candidatesTokenCount", 0)}}
+
+
+def _post_openai(codes, turns, model, api_key, timeout):
     body = {"model": model, "temperature": 0,
             "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user_message(codes, turns)}],
             "response_format": {"type": "json_schema", "json_schema": schema(codes)}}
-    key = hashlib.sha256(json.dumps([PROMPT_VERSION, body], ensure_ascii=False).encode()).hexdigest()[:24]
-    path = cache_dir / f"{key}.json" if cache_dir else None
-    if path and path.exists():
-        return json.loads(path.read_text(encoding="utf-8"))
     r = httpx.post(OPENAI_URL, json=body, headers={"Authorization": f"Bearer {api_key}"}, timeout=timeout)
     r.raise_for_status()
     data = r.json()
-    out = {"result": json.loads(data["choices"][0]["message"]["content"]), "usage": data.get("usage", {}), "model": data.get("model")}
+    return {"result": json.loads(data["choices"][0]["message"]["content"]), "usage": data.get("usage", {}), "model": data.get("model")}
+
+
+def call_llm(codes, turns, model, api_key, cache_dir: Path | None = None, timeout=120.0) -> dict:
+    key = hashlib.sha256(json.dumps([PROMPT_VERSION, model, SYSTEM, user_message(codes, turns), schema(codes)], ensure_ascii=False).encode()).hexdigest()[:24]
+    path = cache_dir / f"{key}.json" if cache_dir else None
+    if path and path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    post = _post_gemini if model.startswith("gemini") else _post_openai
+    out = post(codes, turns, model, api_key, timeout)
     if path:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")

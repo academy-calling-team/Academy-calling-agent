@@ -1,0 +1,85 @@
+﻿set,case,item,truth,keyword,note,keyword_grade,llm,llm_grade,llm_detail
+real_1013,co_A,vacancy,yes,yes,,ok,yes,ok,중2 수학반에 현재 두 자리가 남아 있습니다.
+real_1013,co_A,class_time,answered,answered,,ok,answered,ok,"화요일, 목요일 저녁 7시부터 9시까지입니다."
+real_1013,co_A,consult,yes,yes,,ok,yes,ok,"가능 ['수요일 오후 3시', '금요일 오후 4시'] / 불가 []"
+real_1013,co_A2,vacancy,yes,yes,,ok,yes,ok,중2 수학반에 현재 두 자리 남아 있습니다.
+real_1013,co_A2,class_time,answered,answered,,ok,answered,ok,"화, 목요일 저녁 7시부터 9시까지입니다."
+real_1013,co_A2,consult,yes,unknown,,underclaim,yes,ok,"가능 ['수요일 오후 3시', '금요일 오후 4시'] / 불가 []"
+real_1013,co_B,vacancy,yes,yes,,ok,yes,ok,중2 수학반에 한 자리 남았습니다.
+real_1013,co_B,class_time,answered,answered,,ok,answered,ok,수요일과 금요일 6시 반부터 8시 반까지입니다.
+real_1013,co_B,consult,yes,yes,,ok,yes,ok,가능 ['목요일 2시'] / 불가 []
+real_1013,co_C,vacancy,yes,yes,,ok,yes,ok,중2 수학반에 두 자리 남아있습니다.
+real_1013,co_C,class_time,answered,answered,,ok,answered,ok,"화요일, 목요일 오후 7시입니다."
+real_1013,co_C,consult,yes,yes,,ok,yes,ok,가능 ['금요일 오전 11시'] / 불가 []
+real_1013,co_D,vacancy,no,no,,ok,no,ok,현재 마감되어 대기 등록만 가능합니다
+real_1013,co_D,class_time,answered,answered,,ok,answered,ok,토요일 오전 10시부터 1시까지입니다
+real_1013,co_D,consult,yes,yes,,ok,yes,ok,가능 ['화요일 오후 5시'] / 불가 []
+real_1013,co_D2,vacancy,yes,yes,,ok,yes,ok,중2 수학반에 두 자리 남아 있습니다.
+real_1013,co_D2,class_time,answered,answered,,ok,answered,ok,"화요일, 목요일 저녁 7시부터 9시까지입니다."
+real_1013,co_D2,consult,yes,yes,,ok,yes,ok,"가능 ['수요일 오후 3시', '금요일 오후 4시'] / 불가 []"
+real_1013,co_E,vacancy,unknown,unknown,,ok,unknown,ok,　やさ 　あ こいし よ
+real_1013,co_E,class_time,answered,answered,,ok,unknown,underclaim,근거 확인 실패: 　いじよんえ じ え じ ええ
+real_1013,co_E,consult,unknown,unknown,,ok,unknown,ok,가능 [] / 불가 []
+real_1013,co_H,vacancy,yes,yes,,ok,yes,ok,중2 수학반에 두 자리 남아 있습니다.
+real_1013,co_H,class_time,answered,answered,,ok,answered,ok,"화, 목요일 저녁 7시부터 9시까지입니다."
+real_1013,co_H,consult,yes,yes,,ok,yes,ok,"가능 ['수요일 오후 3시', '금요일 오후 4시'] / 불가 []"
+real_1013,va_A,vacancy,yes,yes,,ok,yes,ok,중2 수학반 등록 가능한 자리가 두 자리 남아 있음
+real_1013,va_A,class_time,answered,answered,,ok,answered,ok,"화요일, 목요일 저녁 7시부터 9시까지"
+real_1013,va_A,consult,yes,yes,,ok,yes,ok,가능 ['수요일 오후 3시'] / 불가 []
+real_1013,va_A2,vacancy,yes,yes,,ok,yes,ok,중2 수학반에 두 자리 남아 있습니다.
+real_1013,va_A2,class_time,answered,answered,,ok,answered,ok,"화요일, 목요일 저녁 7시부터 9시입니다."
+real_1013,va_A2,consult,yes,yes,,ok,yes,ok,"가능 ['수요일 오후 3시', '금요일 오후 4시'] / 불가 []"
+real_1013,va_B,vacancy,yes,yes,,ok,yes,ok,현재 한 자리 남아 있습니다.
+real_1013,va_B,class_time,answered,answered,,ok,answered,ok,수요일과 금요일 6시 반부터 8시 반까지입니다.
+real_1013,va_B,consult,yes,yes,,ok,yes,ok,가능 ['목요일 2시'] / 불가 []
+real_1013,va_C,vacancy,yes,yes,,ok,yes,ok,중2 수학반 두 자리 남아 있습니다.
+real_1013,va_C,class_time,answered,answered,,ok,answered,ok,화요일과 목요일 저녁 7시입니다.
+real_1013,va_C,consult,yes,yes,,ok,yes,ok,가능 ['금요일 오전 11시'] / 불가 []
+real_1013,va_D,vacancy,no,no,,ok,no,ok,현재 마감되어 대기 등록만 가능합니다
+real_1013,va_D,class_time,answered,answered,,ok,answered,ok,토요일 오전 10시부터 1시까지입니다
+real_1013,va_D,consult,yes,unknown,,underclaim,yes,ok,가능 ['화요일 오후 5시'] / 불가 []
+real_1013,va_D2,vacancy,no,no,,ok,no,ok,현재 마감되어 대기 등록만 가능합니다.
+real_1013,va_D2,class_time,answered,answered,,ok,answered,ok,토요일 오전 10시부터 오후 1시까지입니다.
+real_1013,va_D2,consult,yes,yes,,ok,yes,ok,가능 ['화요일 오후 5시'] / 불가 []
+real_1013,va_E,vacancy,unknown,unknown,,ok,unknown,ok,원장님 부재로 자리 유무를 모름
+real_1013,va_E,class_time,answered,answered,,ok,answered,ok,"수요일, 금요일 저녁 8시"
+real_1013,va_E,consult,unknown,unknown,,ok,unknown,ok,가능 [] / 불가 []
+real_1013,va_H,vacancy,yes,yes,,ok,yes,ok,중2 수학반에 두 자리 남아 있습니다.
+real_1013,va_H,class_time,answered,answered,,ok,answered,ok,"화요일, 목요일 저녁 7시부터 9시까지입니다."
+real_1013,va_H,consult,yes,yes,,ok,yes,ok,"가능 ['수요일 오후 3시', '금요일 오후 4시'] / 불가 []"
+real_1019,1019_local,shuttle,yes,yes,,ok,yes,ok,침산동 쪽으로 수업 전후 10분 운행합니다.
+real_1019,1019_local,pickup,no,no,,ok,no,ok,수업 후 픽업은 하지 않습니다.
+real_1019,1019_local,class_time,answered,answered,,ok,answered,ok,"화, 목 저녁 7시입니다."
+real_1019,1019_local,consult,yes,yes,,ok,yes,ok,가능 ['수요일 3시'] / 불가 []
+real_1019,1019_reconfirm,shuttle,yes,yes,,ok,yes,ok,침산동 쪽으로 수업 전후 20분 운행합니다.
+real_1019,1019_reconfirm,pickup,no,no,,ok,no,ok,수업 후 픽업은 하지 않습니다.
+real_1019,1019_reconfirm,class_time,answered,answered,,ok,answered,ok,화요일과 목요일 저녁 7시입니다.
+real_1019,1019_reconfirm,consult,yes,yes,,ok,yes,ok,가능 ['수요일 3시'] / 불가 []
+synthetic,S01,pickup,no,no,완곡한 부정 + 다른 요일 가능 (10/28 멘토 예시),ok,no,ok,픽업은 따로 안 해 드리고 있습니다.
+synthetic,S01,consult,yes,yes,완곡한 부정 + 다른 요일 가능 (10/28 멘토 예시),ok,yes,ok,"가능 ['월요일 오후 4시'] / 불가 ['금요일', '토요일', '일요일']"
+synthetic,S02,consult,unknown,yes,안 되는 시간만 말함,overclaim,no,overclaim,가능 [] / 불가 ['금토일']
+synthetic,S03,consult,no,unknown,'것 같아요' 정중한 거절,underclaim,no,ok,가능 [] / 불가 ['이번 주']
+synthetic,S04,shuttle,yes,yes,있지만 우리 지역은 안 감,ok,yes,ok,"차량 운행하며 복현동, 산격동 운행합니다."
+synthetic,S05,shuttle,no,yes,있지만 중학생은 안 태움 (학생 기준 no),flip,no,ok,중학생은 통학 차량을 이용할 수 없습니다.
+synthetic,S06,vacancy,unknown,unknown,추측 (아마),ok,unknown,ok,아마 한두 자리 있을 거라며 정확한 건 모른다고 함
+synthetic,S07,vacancy,no,no,대기 등록만 가능,ok,no,ok,현재 마감되어 대기만 가능합니다.
+synthetic,S08,level_fit,yes,yes,반은 있지만 꽉 참 (level_fit은 yes),ok,no,flip,중2 중급반은 있지만 마감되었습니다.
+synthetic,S09,pickup,yes,no,이중 부정,flip,yes,ok,집 앞까지 픽업을 해 드립니다.
+synthetic,S10,level_test,yes,no,없지는 않아요,flip,answered,overclaim,등록 전에 레벨 테스트를 봅니다.
+synthetic,S11,pickup,yes,no,말버릇 '아니요',flip,yes,ok,수업 후 픽업을 해 드리고 있습니다
+synthetic,S12,vacancy,no,no,스스로 정정 (있다→없다),ok,no,ok,지난주에 다 차서 지금은 자리가 없습니다.
+synthetic,S13,class_time,unknown,unknown,반마다 달라서 상담 때 안내,ok,unknown,ok,반마다 달라 상담 시 안내한다고 함
+synthetic,S14,class_time,refused,refused,전화로는 말 못 함,ok,refused,ok,전화로는 수업 시간을 안내해 주지 않습니다.
+synthetic,S15,class_time,answered,answered,두 타임 시간,ok,answered,ok,"화목 저녁 7시 반, 토요일 오전 10시 중 선택"
+synthetic,S16,pickup,not_asked,not_asked,질문하지 않음,ok,not_asked,ok,수업 후 픽업 여부에 대한 질문이 없었습니다.
+synthetic,S16,shuttle,yes,yes,질문하지 않음,ok,yes,ok,수업 전후로 통학 차량을 운행합니다.
+synthetic,S17,shuttle,unknown,unknown,엉뚱한 대답(학원비),ok,unknown,ok,담당이 아니라서 차량 여부를 확인하지 못했습니다.
+synthetic,S18,pickup,yes,yes,원하면 해 줌,ok,yes,ok,미리 말씀해 주시면 픽업해 드립니다.
+synthetic,S19,consult,yes,yes,언제든 오세요,ok,yes,ok,가능 ['평일 저녁'] / 불가 []
+synthetic,S20,consult,unknown,unknown,원장님 일정 확인,ok,unknown,ok,가능 [] / 불가 []
+synthetic,S21,vacancy,no,no,자리 없음 강조,ok,no,ok,중2 수학반은 마감되어 자리가 없습니다.
+synthetic,S22,level_test,no,yes,되짚기에서 학원이 정정 (예→아니오),flip,no,ok,레벨 테스트는 없고 바로 반 배정합니다.
+synthetic,S23,pickup,no,yes,되묻기 후 대답,flip,unknown,underclaim,근거 확인 실패: ㅃㅈ 미사스니다
+synthetic,S24,shuttle,no,no,AI 되짚기가 틀렸는데 학원이 정정하지 않고 넘어감,ok,no,ok,통학 차량을 운행하지 않습니다.
+synthetic,S25,pickup,unknown,unknown,조건부 가능,ok,unknown,ok,인원이 모이면 하는데 상황 봐야 돼요
+synthetic,S26,vacancy,no,no,어려워요 = 아니오,ok,no,ok,이번 달은 등록이 어렵다고 함

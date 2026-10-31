@@ -7,8 +7,8 @@
 
 저장소 맨 위에서 실행한다.
   python voice/judge_eval/run_eval.py                 키워드만 (API 호출 없음)
-  python voice/judge_eval/run_eval.py --llm           키워드 + LLM (voice/.env의 OPENAI_API_KEY, 결과는 .cache에 저장해 재실행 시 재호출 안 함)
-  python voice/judge_eval/run_eval.py --llm --model gpt-4.1-mini
+  python voice/judge_eval/run_eval.py --llm           키워드 + LLM (voice/.env의 GEMINI_API_KEY, 결과는 .cache에 저장해 재실행 시 재호출 안 함)
+  python voice/judge_eval/run_eval.py --llm --model gpt-4.1-mini   gemini-로 시작하지 않으면 OPENAI_API_KEY 사용
 """
 import argparse
 import csv
@@ -22,6 +22,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "voice" / "call_worker"))
 sys.path.insert(0, str(HERE))
 from extract import build_answers, consult_result, to_turns  # noqa: E402
+from llm_judge import PROMPT_VERSION  # noqa: E402
 
 GREETING = [["A", "안녕하세요, 학부모님을 대신해 문의드리는 AI 상담원입니다. 이 통화는 녹음됩니다. 잠시 통화 괜찮으실까요?"], ["H", "네, 괜찮아요."]]
 
@@ -113,21 +114,23 @@ def summarize(rows, method):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--llm", action="store_true")
-    ap.add_argument("--model", default="gpt-4.1-mini")
+    ap.add_argument("--model", default="gemini-3.5-flash")
     args = ap.parse_args()
     key = None
     if args.llm:
         env = dict(l.split("=", 1) for l in (ROOT / "voice/.env").read_text(encoding="utf-8").splitlines() if "=" in l and not l.startswith("#"))
-        key = env.get("OPENAI_API_KEY", "").strip().strip('"')
+        name = "GEMINI_API_KEY" if args.model.startswith("gemini") else "OPENAI_API_KEY"
+        key = env.get(name, "").strip().strip('"')
         if not key:
-            sys.exit("voice/.env의 OPENAI_API_KEY가 비어 있습니다.")
-    rows, usage = [], {"prompt_tokens": 0, "completion_tokens": 0}
+            sys.exit(f"voice/.env의 {name}가 비어 있습니다.")
+    rows, usage, served = [], {"prompt_tokens": 0, "completion_tokens": 0}, set()
     for case in load_cases():
         turns = to_turns(case["segments"])
         kw = keyword_predict(case, turns)
         llm, extra = ({}, {})
         if args.llm:
             llm, extra = llm_predict(case, turns, args.model, key, HERE / ".cache")
+            served.add(extra.get("model"))
             for k in usage:
                 usage[k] += extra["usage"].get(k, 0)
         for item, truth in case["labels"].items():
@@ -158,7 +161,7 @@ def main():
         for s, v in summarize(rows, m).items():
             lines.append(f"| {s} | {m} | {v['n']} | {v['ok']} | {v['ok'] / v['n']:.0%} | {v['flip']} | {v['over']} | {v['under']} |")
     if args.llm:
-        lines += ["", f"토큰: 입력 {usage['prompt_tokens']:,} / 출력 {usage['completion_tokens']:,} (캐시된 결과는 처음 호출 때 값)"]
+        lines += ["", f"실제 응답 모델: {sorted(str(m) for m in served)} / 프롬프트 판: {PROMPT_VERSION}", f"토큰: 입력 {usage['prompt_tokens']:,} / 출력 {usage['completion_tokens']:,} (캐시된 결과는 처음 호출 때 값)"]
     lines += ["", "## 틀린 항목", "", "| 세트 | 통화 | 항목 | 정답 | " + " | ".join(methods) + " | 메모 |", "|---|---|---|---|" + "---|" * len(methods) + "---|"]
     for r in rows:
         if any(r[f"{m}_grade"] != "ok" for m in methods):

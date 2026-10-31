@@ -10,7 +10,8 @@
 
 ```
 python voice/judge_eval/run_eval.py              # 키워드만, API 호출 없음
-python voice/judge_eval/run_eval.py --llm        # voice/.env의 OPENAI_API_KEY 필요, 응답은 .cache/에 저장
+python voice/judge_eval/run_eval.py --llm        # voice/.env의 GEMINI_API_KEY 필요(기본 모델 gemini-3.5-flash), 응답은 .cache/에 저장
+python voice/judge_eval/run_eval.py --llm --model gemini-3.5-flash-lite
 ```
 
 채점: 정답과 같으면 맞음(미확인·거절은 같은 묶음). 틀림은 셋으로 나눈다. 예↔아니오 뒤바뀜(가장 해로움), 모르는데 확정 답, 답했는데 미확인.
