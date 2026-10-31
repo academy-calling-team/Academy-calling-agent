@@ -261,6 +261,24 @@ def test_voicemail_is_reported_as_machine(parts):
     assert backend.result()["outcome"] == "machine"
 
 
+@pytest.mark.parametrize('source', ['callee', 'app', 'system', 'carrier', None])
+def test_decline_button_is_not_classified_as_permanent_refusal(source):
+    result = build_result('decline', real_request(),
+        dict(status='rejected', hangupSource=source), None, [])
+    check_schema(result)
+    assert result['outcome'] == 'rejected'
+    assert result['rejection_reason'] == 'unknown'
+    assert result['transcript'] == [] and result['disclosure_played'] is None
+
+
+def test_declined_call_sends_event_and_retryable_result(parts):
+    client, backend, store, *_ = parts(FakeClawOps(['queued', 'ringing', 'rejected']))
+    assert client.post('/internal/calls', json=real_request(), headers=HEADERS).status_code == 202
+    assert backend.events() == ['initiated', 'ringing', 'rejected']
+    assert backend.result()['rejection_reason'] == 'unknown'
+    assert store.pending() == []
+
+
 def test_same_call_id_never_dials_twice(parts):
     clawops = FakeClawOps(["completed"])
     client, *_ = parts(clawops)

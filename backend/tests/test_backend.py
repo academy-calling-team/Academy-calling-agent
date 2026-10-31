@@ -139,7 +139,7 @@ def test_event_order_dedup_and_result_wait(env):
     assert get(e,iid)['status']=='completed'
     assert event(e,cid,'busy',eid=eid).status_code==409
 
-@pytest.mark.parametrize('outcome,retry',[('no_answer',True),('busy',True),('machine',True),('invalid_number',False),('rejected',False)])
+@pytest.mark.parametrize('outcome,retry',[('no_answer',True),('busy',True),('machine',True),('invalid_number',False),('rejected',True)])
 def test_failure_policy(env,outcome,retry):
     e=env; iid=create(e); cid=tick(e)['reserved'][0]
     assert send(e,cid,make_result(payload(e,cid),outcome)).status_code==200
@@ -154,7 +154,7 @@ def test_failure_policy(env,outcome,retry):
 
 def test_retry_limit_and_late_result(env):
     e=env; iid=create(e); first=None
-    for i in range(3):
+    for i in range(4):
         cid=tick(e)['reserved'][0]
         if first is None: first=cid
         assert event(e,cid,'busy').status_code==200
@@ -162,10 +162,11 @@ def test_retry_limit_and_late_result(env):
             late=make_result(payload(e,first),'busy')
             assert send(e,first,late).json()['applied'] is False
             assert get(e,iid)['status']=='retry_wait'
-        e['clock'][0]+=timedelta(seconds=300)
+        if i < 3:
+            e['clock'][0]+=timedelta(seconds=(300,600,1800)[i])
     assert tick(e)['reserved']==[]
     assert get(e,iid)['status']=='failed' and get(e,iid)['fallback_required'] is True
-    assert len(get(e,iid)['attempts'])==3
+    assert len(get(e,iid)['attempts'])==4
 
 def test_delivery_timeout_same_call_no_duplicate(env):
     e=env; iid=create(e)
