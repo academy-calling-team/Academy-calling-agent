@@ -62,7 +62,7 @@ def test_real_rechecks_persisted_state_before_http(real_env,change):
         assert seen==[]
     finally:adapter.close()
 
-@pytest.mark.parametrize('outcome',['no_answer','busy','machine'])
+@pytest.mark.parametrize('outcome',['no_answer','busy','machine','rejected'])
 def test_real_failure_has_no_second_attempt(real_env,outcome):
     e=real_env;iid=create(e);cid=e['s'].reserve()[0]
     assert event(e,cid,outcome).status_code==200

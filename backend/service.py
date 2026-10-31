@@ -27,20 +27,25 @@ def aware(value):
 
 @dataclass(frozen=True)
 class Policy:
-    # Development values, not mentor-approved operating policy.
+    # Retry schedule confirmed by the project owner; other limits are development defaults.
     max_concurrent: int = 2
-    max_attempts: int = 3
-    retry_seconds: int = 300
+    max_attempts: int = 4
+    retry_delays_seconds: tuple[int, ...] = (300, 600, 1800)
     result_timeout_seconds: int = 600
     max_delivery_attempts: int = 3
     max_seconds: int = 180
     delivery_lease_seconds: int = 30
     disclosure_text: str = '개발용 예시: AI가 진행하는 녹음 통화입니다. 상담 가능하신가요?'
     def __post_init__(self):
-        if min(self.max_concurrent,self.max_attempts,self.retry_seconds,
+        if min(self.max_concurrent,self.max_attempts,
                self.result_timeout_seconds,self.max_delivery_attempts,self.max_seconds,
                self.delivery_lease_seconds) < 1:
             raise ValueError('Policy limits must be positive')
+        if not self.retry_delays_seconds or any(delay < 1 for delay in self.retry_delays_seconds):
+            raise ValueError('Retry delays must be positive')
+    def retry_delay(self, attempt_no):
+        # A failed first call waits 5 minutes; later failures wait 10, then 30.
+        return self.retry_delays_seconds[min(attempt_no-1,len(self.retry_delays_seconds)-1)]
 
 class Service:
     def __init__(self, engine, policy=None, clock=None,allow_legacy_tokens=True,real_test=None):
@@ -315,14 +320,16 @@ class Service:
                 c.execute(update(review_holds).where(review_holds.c.inquiry_id==call['inquiry_id']).values(**hold_values))
             else:c.execute(review_holds.insert().values(inquiry_id=call['inquiry_id'],**hold_values))
             return True
-        retry=outcome in ['no_answer','busy','machine'] or callback_at is not None
+        retry=outcome in ['no_answer','busy','machine','rejected'] or callback_at is not None
         if outcome=='answered' and callback_at is None:
             c.execute(update(inquiries).where(inquiries.c.id==call['inquiry_id']).values(status='completed'))
         elif retry and not permanent and call['attempt_no']<attempt_limit:
-            at=utc(callback_at) if callback_at else self.now()+timedelta(seconds=self.policy.retry_seconds)
+            at=utc(callback_at) if callback_at else self.now()+timedelta(seconds=self.policy.retry_delay(call['attempt_no']))
             c.execute(update(inquiries).where(inquiries.c.id==call['inquiry_id']).values(status='retry_wait',next_at=at))
         else:
-            self.fail(c,call['inquiry_id'],'retry_exhausted' if retry else outcome)
+            # Keep rejection fallback handling unchanged; its policy is a separate task.
+            self.fail(c,call['inquiry_id'],outcome if permanent or outcome=='rejected'
+                else ('retry_exhausted' if retry else outcome))
         return True
     def event(self,cid,body):
         payload=body.model_dump(mode='json'); fp=fingerprint(payload)
@@ -382,6 +389,9 @@ class Service:
                 if body.outcome=='answered' and body.disclosure_played is not True:
                     c.execute(update(calls).where(calls.c.id==cid).values(status='finished',outcome=body.outcome))
                     self.fail(c,call['inquiry_id'],'disclosure_missing')
+                elif body.outcome=='rejected' and body.rejection_reason=='permanent':
+                    # A final refusal can arrive after the event scheduled a retry.
+                    self.finish(c,call,body.outcome,permanent=True)
                 elif call['status']=='finished':
                     # Failure event already scheduled retry; receiving its report must not move due time.
                     pass
