@@ -213,7 +213,8 @@ def outcome_of(call: dict) -> tuple[str, str | None]:
     if "invalid" in cause or call.get("hangupCauseQ850") in (1, 5, 28):
         return "invalid_number", None
     if status == "rejected":
-        return "rejected", "permanent" if call.get("hangupSource") == "callee" else "unknown"
+        # Pressing decline does not prove an explicit request to stop future calls.
+        return "rejected", "unknown"
     # failed, canceled: ClawOps·통신망 쪽 문제면 다시 걸어 볼 만하다
     return "rejected", "temporary" if call.get("hangupSource") in ("app", "system", "carrier") else "unknown"
 
