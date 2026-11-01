@@ -55,6 +55,18 @@ real_1019,1019_reconfirm,shuttle,yes,yes,,ok
 real_1019,1019_reconfirm,pickup,no,no,,ok
 real_1019,1019_reconfirm,class_time,answered,answered,,ok
 real_1019,1019_reconfirm,consult,yes,yes,,ok
+real_1019,2118,shuttle,yes,yes,,ok
+real_1019,2118,pickup,yes,yes,,ok
+real_1019,2118,class_time,answered,answered,,ok
+real_1019,2118,consult,yes,yes,,ok
+real_1019,2122,pickup,no,no,,ok
+real_1019,2122,vacancy,yes,yes,,ok
+real_1019,2122,level_test,yes,yes,,ok
+real_1019,2122,consult,yes,yes,,ok
+real_1019,2126,shuttle,yes,yes,,ok
+real_1019,2126,pickup,no,no,,ok
+real_1019,2126,class_time,answered,answered,,ok
+real_1019,2126,consult,yes,yes,,ok
 synthetic,S01,pickup,no,no,완곡한 부정 + 다른 요일 가능 (10/28 멘토 예시),ok
 synthetic,S01,consult,yes,yes,완곡한 부정 + 다른 요일 가능 (10/28 멘토 예시),ok
 synthetic,S02,consult,unknown,yes,안 되는 시간만 말함,overclaim
@@ -83,3 +95,28 @@ synthetic,S23,pickup,no,yes,되묻기 후 대답,flip
 synthetic,S24,shuttle,no,no,AI 되짚기가 틀렸는데 학원이 정정하지 않고 넘어감,ok
 synthetic,S25,pickup,unknown,unknown,조건부 가능,ok
 synthetic,S26,vacancy,no,no,어려워요 = 아니오,ok
+heldout,H01,shuttle,yes,yes,평이,ok
+heldout,H02,pickup,no,no,평이,ok
+heldout,H03,vacancy,yes,yes,평이,ok
+heldout,H04,vacancy,no,no,평이,ok
+heldout,H05,level_test,yes,yes,평이,ok
+heldout,H06,level_fit,yes,yes,평이,ok
+heldout,H07,class_time,answered,answered,평이,ok
+heldout,H08,class_time,unknown,unknown,시간표 미정,ok
+heldout,H09,consult,yes,yes,평이,ok
+heldout,H10,consult,no,no,상담 불가,ok
+heldout,H11,shuttle,no,unknown,과거에 없앰,underclaim
+heldout,H12,pickup,no,yes,부정어 없는 거절,flip
+heldout,H13,vacancy,yes,yes,조건이 붙은 빈자리,ok
+heldout,H14,level_test,no,unknown,안 보고 다른 방식,underclaim
+heldout,H15,shuttle,unknown,unknown,담당 아님,ok
+heldout,H16,pickup,yes,no,'없어요'가 들어간 긍정,flip
+heldout,H17,vacancy,unknown,unknown,불확실,ok
+heldout,H18,consult,yes,yes,"평일 불가, 토요일 가능",ok
+heldout,H19,consult,unknown,no,안 되는 요일만 말함,overclaim
+heldout,H20,vacancy,yes,yes,되짚기 정정(자리 수만 바뀜),ok
+heldout,H21,class_time,answered,unknown,되짚기 시간 정정,underclaim
+heldout,H22,shuttle,refused,unknown,거절,ok
+heldout,H23,level_test,not_asked,not_asked,묻지 않음,ok
+heldout,H23,pickup,yes,yes,묻지 않음,ok
+heldout,H24,pickup,yes,yes,'네' 단독,ok

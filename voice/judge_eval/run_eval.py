@@ -2,8 +2,9 @@
 
 시험 세트
 - real_1013: 10/13 지연 측정 실통화 16통(Whisper 전사, 대본 A~E·H의 정답지 voice/prompts/test_script_v3.md)
-- real_1019: 10/19 실통화 2통(ClawOps 전사, test_worker.py의 시험 자료)
-- synthetic: 키워드 사전이 어려워하는 말투를 모은 합성 전사(cases_synthetic.json)
+- real_1019: 10/19 실통화 5통(ClawOps 전사, test_worker.py의 시험 자료 2통 + real_1019_joint.json 3통)
+- synthetic: 키워드 사전이 어려워하는 말투를 모은 합성 전사(cases_synthetic.json). 프롬프트를 다듬을 때 본 개발용 세트
+- heldout: 프롬프트를 고칠 때 보지 않는 시험용 세트(cases_heldout.json). 평이한 말투와 어려운 말투를 섞음. 정답은 LLM 실행 전에 커밋함
 
 저장소 맨 위에서 실행한다.
   python voice/judge_eval/run_eval.py                 키워드만 (API 호출 없음)
@@ -37,6 +38,13 @@ SCRIPT_LABELS = {
 CALL_SCRIPT = {"co_A": "A", "co_A2": "A", "co_B": "B", "co_C": "C", "co_D": "D", "co_D2": "A", "co_E": "E", "co_H": "A",
                "va_A": "A", "va_A2": "A", "va_B": "B", "va_C": "C", "va_D": "D", "va_D2": "D", "va_E": "E", "va_H": "A"}
 
+# 10/19 공동 시험 통화. 21:31 통화는 test_worker.py의 REAL_1019_RECONFIRM과 같아서 넣지 않음
+JOINT = [
+    ("2118", ["shuttle", "pickup", "class_time"], {"shuttle": "yes", "pickup": "yes", "class_time": "answered", "consult": "yes"}),
+    ("2122", ["pickup", "vacancy", "level_test"], {"pickup": "no", "vacancy": "yes", "level_test": "yes", "consult": "yes"}),
+    ("2126", ["shuttle", "pickup", "class_time"], {"shuttle": "yes", "pickup": "no", "class_time": "answered", "consult": "yes"}),
+]
+
 
 def seg(spk, text, i):
     return {"speaker": spk, "start": i, "text": text}
@@ -55,10 +63,14 @@ def load_cases() -> list[dict]:
     for cid, data in (("1019_local", tw.REAL_1019), ("1019_reconfirm", tw.REAL_1019_RECONFIRM)):
         cases.append({"set": "real_1019", "id": cid, "questions": ["shuttle", "pickup", "class_time"], "segments": data,
                       "labels": {"shuttle": "yes", "pickup": "no", "class_time": "answered", "consult": "yes"}})
-    for c in json.loads((HERE / "cases_synthetic.json").read_text(encoding="utf-8")):
-        body = GREETING + c["body"]
-        cases.append({"set": "synthetic", "id": c["id"], "note": c["note"], "questions": c["questions"],
-                      "segments": [seg(s, t, i) for i, (s, t) in enumerate(body)], "labels": c["labels"]})
+    joint = json.loads((HERE / "real_1019_joint.json").read_text(encoding="utf-8"))
+    for cid, qs, labels in JOINT:
+        cases.append({"set": "real_1019", "id": cid, "questions": qs, "segments": joint[cid], "labels": labels})
+    for name, fname in (("synthetic", "cases_synthetic.json"), ("heldout", "cases_heldout.json")):
+        for c in json.loads((HERE / fname).read_text(encoding="utf-8")):
+            body = GREETING + c["body"]
+            cases.append({"set": name, "id": c["id"], "note": c["note"], "questions": c["questions"],
+                          "segments": [seg(s, t, i) for i, (s, t) in enumerate(body)], "labels": c["labels"]})
     return cases
 
 
@@ -104,7 +116,7 @@ def grade(truth: str, pred: str) -> str:
 
 def summarize(rows, method):
     out = {}
-    for s in ("real_1013", "real_1019", "synthetic", "전체"):
+    for s in ("real_1013", "real_1019", "synthetic", "heldout", "전체"):
         rs = [r for r in rows if s == "전체" or r["set"] == s]
         g = [r[f"{method}_grade"] for r in rs]
         out[s] = {"n": len(g), "ok": g.count("ok"), "flip": g.count("flip"), "over": g.count("overclaim"), "under": g.count("underclaim")}
@@ -148,7 +160,7 @@ def main():
 
     res = HERE / "results"
     res.mkdir(exist_ok=True)
-    suffix = f"_{args.model}" if args.llm else "_keyword"
+    suffix = f"_{args.model}_{PROMPT_VERSION}" if args.llm else "_keyword"
     with open(res / f"items{suffix}.csv", "w", newline="", encoding="utf-8-sig") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader()
@@ -169,7 +181,7 @@ def main():
             note = r["note"] + (f" · LLM: {r['llm_detail']}" if args.llm else "")
             lines.append(f"| {r['set']} | {r['case']} | {r['item']} | {r['truth']} | {cells} | {note} |")
     (res / f"report{suffix}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print("\n".join(lines[:4 + 4 * len(methods)]))
+    print("\n".join(lines[:4 + 5 * len(methods)]))
     print(f"\n자세한 결과: {res / f'report{suffix}.md'}")
 
 
