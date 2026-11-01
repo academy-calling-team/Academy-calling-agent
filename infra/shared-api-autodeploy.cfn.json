@@ -1,7 +1,7 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "Team8 shared development API deploy access: GitHub main OIDC to one SSM document and one EC2 instance. No access keys or new compute.",
-  "Metadata": {"com.aws.cloudformation.Context": {"why": "Reuse EC2 and public GitHub source; no inbound SSH changes, no artifact bucket", "must": ["Only this repository main may assume deploy role", "Existing DB and runtime secret files stay on EC2"]}},
+  "Metadata": {"AWSToolsMetrics": {"AWSAgentToolkit": "aws-cloudformation@3"}, "com.aws.cloudformation.Context": {"why": "Reuse EC2 and public GitHub source; no inbound SSH changes, no artifact bucket", "must": ["Only this repository main may assume deploy role", "Existing DB and runtime secret files stay on EC2"]}},
   "Resources": {
     "GitHubOidc": {
       "Type": "AWS::IAM::OIDCProvider",
@@ -11,14 +11,18 @@
     "DeployDocument": {
       "Type": "AWS::SSM::Document",
       "Properties": {
-        "Name": "team8-deploy-shared-api", "DocumentType": "Command", "DocumentFormat": "JSON",
+        "Name": "team8-deploy-shared-api", "DocumentType": "Command", "DocumentFormat": "JSON", "UpdateMethod": "NewVersion",
         "Content": {
           "schemaVersion": "2.2", "description": "Deploy a full Git SHA using the installed release controller",
-          "parameters": {"CommitSha": {"type": "String", "allowedPattern": "^[0-9a-f]{40}$", "interpolationType": "ENV_VAR"}},
-          "mainSteps": [{"action": "aws:runShellScript", "name": "Deploy", "inputs": {"timeoutSeconds": "1200", "runCommand": ["set -eu", "python3 /opt/team8-shared-api/deploy/deploy.py \"$SSM_CommitSha\""]}}]
+          "parameters": {
+            "CommitSha": {"type": "String", "allowedPattern": "^[0-9a-f]{40}$", "interpolationType": "ENV_VAR"},
+            "GitHubRunId": {"type": "String", "default": "", "allowedPattern": "^[0-9]{0,20}$", "interpolationType": "ENV_VAR"},
+            "GitHubRunAttempt": {"type": "String", "default": "", "allowedPattern": "^[0-9]{0,5}$", "interpolationType": "ENV_VAR"}
+          },
+          "mainSteps": [{"action": "aws:runShellScript", "name": "Deploy", "inputs": {"timeoutSeconds": "1200", "runCommand": ["set -eu", "python3 /opt/team8-shared-api/deploy/deploy-observability.py deploy \"$SSM_CommitSha\" --run-id \"${SSM_GitHubRunId:-}\" --run-attempt \"${SSM_GitHubRunAttempt:-}\""]}}]
         }
       },
-      "Metadata": {"com.aws.cloudformation.Context": {"why": "Fixed deployment command, validated revision parameter", "must": ["No arbitrary shell command parameter", "Controller must be installed before workflow activation"]}}
+      "Metadata": {"com.aws.cloudformation.Context": {"why": "Fixed deployment command with private success/failure history; update document in place", "must": ["No arbitrary shell command parameter", "Controller and independent history wrapper must be installed before document activation", "Do not persist runtime env, app logs or response bodies", "Keep previous document version for rollback"]}}
     },
     "DeployRole": {
       "Type": "AWS::IAM::Role",

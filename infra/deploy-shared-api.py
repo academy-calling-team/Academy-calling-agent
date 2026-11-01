@@ -18,6 +18,11 @@ NAMES = ['team8-shared-api', 'team8-shared-worker', 'team8-shared-queue']
 REPO = 'academy-calling-team/Academy-calling-agent'
 
 
+def stage(name):
+    # Parsed by the independent history wrapper; contains no runtime data.
+    print('[deploy-stage] ' + name, flush=True)
+
+
 def run(*args, **kwargs):
     return subprocess.run(args, check=True, **kwargs)
 
@@ -46,10 +51,12 @@ def main(commit):
         raise ValueError('A full commit SHA is required')
     os.umask(0o077)
     BASE.mkdir(exist_ok=True)
+    stage('lock')
     lock = open(BASE / 'deployment.lock', 'w')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     statefile = BASE / 'current-release.json'
     if statefile.exists() and json.loads(statefile.read_text()).get('commit') == commit:
+        stage('already_current')
         for name in NAMES:
             assert docker_json(name)['State']['Running'], name
         probe(NAMES[0], 18771)
@@ -57,6 +64,7 @@ def main(commit):
         print(json.dumps({'status': 'already-current', 'commit': commit}))
         return
     release = BASE / 'releases' / commit
+    stage('download')
     release.mkdir(parents=True, exist_ok=True)
     request = urllib.request.Request(f'https://codeload.github.com/{REPO}/tar.gz/{commit}',
                                      headers={'User-Agent': 'team8-release-controller'})
@@ -79,8 +87,10 @@ def main(commit):
     worker_image = f'team8-shared-worker:{commit}'
     logfile = BASE / f'build-{commit}.log'
     with open(logfile, 'w') as log:
+        stage('build_api')
         run('docker', 'build', '--memory', '256m', '-f', str(release/'infra/Dockerfile.shared-api'),
             '--build-arg', f'COMMIT_SHA={commit}', '-t', api_image, str(release), stdout=log, stderr=log)
+        stage('build_worker')
         run('docker', 'build', '-f', str(release/'infra/Dockerfile.shared-worker'),
             '--build-arg', f'API_IMAGE={api_image}', '-t', worker_image, str(release), stdout=log, stderr=log)
     envfile = str(BASE/'runtime/api.env')
@@ -97,9 +107,11 @@ for t in metadata.sorted_tables:
 e.dispose()
 print('Schema compatibility: OK')
 """
+    stage('schema')
     run('docker', 'run', '--rm', '--network', 'team8', '--env-file', envfile,
         api_image, 'python', '-c', preflight)
     candidate = 'team8-shared-candidate'
+    stage('candidate')
     remove(candidate)
     try:
         run('docker','run','-d','--name',candidate,'--network','team8','--memory','192m',
@@ -108,6 +120,7 @@ print('Schema compatibility: OK')
         probe(candidate,18771)
     finally:
         remove(candidate)
+    stage('backup')
     backupdir=BASE/'backups'; backupdir.mkdir(exist_ok=True)
     backupfile=backupdir/f'{int(time.time())}-{commit[:12]}.sql'
     with open(backupfile,'wb') as out:
@@ -116,6 +129,7 @@ print('Schema compatibility: OK')
     previous={name:docker_json(name)['Config']['Image'] for name in NAMES}
     stamp=str(int(time.time()))
     renamed=[]
+    stage('drain')
     run('docker','stop','-t','30',NAMES[2],stdout=subprocess.DEVNULL)
     # Let accepted mock calls finish before disconnecting the callback receiver.
     try:
@@ -125,6 +139,7 @@ print('Schema compatibility: OK')
             if active=='0': break
             time.sleep(2)
         else: raise RuntimeError('Active calls did not drain; deployment deferred')
+        stage('replace')
         for name in [NAMES[1],NAMES[0]]:
             run('docker','stop','-t','30',name,stdout=subprocess.DEVNULL)
         for name in NAMES:
@@ -134,20 +149,25 @@ print('Schema compatibility: OK')
         run('docker','run','-d','--name',NAMES[0],'--network','team8',*common,'--memory','192m',
             '--env-file',envfile,'-p','127.0.0.1:18771:18771',api_image,stdout=subprocess.DEVNULL)
         run('docker','network','connect','team8-frontend-dev',NAMES[0])
+        stage('api_ready')
         probe(NAMES[0],18771)
         run('docker','run','-d','--name',NAMES[1],'--network','container:'+NAMES[0],*common,
             '--memory','128m','--env-file',worker_env,'-v',
             'team8-shared-worker-receipts:/srv/repository/voice/.data',worker_image,stdout=subprocess.DEVNULL)
+        stage('worker_ready')
         probe(NAMES[0],18780,'/docs')
         run('docker','run','-d','--name',NAMES[2],'--network','container:'+NAMES[0],*common,
             '--memory','128m','--env-file',envfile,api_image,'python','run_queue.py',
             '--worker-url','http://127.0.0.1:18780',stdout=subprocess.DEVNULL)
+        stage('nginx')
         run('docker','exec','team8-fe-dev-https','nginx','-t',stdout=subprocess.DEVNULL)
         run('docker','exec','team8-fe-dev-https','nginx','-s','reload',stdout=subprocess.DEVNULL)
         time.sleep(2)
         for name in NAMES: assert docker_json(name)['State']['Running'], name
+        stage('public_ready')
         with urllib.request.urlopen('https://team8-api.3.35.222.227.sslip.io/shared/ready',timeout=10) as r:
             assert r.status==200
+        stage('save_release')
         record={'status':'deployed','commit':commit,'api_image':api_image,'worker_image':worker_image,
                 'previous_images':previous,'previous_containers':dict(renamed),'backup':str(backupfile),
                 'deployed_at':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())}
@@ -158,14 +178,17 @@ print('Schema compatibility: OK')
         updated.chmod(0o700); updated.replace(installed)
         helper=BASE/'deploy/real-call-test.py'
         shutil.copy2(release/'infra/real-call-test.py',helper);helper.chmod(0o700)
+        stage('cleanup')
         # Keep one stopped generation for rollback; its network namespace is preserved.
         for name in NAMES:
             output=subprocess.check_output(['docker','ps','-a','--filter',f'name=^{name}-previous-','--format','{{.Names}}'],text=True)
             keep=dict(renamed)[name]
             for old in output.splitlines():
                 if old!=keep: remove(old)
+        stage('complete')
         print(json.dumps(record))
     except BaseException:
+        stage('rollback')
         for name,old in reversed(renamed): remove(name)
         for name,old in renamed: run('docker','rename',old,name)
         for name in NAMES: run('docker','start',name,stdout=subprocess.DEVNULL)
