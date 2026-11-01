@@ -4,6 +4,7 @@
 - real_1013: 10/13 지연 측정 실통화 16통(Whisper 전사, 대본 A~E·H의 정답지 voice/prompts/test_script_v3.md)
 - real_1019: 10/19 실통화 5통(ClawOps 전사, test_worker.py의 시험 자료 2통 + real_1019_joint.json 3통)
 - synthetic: 키워드 사전이 어려워하는 말투를 모은 합성 전사(cases_synthetic.json). 프롬프트를 다듬을 때 본 개발용 세트
+- agent: 프롬프트와 기존 사례를 보지 못하게 한 별도 AI 에이전트(Sonnet)가 쓴 60개(cases_agent.json). 사람이 쓴 사례가 아니므로 구분해서 밝힌다
 - heldout: 프롬프트를 고칠 때 보지 않는 시험용 세트(cases_heldout.json). 평이한 말투와 어려운 말투를 섞음. 정답은 LLM 실행 전에 커밋함
 
 저장소 맨 위에서 실행한다.
@@ -22,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "voice" / "call_worker"))
 sys.path.insert(0, str(HERE))
-from extract import build_answers, consult_result, to_turns  # noqa: E402
+from extract import build_answers, consult_result, positions, to_turns  # noqa: E402
 from llm_judge import PROMPT_VERSION  # noqa: E402
 
 GREETING = [["A", "안녕하세요, 학부모님을 대신해 문의드리는 AI 상담원입니다. 이 통화는 녹음됩니다. 잠시 통화 괜찮으실까요?"], ["H", "네, 괜찮아요."]]
@@ -66,7 +67,7 @@ def load_cases() -> list[dict]:
     joint = json.loads((HERE / "real_1019_joint.json").read_text(encoding="utf-8"))
     for cid, qs, labels in JOINT:
         cases.append({"set": "real_1019", "id": cid, "questions": qs, "segments": joint[cid], "labels": labels})
-    for name, fname in (("synthetic", "cases_synthetic.json"), ("heldout", "cases_heldout.json")):
+    for name, fname in (("synthetic", "cases_synthetic.json"), ("heldout", "cases_heldout.json"), ("agent", "cases_agent.json")):
         for c in json.loads((HERE / fname).read_text(encoding="utf-8")):
             body = GREETING + c["body"]
             cases.append({"set": name, "id": c["id"], "note": c["note"], "questions": c["questions"],
@@ -87,6 +88,8 @@ def keyword_predict(case, turns) -> dict:
     pred = {r["question_code"]: status_of(r) for r in build_answers(qs, turns)}
     accepted, _ = consult_result(turns, qs)
     pred["consult"] = {True: "yes", False: "no"}.get(accepted, "unknown")
+    if positions(qs, turns)[1] is None:
+        pred["consult"] = "not_asked"
     return pred
 
 
@@ -116,7 +119,7 @@ def grade(truth: str, pred: str) -> str:
 
 def summarize(rows, method):
     out = {}
-    for s in ("real_1013", "real_1019", "synthetic", "heldout", "전체"):
+    for s in ("real_1013", "real_1019", "synthetic", "heldout", "agent", "전체"):
         rs = [r for r in rows if s == "전체" or r["set"] == s]
         g = [r[f"{method}_grade"] for r in rs]
         out[s] = {"n": len(g), "ok": g.count("ok"), "flip": g.count("flip"), "over": g.count("overclaim"), "under": g.count("underclaim")}
@@ -181,7 +184,7 @@ def main():
             note = r["note"] + (f" · LLM: {r['llm_detail']}" if args.llm else "")
             lines.append(f"| {r['set']} | {r['case']} | {r['item']} | {r['truth']} | {cells} | {note} |")
     (res / f"report{suffix}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print("\n".join(lines[:4 + 5 * len(methods)]))
+    print("\n".join(lines[:4 + 6 * len(methods)]))
     print(f"\n자세한 결과: {res / f'report{suffix}.md'}")
 
 

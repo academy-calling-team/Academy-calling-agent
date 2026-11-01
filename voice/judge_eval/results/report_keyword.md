@@ -6,7 +6,8 @@
 | real_1019 | keyword | 20 | 20 | 100% | 0 | 0 | 0 |
 | synthetic | keyword | 28 | 20 | 71% | 6 | 1 | 1 |
 | heldout | keyword | 25 | 19 | 76% | 2 | 1 | 3 |
-| 전체 | keyword | 121 | 105 | 87% | 8 | 2 | 6 |
+| agent | keyword | 69 | 52 | 75% | 4 | 9 | 4 |
+| 전체 | keyword | 190 | 157 | 83% | 12 | 11 | 10 |
 
 ## 틀린 항목
 
@@ -28,3 +29,20 @@
 | heldout | H16 | pickup | yes | no ✗ | '없어요'가 들어간 긍정 |
 | heldout | H19 | consult | unknown | no ✗ | 안 되는 요일만 말함 |
 | heldout | H21 | class_time | answered | unknown ✗ | 되짚기 시간 정정 |
+| agent | G08 | shuttle | no | yes ✗ | 처음 있다고 했다가 정정해서 없음 |
+| agent | G16 | pickup | unknown | yes ✗ | 질문과 관계없는 대답 |
+| agent | G18 | level_fit | no | not_asked ✗ | 중급반만 없음 |
+| agent | G20 | level_fit | yes | not_asked ✗ | 구어체로 긍정 |
+| agent | G21 | level_fit | no | not_asked ✗ | 초등 전문이라 중등 안 받음 |
+| agent | G30 | vacancy | refused | no ✗ | 정원 현황 비공개 |
+| agent | G31 | vacancy | unknown | yes ✗ | 반 개편 이후에야 알 수 있음 |
+| agent | G37 | level_test | no | yes ✗ | 예전엔 있었으나 지금은 없음 |
+| agent | G38 | level_test | refused | no ✗ | 테스트 안내 거절 |
+| agent | G43 | class_time | refused | answered ✗ | 시간표 안내 거절 |
+| agent | G45 | class_time | unknown | answered ✗ | 정해진 게 없음 |
+| agent | G51 | consult | refused | no ✗ | 상담 가능 여부 안내 거절 |
+| agent | G54 | consult | unknown | yes ✗ | 되묻기만 하고 답 없음 |
+| agent | G55 | consult | yes | no ✗ | 부정형 질문에 가능하다고 답 |
+| agent | G58 | level_fit | yes | not_asked ✗ | 반 있음과 시간 동시 답 |
+| agent | G60 | level_fit | unknown | no ✗ | 반은 테스트 후 결정이라 모름, 테스트는 있음 |
+| agent | G60 | level_test | yes | no ✗ | 반은 테스트 후 결정이라 모름, 테스트는 있음 |
