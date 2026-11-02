@@ -55,6 +55,7 @@ jobs:
           PYTHONPATH=voice/mock_worker python -m pytest -q voice/mock_worker/test_app.py
           python -m pytest -q voice/call_worker/test_worker.py
           python -m py_compile infra/deploy-shared-api.py infra/real-call-test.py backend/real_test_setup.py
+          python -m pytest -q infra/tests
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
@@ -84,14 +85,17 @@ jobs:
           role-to-assume: arn:aws:iam::239830941256:role/team8-github-shared-deploy
           aws-region: ap-northeast-2
       - name: Deploy the checked commit through a restricted SSM document
+        id: ssm
         env:
           COMMIT_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           command_id=$(aws ssm send-command --document-name team8-deploy-shared-api \
-            --instance-ids i-0042b1e737bed426a --parameters "CommitSha=$COMMIT_SHA" \
+            --instance-ids i-0042b1e737bed426a \
+            --parameters "CommitSha=$COMMIT_SHA,GitHubRunId=$GITHUB_RUN_ID,GitHubRunAttempt=$GITHUB_RUN_ATTEMPT" \
             --query Command.CommandId --output text)
           echo "SSM command: $command_id"
+          echo "command_id=$command_id" >> "$GITHUB_OUTPUT"
           status=Pending
           for attempt in $(seq 1 240); do
             status=$(aws ssm get-command-invocation --command-id "$command_id" \
@@ -103,7 +107,9 @@ jobs:
           done
           aws ssm get-command-invocation --command-id "$command_id" \
             --instance-id i-0042b1e737bed426a \
-            --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' --output json
+            --query '{CommandId:CommandId,Status:Status,ResponseCode:ResponseCode,Output:StandardOutputContent}' \
+            --output json > ssm-deployment.json
+          cat ssm-deployment.json
           test "$status" = Success
       - name: Verify public readiness and deployed revision
         env:
@@ -112,3 +118,48 @@ jobs:
           curl --fail --retry 3 --retry-delay 3 https://team8-api.3.35.222.227.sslip.io/shared/ready
           actual=$(curl --fail --silent https://team8-api.3.35.222.227.sslip.io/shared/version | jq -r .commit)
           test "$actual" = "$COMMIT_SHA"
+      - name: Keep server deployment record on success and failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: server-deployment-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ssm-deployment.json
+          retention-days: 90
+          if-no-files-found: warn
+  deployment-report:
+    if: always()
+    needs: [checks, deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record workflow outcome even when checks or AWS authentication fail
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+          COMMIT_SHA: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          python3 - <<'PY'
+          import datetime, json, os
+          from pathlib import Path
+          results = json.loads(os.environ['RESULTS'])
+          record = {
+              'recorded_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'commit': os.environ['COMMIT_SHA'], 'event': os.environ['EVENT'],
+              'run_url': os.environ['GITHUB_SERVER_URL'] + '/' + os.environ['GITHUB_REPOSITORY'] + '/actions/runs/' + os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'jobs': {name: value['result'] for name, value in results.items()},
+          }
+          Path('deployment-result.json').write_text(json.dumps(record, indent=2))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+              out.write('### Deployment result\n\n')
+              out.write('```json\n' + json.dumps(record, indent=2) + '\n```\n')
+              out.write('Server history: `/opt/team8-shared-api/deployment-history/`. A skipped deploy has no new server deployment record.\n')
+          PY
+      - name: Keep workflow result on success and failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: deployment-result-${{ github.run_id }}-${{ github.run_attempt }}
+          path: deployment-result.json
+          retention-days: 90
+          if-no-files-found: error
