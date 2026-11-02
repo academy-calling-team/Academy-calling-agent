@@ -1,0 +1,116 @@
+[
+ {
+  "speaker": "speaker_0",
+  "start": 3.98,
+  "end": 5.24,
+  "text": "네, OO 수학학원입니다."
+ },
+ {
+  "speaker": "speaker_1",
+  "start": 6.78,
+  "end": 14.6,
+  "text": "안녕하세요. 학부모님을 대신해 문의드리는 AI 상담원입니다. 이 통화는 녹음됩니다. 잠시 통화 괜찮으실까요?"
+ },
+ {
+  "speaker": "speaker_0",
+  "start": 16.64,
+  "end": 16.74,
+  "text": "네."
+ },
+ {
+  "speaker": "speaker_1",
+  "start": 18.76,
+  "end": 21.92,
+  "text": "중2 수학반에 지금 등록할 자리가 있을까요?"
+ },
+ {
+  "speaker": "speaker_0",
+  "start": 24.08,
+  "end": 24.82,
+  "text": "세 자리 있어요."
+ },
+ {
+  "speaker": "speaker_1",
+  "start": 27,
+  "end": 28.4,
+  "text": "세 자리 있다는 말씀이시죠?"
+ },
+ {
+  "speaker": "speaker_0",
+  "start": 30.58,
+  "end": 31.72,
+  "text": "아, 아니요. 두 자리예요."
+ },
+ {
+  "speaker": "speaker_1",
+  "start": 33.58,
+  "end": 34.68,
+  "text": "두 자리라고 하셨죠?"
+ },
+ {
+  "speaker": "speaker_0",
+  "start": 36.84,
+  "end": 37.52,
+  "text": "네, 맞습니다."
+ },
+ {
+  "speaker": "speaker_1",
+  "start": 39.26,
+  "end": 42.54,
+  "text": "중2 수학 수업 요일과 시간은 어떻게 되나요?"
+ },
+ {
+  "speaker": "speaker_0",
+  "start": 45.16,
+  "end": 46.22,
+  "text": "화, 목 7시요."
+ },
+ {
+  "speaker": "speaker_1",
+  "start": 48.12,
+  "end": 50.58,
+  "text": "화요일과 목요일 저녁 7시가 맞을까요?"
+ },
+ {
+  "speaker": "speaker_0",
+  "start": 52.52,
+  "end": 53.06,
+  "text": "네, 맞아요."
+ },
+ {
+  "speaker": "speaker_1",
+  "start": 55.28,
+  "end": 60.18,
+  "text": "이번 주에 학부모 상담이 가능할까요? 가능하다면 요일과 시간이 언제인가요?"
+ },
+ {
+  "speaker": "speaker_0",
+  "start": 62.72,
+  "end": 64.319,
+  "text": "금요일 오전 11시 괜찮아요."
+ },
+ {
+  "speaker": "speaker_1",
+  "start": 66.54,
+  "end": 68.3,
+  "text": "금요일 오전 11시가 맞을까요?"
+ },
+ {
+  "speaker": "speaker_0",
+  "start": 70.04,
+  "end": 70.58,
+  "text": "네, 맞아요."
+ },
+ {
+  "speaker": "speaker_1",
+  "start": 72.58,
+  "end": 82.36,
+  "text": "중2 수학반은 두 자리 등록 가능하고, 수업은 화요일과 목요일 저녁 7시이며, 이번 주 학부모 상담은 금요일 오전 11시에 가능하다고 하셨어요."
+ },
+ {
+  "speaker": "speaker_1",
+  "start": 83.56,
+  "end": 89.4,
+  "text": "맞으시면 이대로 학부모님께 전해드리겠습니다. 확인해 주셔서 감사합니다. 좋은 하루 보내세요."
+ }
+]
