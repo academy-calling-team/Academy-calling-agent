@@ -1,0 +1,13 @@
+name,engine,script,call_id,leg_id,latency,fix
+1102_co_A,clawops,A,CA752da776d422e179916b3b3139fa8c84,,1,
+1102_va_A,vapi,A,01a19bdc-359f-7bbe-adf5-4074b504d45d,CA0e03924d0bd2acc1bbf06b2493c1c8e6,1,
+1102_va_B,vapi,B,01a19bde-8ad4-7bbe-bb71-23e1ae513a66,CA6233ce14f772c4300424830741e0f815,1,
+1102_co_B,clawops,B,CAe8895b555e4cac337ad3515b8fdf0a59,,1,
+1102_co_C,clawops,C,CA89b7cb9ebe87156f275bf2bae29b686d,,1,
+1102_va_C,vapi,C,01a19be4-4231-7002-8aae-52c55e43b0b7,CAedee9fb72e3f9d2885e38a0fb923e284,1,
+1102_va_D,vapi,D,01a19be6-6946-7000-88df-b13ecba25526,CA8f63229530f7363f0a55f590fcec2ab1,1,
+1102_co_D,clawops,D,CA8fdcdea4204edc46ec9c499faec315b5,,1,
+1102_co_E,clawops,E,CA1003b3b37d92843857ce21ce374f01a0,,1,
+1102_va_E,vapi,E,01a19beb-80fd-7001-ace2-d6029ddd668c,CAe51128a8fb4ad76cdf6c3519df6907e6,1,
+1102_va_H,vapi,H,01a19bed-2629-7000-83e1-a960c33300b1,CAfb68940444c55ce2debdea167a725a13,0,
+1102_co_H,clawops,H,CA45b24ec4230756acae82f799650c1f02,,0,
