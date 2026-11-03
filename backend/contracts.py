@@ -4,6 +4,15 @@ from pydantic import BaseModel, Field, ConfigDict, model_validator, field_valida
 
 QUESTION_LABELS = {'shuttle':'통학 차량', 'pickup':'픽업', 'level_fit':'수준에 맞는 반',
                    'vacancy':'남은 자리', 'level_test':'레벨 테스트', 'class_time':'수업 요일·시간'}
+CALL_STATUS_LABELS_KR = {
+    'reserved':'발신 대기', 'delivery_unknown':'요청 전달 확인 중', 'accepted':'발신 요청 접수',
+    'initiated':'발신 시작', 'ringing':'호출 중', 'answered':'통화 중',
+    'ended':'통화 종료·결과 대기', 'finished':'통화 종료', 'timeout':'시간 초과',
+}
+CALL_OUTCOME_LABELS_KR = {
+    'answered':'연결됨', 'no_answer':'부재중', 'busy':'통화 중',
+    'rejected':'수신 거절', 'machine':'자동 응답', 'invalid_number':'전화번호 오류',
+}
 REGIONS = ['대구 북구 침산동', '대구 북구 태전동', '대구 수성구 범어동']
 QuestionCode = Literal['shuttle','pickup','level_fit','vacancy','level_test','class_time']
 Outcome = Literal['answered','no_answer','busy','rejected','machine','invalid_number']

@@ -197,6 +197,7 @@
     "/api/inquiries/{inquiry_id}": {
       "get": {
         "summary": "Get",
+        "description": "본인 문의·결과 조회. questions[].question_label_kr는 한국어 질문 이름, attempts[].status_label_kr와 outcome_label_kr는 한국어 통화 상태·결과 이름입니다. 기존 코드/ID는 유지하며, 알 수 없는 코드는 그대로 표시하고 outcome이 null이면 표시명도 null입니다.",
         "operationId": "get_api_inquiries__inquiry_id__get",
         "security": [
           {
@@ -219,7 +220,41 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {},
+                "examples": {
+                  "korean_labels": {
+                    "summary": "한국어 표시명 예시(응답 일부)",
+                    "value": {
+                      "questions": [
+                        {
+                          "question_id": "example-shuttle",
+                          "question_code": "shuttle",
+                          "question_label_kr": "통학 차량"
+                        },
+                        {
+                          "question_id": "example-vacancy",
+                          "question_code": "vacancy",
+                          "question_label_kr": "남은 자리"
+                        },
+                        {
+                          "question_id": "example-level-test",
+                          "question_code": "level_test",
+                          "question_label_kr": "레벨 테스트"
+                        }
+                      ],
+                      "attempts": [
+                        {
+                          "call_id": "example-call",
+                          "attempt_no": 1,
+                          "status": "finished",
+                          "status_label_kr": "통화 종료",
+                          "outcome": "answered",
+                          "outcome_label_kr": "연결됨"
+                        }
+                      ]
+                    }
+                  }
+                }
               }
             }
           },
