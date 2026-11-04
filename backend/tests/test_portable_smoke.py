@@ -86,6 +86,83 @@ def test_login_inquiry_result_duplicate_and_ownership(portable):
     assert client.get('/api/inquiries/' + iid, headers=headers).status_code == 401
 
 
+def test_detail_korean_labels_through_call_lifecycle(portable):
+    engine, _, client = portable
+    identity, headers = login(client)
+    labels = client.get('/api/options').json()['question_codes']
+    request = dict(inquirer_id=identity['inquirer_id'], academy_id='demo-academy',
+        student=dict(grade='M2', subject='MATH', level='MID', region='대구 북구 침산동'),
+        question_codes=list(labels))
+    headers['Idempotency-Key'] = str(uuid4())
+    created = client.post('/api/inquiries', json=request, headers=headers)
+    assert created.status_code == 201, created.text
+    path = '/api/inquiries/' + created.json()['inquiry_id']
+    before = client.get(path, headers=headers)
+    assert before.status_code == 200, before.text
+    questions = before.json()['questions']
+    assert [q['question_code'] for q in questions] == request['question_codes']
+    assert {q['question_code']: q['question_label_kr'] for q in questions} == labels
+    assert before.json()['attempts'] == []
+
+    tick = client.post('/internal/mock/tick', headers={'X-Internal-Key':'synthetic-test-key'})
+    assert tick.status_code == 200, tick.text
+    cid = tick.json()['reserved'][0]
+    accepted = client.get(path, headers=headers).json()['attempts'][0]
+    assert accepted['status'] == 'accepted' and accepted['status_label_kr'] == '발신 요청 접수'
+    assert accepted['outcome'] is None and accepted['outcome_label_kr'] is None
+
+    for kind, status, label in [('initiated','initiated','발신 시작'), ('ringing','ringing','호출 중'),
+                                ('answered','answered','통화 중'), ('completed','ended','통화 종료·결과 대기')]:
+        event = client.post('/internal/calls/' + cid + '/events',
+            json=dict(event_id='event_' + kind, type=kind, occurred_at='2026-10-05T05:00:00+00:00'),
+            headers={'X-Internal-Key':'synthetic-test-key'})
+        assert event.status_code == 200 and event.json()['applied'] is True
+        attempt = client.get(path, headers=headers).json()['attempts'][0]
+        assert attempt['status'] == status and attempt['status_label_kr'] == label
+
+    # Display metadata must not enter the strict voice-worker request contract.
+    with engine.connect() as connection:
+        payload = connection.execute(select(calls.c.dispatch_payload).where(calls.c.id==cid)).scalar_one()
+    assert payload['questions'] == [
+        dict(question_id=q['question_id'], question_code=q['question_code']) for q in questions]
+    result = make_result(payload)
+    delivered = client.post('/internal/calls/' + cid + '/result', json=result,
+                           headers={'X-Internal-Key':'synthetic-test-key'})
+    assert delivered.status_code == 200 and delivered.json()['applied'] is True
+    after = client.get(path, headers=headers).json()
+    assert after['status'] == 'completed' and after['questions'] == questions
+    assert after['result']['answers'] == result['answers']
+    attempt = after['attempts'][0]
+    assert attempt['status'] == 'finished' and attempt['status_label_kr'] == '통화 종료'
+    assert attempt['outcome'] == 'answered' and attempt['outcome_label_kr'] == '연결됨'
+
+
+@pytest.mark.parametrize('outcome,label', [
+    ('answered','연결됨'), ('no_answer','부재중'), ('busy','통화 중'),
+    ('rejected','수신 거절'), ('machine','자동 응답'), ('invalid_number','전화번호 오류'),
+])
+def test_detail_outcome_korean_labels(portable, outcome, label):
+    engine, _, client = portable
+    identity, headers = login(client)
+    request = dict(inquirer_id=identity['inquirer_id'], academy_id='demo-academy',
+        student=dict(grade='M2', subject='MATH', level='MID', region='대구 북구 침산동'),
+        question_codes=['shuttle'])
+    headers['Idempotency-Key'] = str(uuid4())
+    created = client.post('/api/inquiries', json=request, headers=headers)
+    assert created.status_code == 201, created.text
+    tick = client.post('/internal/mock/tick', headers={'X-Internal-Key':'synthetic-test-key'})
+    cid = tick.json()['reserved'][0]
+    with engine.connect() as connection:
+        payload = connection.execute(select(calls.c.dispatch_payload).where(calls.c.id==cid)).scalar_one()
+    result = make_result(payload, outcome=outcome)
+    sent = client.post('/internal/calls/' + cid + '/result', json=result,
+                      headers={'X-Internal-Key':'synthetic-test-key'})
+    assert sent.status_code == 200, sent.text
+    attempt = client.get('/api/inquiries/' + created.json()['inquiry_id'], headers=headers).json()['attempts'][0]
+    assert attempt['outcome'] == outcome and attempt['outcome_label_kr'] == label
+    assert attempt['status'] == 'finished' and attempt['status_label_kr'] == '통화 종료'
+
+
 def test_password_validation_does_not_echo_password(portable):
     _, _, client = portable
     response = client.post('/auth/register', json={

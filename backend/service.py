@@ -13,6 +13,7 @@ from schema import outbox, delivery_leases, corrections, academy_policies
 from schema import accounts,sessions,review_holds,review_actions,fallback_tasks
 from worker_errors import WorkerRejected, WorkerProtocolError
 from real_test import RealTestPolicy, phone
+from contracts import QUESTION_LABELS, CALL_STATUS_LABELS_KR, CALL_OUTCOME_LABELS_KR
 
 def uid(): return str(uuid4())
 def digest(value): return hashlib.sha256(value.encode()).hexdigest()
@@ -134,7 +135,9 @@ class Service:
             fallback=c.execute(select(fallback_tasks.c.status).where(fallback_tasks.c.inquiry_id==iid)).first()
             for call in c.execute(select(calls).where(calls.c.inquiry_id==iid).order_by(calls.c.attempt_no)).mappings():
                 history.append(dict(call_id=call['id'],attempt_no=call['attempt_no'],status=call['status'],
-                                    started_at=call['created_at'],outcome=call['outcome']))
+                    status_label_kr=CALL_STATUS_LABELS_KR.get(call['status'],call['status']),
+                    started_at=call['created_at'],outcome=call['outcome'],
+                    outcome_label_kr=CALL_OUTCOME_LABELS_KR.get(call['outcome'],call['outcome'])))
                 res=c.execute(select(results).where(results.c.call_id==call['id'],results.c.applied==True)).mappings().first()
                 if res:
                     review=c.execute(select(corrections).where(corrections.c.call_id==call['id'])
@@ -147,7 +150,8 @@ class Service:
             return aware(dict(inquiry_id=iid,inquirer_id=owner,status=row['status'],student=row['student'],
                 academy={'academy_id':ac['id'],'name':ac['name'],'is_mock':ac['is_mock'],
                          **self.real_test.public(ac)},
-                questions=[dict(question_id=q['id'],question_code=q['code']) for q in qs],
+                questions=[dict(question_id=q['id'],question_code=q['code'],
+                    question_label_kr=QUESTION_LABELS.get(q['code'],q['code'])) for q in qs],
                 attempts=history,result=final,failure_reason=row['failure_reason'],
                 fallback_required=row['fallback_required'],fallback_status=fallback.status if fallback else None,
                 review_required=hold is not None,review_reason=hold['reason'] if hold else None))

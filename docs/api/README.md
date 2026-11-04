@@ -21,6 +21,36 @@
 | level_fit / vacancy | 수준에 맞는 반 / 남은 자리 |
 | level_test / class_time | 레벨 테스트 / 수업 요일·시간 |
 
+### 한국어표기 매핑작업 · 2026-11-03
+
+`GET /api/inquiries/{inquiry_id}`의 표시 전용 필드를 추가했다. 프론트는 질문 제목·태그에
+`questions[].question_label_kr`, 통화 기록에 `attempts[].status_label_kr`와
+`attempts[].outcome_label_kr`를 사용한다. `_kr`가 없는 `question_label`은 추가하지 않는다.
+서버 반영 후 사용 가능하며 API 식별·분기·음성 워커 요청에는 기존 코드와 ID를 계속 사용한다.
+문의 목록 `/api/inquiries`는 기존 요약 응답을 유지하며, 질문 태그는 현재처럼 상세 조회의
+`questions`를 사용할 수 있다. `answers`의 코드·답변 내용도 유지한다.
+
+```json
+{
+  "questions": [
+    {"question_id":"example-shuttle","question_code":"shuttle","question_label_kr":"통학 차량"}
+  ],
+  "attempts": [
+    {"call_id":"example-call","attempt_no":1,"status":"finished","status_label_kr":"통화 종료",
+     "outcome":"answered","outcome_label_kr":"연결됨"}
+  ]
+}
+```
+
+위 예시는 전체 응답 중 추가 필드에 해당하는 부분이다. 질문 표기는 `/api/options`의 기존
+`question_codes`와 동일하다. 통화 상태 표기는 reserved=발신 대기, delivery_unknown=요청 전달 확인 중,
+accepted=발신 요청 접수, initiated=발신 시작, ringing=호출 중, answered=통화 중,
+ended=통화 종료·결과 대기, finished=통화 종료, timeout=시간 초과다.
+통화 결과는 answered=연결됨, no_answer=부재중, busy=통화 중, rejected=수신 거절,
+machine=자동 응답, invalid_number=전화번호 오류다. answered는 모든 질문에 답변했다는 의미가 아니다.
+아직 결과가 없으면 `outcome`과 `outcome_label_kr` 모두 null이다. 알 수 없는 코드의 표시명은
+원래 코드로 대체한다. DB 컬럼 추가·마이그레이션은 없으며 표시명은 조회할 때 계산한다.
+
 문의 예시(자리표시는 API가 반환한 실제 ID로 바꾼다):
 
 ```json

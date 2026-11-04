@@ -60,7 +60,23 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
     def list_owned(inquirer_id:str|None=None,limit:int=Query(50,ge=1,le=100),offset:int=Query(0,ge=0),
                    token:str=Depends(auth)):
         return service.list_owned(token,inquirer_id,limit,offset)
-    @app.get('/api/inquiries/{inquiry_id}')
+    @app.get('/api/inquiries/{inquiry_id}',
+        description='본인 문의·결과 조회. questions[].question_label_kr는 한국어 질문 이름, '
+                    'attempts[].status_label_kr와 outcome_label_kr는 한국어 통화 상태·결과 이름입니다. '
+                    '기존 코드/ID는 유지하며, 알 수 없는 코드는 그대로 표시하고 outcome이 null이면 표시명도 null입니다.',
+        responses={200:{'content':{'application/json':{'examples':{
+            'korean_labels':{
+                'summary':'한국어 표시명 예시(응답 일부)',
+                'value':{
+                    'questions':[
+                        {'question_id':'example-shuttle','question_code':'shuttle','question_label_kr':'통학 차량'},
+                        {'question_id':'example-vacancy','question_code':'vacancy','question_label_kr':'남은 자리'},
+                        {'question_id':'example-level-test','question_code':'level_test','question_label_kr':'레벨 테스트'}],
+                    'attempts':[{'call_id':'example-call','attempt_no':1,
+                        'status':'finished','status_label_kr':'통화 종료',
+                        'outcome':'answered','outcome_label_kr':'연결됨'}]
+                }
+            }}}}}})
     def get(inquiry_id:str,token:str=Depends(auth)):
         return service.get(inquiry_id,token)
     @app.post('/internal/calls/{call_id}/events',dependencies=[Depends(internal)])
