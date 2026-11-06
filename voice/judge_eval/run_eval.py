@@ -156,9 +156,15 @@ def main():
                 r["llm"] = llm.get(item, "not_asked")
                 r["llm_grade"] = grade(truth, r["llm"])
                 if item == "consult":
-                    r["llm_detail"] = f"가능 {extra['consult']['available_times']} / 불가 {extra['consult']['unavailable_times']}"
+                    got = extra["consult"]
+                    r["llm_detail"] = f"가능 {got['available_times']} / 불가 {got['unavailable_times']}"
                 else:
-                    r["llm_detail"] = next((a["detail"] for a in extra["answers"] if a["question_code"] == item), "")
+                    got = next((a for a in extra["answers"] if a["question_code"] == item), {})
+                    r["llm_detail"] = got.get("detail", "")
+                r["source_text"] = got.get("source_text", "")
+                r["detail_checked"] = got.get("detail_checked", True)
+                r["certainty"] = got.get("certainty", "")
+                r["leaning"] = got.get("leaning") or ""
             rows.append(r)
 
     res = HERE / "results"
@@ -176,6 +182,12 @@ def main():
         for s, v in summarize(rows, m).items():
             lines.append(f"| {s} | {m} | {v['n']} | {v['ok']} | {v['ok'] / v['n']:.0%} | {v['flip']} | {v['over']} | {v['under']} |")
     if args.llm:
+        bad = [r for r in rows if not r["detail_checked"]]
+        lines += ["", f"요약 사실 검사(숫자·요일이 학원 원문에 있는지) 실패: {len(bad)}/{len(rows)}건 (실패하면 요약 대신 인용 원문을 씀)"]
+        lines += [f"- {r['set']} {r['case']} {r['item']}: 요약 '{r['llm_detail']}' / 원문 '{r['source_text']}'" for r in bad]
+        unsure = [r for r in rows if r["leaning"]]
+        lines += ["", f"학원이 확정하지 않아 미확인으로 돌린 항목: {len(unsure)}건 (확실성 guess·deferred)"]
+        lines += [f"- {r['set']} {r['case']} {r['item']}: 정답 {r['truth']} / 기운 쪽 {r['leaning']} ({r['certainty']}) / 원문 '{r['source_text']}'" for r in unsure]
         lines += ["", f"실제 응답 모델: {sorted(str(m) for m in served)} / 프롬프트 판: {PROMPT_VERSION}", f"토큰: 입력 {usage['prompt_tokens']:,} / 출력 {usage['completion_tokens']:,} (캐시된 결과는 처음 호출 때 값)"]
     lines += ["", "## 틀린 항목", "", "| 세트 | 통화 | 항목 | 정답 | " + " | ".join(methods) + " | 메모 |", "|---|---|---|---|" + "---|" * len(methods) + "---|"]
     for r in rows:

@@ -5,6 +5,14 @@ LLM은 판정과 함께 근거가 된 학원 발화 번호와 원문을 인용�
 코드가 그 판정을 '미확인'으로 돌린다(지어낸 답이 결과로 나가지 않게).
 
 결과는 extract.build_answers / consult_result 와 같은 모양으로 돌려준다.
+
+judge-v3 (11/4 10주차 회의 반영)
+- 학부모 화면에 판정과 함께 학원 원문과 요약을 같이 보여 준다(멘토 동의). 원문(source_text)은 LLM이 아니라
+  코드가 근거 발화 번호로 전사에서 그대로 꺼낸다.
+- 요약(detail)에 근거 발화에 없는 숫자·요일이 들어가면 요약을 버리고 인용 원문으로 바꾼다(detail_checked=False).
+- 애매한 말투마다 규칙을 덧붙이지 않는다(10주차 멘토 의견). 대신 답의 내용(status)과 학원이 얼마나 확실하게
+  말했는지(certainty: definite·guess·deferred)를 따로 받고, 확정이 아니면 코드가 미확인으로 돌린다.
+  LLM이 원래 잘하는 '이 사람이 알고 말하나'의 판단을 규칙 없이 쓰고, 정책은 코드 한 곳에 둔다.
 """
 import hashlib
 import json
@@ -15,7 +23,7 @@ from pathlib import Path
 
 import httpx
 
-PROMPT_VERSION = "judge-v2"
+PROMPT_VERSION = "judge-v3"
 GROUNDED_MIN = 0.7
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 GEMINI_PACE_SEC = 8
@@ -37,19 +45,28 @@ SYSTEM = """당신은 학부모를 대신해 학원에 건 전화의 전사를 �
 - yes: 질문이 묻는 사실을 학원이 그렇다고 답함. 조건이 붙어도 사실 자체를 인정하면 yes
 - no: 학원이 아니라고 답함. 정중한 거절, 완곡한 표현, 부정어 없이 뜻으로 거절한 경우도 no
 - answered: 수업 시간 질문에 요일이나 시각을 구체적으로 답함
-- unknown: 모른다, 확인이 필요하다, 정해지지 않았다, 진짜 추측, 질문과 관계없는 대답
+- unknown: 모른다, 정해지지 않았다, 질문과 관계없는 대답, 답이 없음
 - refused: 전화로는 알려 줄 수 없다고 거절함
 - not_asked: AI가 그 질문을 하지 않음
+
+확실성(certainty): status와 따로, 학원이 그 답을 얼마나 확실하게 말했는지
+- definite: 학원이 사실을 알고 말함. 정중하거나 부드럽게 돌려 말해도 뜻이 분명하면 definite
+- guess: 학원 스스로 확실하지 않다고 드러냄. 짐작으로 말함
+- deferred: 다른 사람(원장님 등)이나 나중 확인으로 답을 넘김. 앞에 답을 말했어도 확정을 넘기면 deferred
+status는 학원이 말한 내용대로 고르고, 확실성으로 status를 바꾸지 않는다. unknown·refused·not_asked이면 definite로 둔다.
 
 규칙:
 1. 각 질문은 그 질문이 묻는 사실만 판정한다. 다른 사실로 답을 뒤집지 않는다. 예를 들어 '맞는 반이 있는지'는 반의 존재를 묻는 것이고, 자리가 있는지는 별개다.
 2. 학원 발화의 뜻으로 판단한다. 부정어가 있어도 전체 뜻이 긍정이면 yes이고, 말 앞의 '네', '아니요'가 말버릇이면 뒤 내용을 따른다.
 3. AI가 되짚은 말은 학원이 맞다고 확인했을 때만 근거가 된다. 학원이 나중에 고쳐 말하면 마지막으로 확정한 답을 따른다.
 4. 학생 조건(학년·과목·수준·지역)이 전사에 나오고, 학원이 그 학생에게는 해당하지 않는다고 하면 no다.
-5. 애매하면 unknown. 틀린 yes/no보다 unknown이 낫다.
+5. 무엇을 말했는지가 애매하면 unknown. 틀린 yes/no보다 unknown이 낫다.
 6. 상담(consult)은 이번 주 학부모 상담 가능 여부다. 가능한 때를 하나라도 말하면 yes이고 available_times에 적는다. 안 된다고 한 때는 unavailable_times에 적는다. 이번 주 전체가 안 된다고 하면 no다. 일부 시간만 안 된다고 하고 가능한 때를 말하지 않으면 unknown이다.
 7. yes/no/answered이면 evidence_turns에 근거 학원 발화 번호를, evidence_quote에 그 발화의 핵심 구절을 넣는다. 인용은 전사 글자 그대로 복사한다. 오타도 고치지 않고, 번역하거나 다시 쓰지 않는다.
-8. detail은 학부모에게 보여 줄 한 줄 요약이다(한국어, 학원 말 기준, 30자 안팎)."""
+8. detail은 학부모에게 보여 줄 한 줄 요약이다(한국어, 학원 말 기준, 30자 안팎). 학원 원문은 화면에 따로 나가므로 요약은 짧게 쓴다.
+9. detail과 available_times에는 학원이 말한 숫자·요일·시각만 쓴다. 숫자는 아라비아 숫자로 바꿔 써도 되지만, 학원이 말하지 않은 오전·오후, 날짜, 인원, 금액을 덧붙이지 않는다."""
+
+CERTAINTY = ["definite", "guess", "deferred"]
 
 STATUS_YN = ["yes", "no", "unknown", "refused", "not_asked"]
 STATUS_TIME = ["answered", "unknown", "refused", "not_asked"]
@@ -58,15 +75,17 @@ STATUS_TIME = ["answered", "unknown", "refused", "not_asked"]
 def schema(codes: list[str]) -> dict:
     def item(enum):
         return {"type": "object", "additionalProperties": False,
-                "required": ["status", "detail", "evidence_turns", "evidence_quote"],
-                "properties": {"status": {"type": "string", "enum": enum}, "detail": {"type": "string"},
+                "required": ["status", "certainty", "detail", "evidence_turns", "evidence_quote"],
+                "properties": {"status": {"type": "string", "enum": enum},
+                               "certainty": {"type": "string", "enum": CERTAINTY}, "detail": {"type": "string"},
                                "evidence_turns": {"type": "array", "items": {"type": "integer"}},
                                "evidence_quote": {"type": "string"}}}
     consult = {
         "type": "object", "additionalProperties": False,
-        "required": ["status", "available_times", "unavailable_times", "evidence_turns", "evidence_quote"],
+        "required": ["status", "certainty", "available_times", "unavailable_times", "evidence_turns", "evidence_quote"],
         "properties": {
             "status": {"type": "string", "enum": STATUS_YN},
+            "certainty": {"type": "string", "enum": CERTAINTY},
             "available_times": {"type": "array", "items": {"type": "string"}},
             "unavailable_times": {"type": "array", "items": {"type": "string"}},
             "evidence_turns": {"type": "array", "items": {"type": "integer"}},
@@ -102,6 +121,51 @@ def grounded(item: dict, turns) -> bool:
         return True
     matched = sum(m.size for m in SequenceMatcher(None, quote, said, autojunk=False).get_matching_blocks())
     return matched / len(quote) >= GROUNDED_MIN
+
+
+def source_text(item: dict, turns) -> str:
+    """근거로 지목한 학원 발화를 전사 그대로 이어 붙인다. 학부모 화면의 '학원 원문'."""
+    idx = sorted({i for i in item.get("evidence_turns", []) if 0 <= i < len(turns) and turns[i].speaker == "academy"})
+    return " / ".join(turns[i].text for i in idx)
+
+
+# 한국어 수 표현 → 숫자. 받아쓰기는 "일곱 시", "두 자리", "여섯 시 반"처럼 한글로, 요약은 "7시"처럼 숫자로 쓰기 쉽다
+_NATIVE = {"열한": 11, "열하나": 11, "열두": 12, "열둘": 12, "열": 10, "한": 1, "하나": 1, "두": 2, "둘": 2,
+           "세": 3, "셋": 3, "네": 4, "넷": 4, "다섯": 5, "여섯": 6, "일곱": 7, "여덟": 8, "아홉": 9}
+_SINO = {"일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "육": 6, "칠": 7, "팔": 8, "구": 9, "십": 10,
+         "이십": 20, "삼십": 30, "사십": 40, "오십": 50}
+_COUNTER = r"\s?(?:시(?![간험작])|자리|명|분|호차|개|번|학년|살|대|층|주)"
+_NATIVE_RE = re.compile(rf"(?<![가-힣])({'|'.join(sorted(_NATIVE, key=len, reverse=True))}){_COUNTER}")
+_SINO_RE = re.compile(rf"(?<![가-힣])({'|'.join(sorted(_SINO, key=len, reverse=True))})\s?(?:분|호차|학년|층)")
+_DAY = "월화수목금토일"
+_DAY_RE = re.compile(rf"([{_DAY}])요일|(?<![가-힣])([{_DAY}]{{2,}})(?![가-힣])")
+
+
+def numbers(s: str) -> set[int]:
+    s = re.sub(r"[초중고]\s?\d", "", s)   # 학생 학년(중2)은 AI 질문에서 온 말이라 뺀다
+    out = {int(n) for n in re.findall(r"\d+", s)}
+    out |= {_NATIVE[m] for m in _NATIVE_RE.findall(s)} | {_SINO[m] for m in _SINO_RE.findall(s)}
+    if re.search(r"시\s?반", s):
+        out.add(30)
+    if re.search(r"한두|한\s?두", s):
+        out |= {1, 2}
+    return out - {0}
+
+
+def weekdays(s: str) -> set[str]:
+    s = re.sub(rf"(?<=[{_DAY}])\s?[·,/]\s?(?=[{_DAY}](?![가-힣]))", "", s)   # 화·목 → 화목
+    s = re.sub(rf"(?<![가-힣])([{_DAY}])(?=\s?\d)", r"\1요일", s)          # 토 10:00 → 토요일 10:00
+    out = set()
+    for one, run in _DAY_RE.findall(s):
+        out |= set(one or run)
+    return out
+
+
+def facts_ok(detail: str, source: str) -> bool:
+    """요약의 숫자·요일이 모두 학원 원문에 있는가. 오후 시각(19시)은 원문의 7시로도 인정한다."""
+    have = numbers(source)
+    nums_ok = all(n in have or (13 <= n <= 23 and n - 12 in have) for n in numbers(detail))
+    return nums_ok and weekdays(detail) <= weekdays(source)
 
 
 def _post_gemini(codes, turns, model, api_key, timeout):
@@ -147,8 +211,19 @@ def call_llm(codes, turns, model, api_key, cache_dir: Path | None = None, timeou
     return out
 
 
+UNSURE_LABEL = {"guess": "학원이 확실하지 않다고 함", "deferred": "학원이 다른 분 확인이 필요하다고 함"}
+
+
+def settle(st: str, certainty: str) -> tuple[str, str | None]:
+    """확실성 정책을 한 곳에 둔다. 학원이 확정하지 않은 yes/no/answered는 미확인으로 돌리고,
+    학원이 기운 쪽(leaning)은 따로 남긴다. 계약(contracts.py)의 reason은 아직 'unknown'뿐이라 그대로 쓴다."""
+    if st in ("yes", "no", "answered") and certainty in UNSURE_LABEL:
+        return "unknown", st
+    return st, None
+
+
 def to_contract(questions: list[dict], turns, raw: dict) -> tuple[list[dict], dict]:
-    """LLM 결과 → (답변 행들, 상담 결과). 근거가 없는 확정 판정은 미확인으로 돌린다."""
+    """LLM 결과 → (답변 행들, 상담 결과). 근거가 없거나 학원이 확정하지 않은 판정은 미확인으로 돌린다."""
     by_code = raw.get("answers", {})
     answers = []
     for q in questions:
@@ -156,9 +231,16 @@ def to_contract(questions: list[dict], turns, raw: dict) -> tuple[list[dict], di
         st = a["status"]
         if st in ("yes", "no", "answered") and not grounded(a, turns):
             st, a = "unknown", {**a, "detail": f"근거 확인 실패: {a['detail']}"}
+        certainty = a.get("certainty", "definite")
+        st, leaning = settle(st, certainty)
+        src = source_text(a, turns)
+        checked = facts_ok(a["detail"], src)
+        detail = a["detail"] if checked else (a.get("evidence_quote") or src)
+        if leaning:
+            detail = f"{UNSURE_LABEL[certainty]}: {detail}"
         row = {**q, "asked": st != "not_asked", "answered": st in ("yes", "no", "answered"),
-               "yes_no": {"yes": True, "no": False}.get(st), "reason": None, "detail": a["detail"][:500] or "대답을 알아듣지 못함",
-               "status": st}
+               "yes_no": {"yes": True, "no": False}.get(st), "reason": None, "detail": detail[:500] or "대답을 알아듣지 못함",
+               "status": st, "certainty": certainty, "leaning": leaning, "source_text": src[:500], "detail_checked": checked}
         if not row["answered"]:
             row["reason"] = {"refused": "refused", "not_asked": "not_asked"}.get(st, "unknown")
         answers.append(row)
@@ -166,7 +248,12 @@ def to_contract(questions: list[dict], turns, raw: dict) -> tuple[list[dict], di
     st = c.get("status", "unknown")
     if st in ("yes", "no") and not grounded(c, turns):
         st = "unknown"
+    certainty = c.get("certainty", "definite")
+    st, leaning = settle(st, certainty)
+    src = source_text(c, turns)
+    times = c.get("available_times", []) if st == "yes" else []
+    checked = all(facts_ok(t, src) for t in times + c.get("unavailable_times", []))
     consult = {"status": st, "consult_accepted": {"yes": True, "no": False}.get(st),
-               "available_times": c.get("available_times", []) if st == "yes" else [],
-               "unavailable_times": c.get("unavailable_times", [])}
+               "available_times": times, "unavailable_times": c.get("unavailable_times", []),
+               "certainty": certainty, "leaning": leaning, "source_text": src[:500], "detail_checked": checked}
     return answers, consult
