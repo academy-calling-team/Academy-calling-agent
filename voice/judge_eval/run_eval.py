@@ -182,7 +182,7 @@ def main():
         for s, v in summarize(rows, m).items():
             lines.append(f"| {s} | {m} | {v['n']} | {v['ok']} | {v['ok'] / v['n']:.0%} | {v['flip']} | {v['over']} | {v['under']} |")
     if args.llm:
-        bad = [r for r in rows if not r["detail_checked"]]
+        bad = [r for r in rows if r["detail_checked"] is False]
         lines += ["", f"요약 사실 검사(숫자·요일이 학원 원문에 있는지) 실패: {len(bad)}/{len(rows)}건 (실패하면 요약 대신 인용 원문을 씀)"]
         lines += [f"- {r['set']} {r['case']} {r['item']}: 요약 '{r['llm_detail']}' / 원문 '{r['source_text']}'" for r in bad]
         unsure = [r for r in rows if r["leaning"]]

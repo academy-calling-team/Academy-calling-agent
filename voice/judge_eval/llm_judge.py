@@ -123,10 +123,42 @@ def grounded(item: dict, turns) -> bool:
     return matched / len(quote) >= GROUNDED_MIN
 
 
+CONFIRM_MAX = 6   # "네 맞습니다"처럼 내용 없이 확인만 한 학원 발화의 글자 수(공백·문장부호 뺀 길이)
+
+
+def _evidence(item: dict, turns) -> list[int]:
+    return sorted({i for i in item.get("evidence_turns", []) if 0 <= i < len(turns) and turns[i].speaker == "academy"})
+
+
+def _prev_agent(i: int, turns) -> int | None:
+    j = i - 1
+    while j >= 0 and turns[j].speaker != "agent":
+        j -= 1
+    return j if j >= 0 else None
+
+
 def source_text(item: dict, turns) -> str:
-    """근거로 지목한 학원 발화를 전사 그대로 이어 붙인다. 학부모 화면의 '학원 원문'."""
-    idx = sorted({i for i in item.get("evidence_turns", []) if 0 <= i < len(turns) and turns[i].speaker == "academy"})
-    return " / ".join(turns[i].text for i in idx)
+    """근거로 지목한 학원 발화를 전사 그대로 이어 붙인다. 학부모 화면의 '학원 원문'.
+    학원이 "네 맞습니다"처럼 확인만 했으면 그 앞의 AI 되짚기를 함께 보여 준다(무엇을 확인했는지 알 수 있게)."""
+    parts = []
+    for i in _evidence(item, turns):
+        j = _prev_agent(i, turns)
+        if len(_norm(turns[i].text)) <= CONFIRM_MAX and j is not None:
+            parts.append(f"(AI: {turns[j].text})")
+        parts.append(turns[i].text)
+    return " / ".join(parts)
+
+
+def fact_source(item: dict, turns) -> str:
+    """요약 사실 검사의 기준 글. 근거 학원 발화와 그 바로 앞 AI 발화(되짚기·질문)를 합친다.
+    규칙 3에 따라 학원이 확인한 되짚기는 근거가 되고, 받아쓰기가 끊긴 학원 발화('수요일 오')를 되짚기가 보완한다."""
+    idx = set()
+    for i in _evidence(item, turns):
+        idx.add(i)
+        j = _prev_agent(i, turns)
+        if j is not None:
+            idx.add(j)
+    return " ".join(turns[i].text for i in sorted(idx))
 
 
 # 한국어 수 표현 → 숫자. 받아쓰기는 "일곱 시", "두 자리", "여섯 시 반"처럼 한글로, 요약은 "7시"처럼 숫자로 쓰기 쉽다
@@ -134,11 +166,12 @@ _NATIVE = {"열한": 11, "열하나": 11, "열두": 12, "열둘": 12, "열": 10,
            "세": 3, "셋": 3, "네": 4, "넷": 4, "다섯": 5, "여섯": 6, "일곱": 7, "여덟": 8, "아홉": 9}
 _SINO = {"일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "육": 6, "칠": 7, "팔": 8, "구": 9, "십": 10,
          "이십": 20, "삼십": 30, "사십": 40, "오십": 50}
-_COUNTER = r"\s?(?:시(?![간험작])|자리|명|분|호차|개|번|학년|살|대|층|주)"
+_COUNTER = r"\s?(?:시(?![간험작])|자|석|명|분|호차|개|번|학년|살|대|층|주)"   # '자': 받아쓰기가 '두 자리'를 '두자'로 자름
 _NATIVE_RE = re.compile(rf"(?<![가-힣])({'|'.join(sorted(_NATIVE, key=len, reverse=True))}){_COUNTER}")
 _SINO_RE = re.compile(rf"(?<![가-힣])({'|'.join(sorted(_SINO, key=len, reverse=True))})\s?(?:분|호차|학년|층)")
 _DAY = "월화수목금토일"
-_DAY_RE = re.compile(rf"([{_DAY}])요일|(?<![가-힣])([{_DAY}]{{2,}})(?![가-힣])")
+_AFTER_DAY = r"(?=[은는이가을를에랑과와도만요]|[^가-힣]|$)"   # 요일 묶음 뒤에 붙는 조사(금토일은, 화목에)
+_DAY_RE = re.compile(rf"([{_DAY}])요일|(?<![가-힣])([{_DAY}]{{2,}}){_AFTER_DAY}")
 
 
 def numbers(s: str) -> set[int]:
@@ -153,7 +186,7 @@ def numbers(s: str) -> set[int]:
 
 
 def weekdays(s: str) -> set[str]:
-    s = re.sub(rf"(?<=[{_DAY}])\s?[·,/]\s?(?=[{_DAY}](?![가-힣]))", "", s)   # 화·목 → 화목
+    s = re.sub(rf"(?<=[{_DAY}])\s?[·,/]\s?(?=[{_DAY}]{_AFTER_DAY})", "", s)   # 화·목, 화, 목요 → 화목
     s = re.sub(rf"(?<![가-힣])([{_DAY}])(?=\s?\d)", r"\1요일", s)          # 토 10:00 → 토요일 10:00
     out = set()
     for one, run in _DAY_RE.findall(s):
@@ -161,8 +194,11 @@ def weekdays(s: str) -> set[str]:
     return out
 
 
-def facts_ok(detail: str, source: str) -> bool:
-    """요약의 숫자·요일이 모두 학원 원문에 있는가. 오후 시각(19시)은 원문의 7시로도 인정한다."""
+def facts_ok(detail: str, source: str) -> bool | None:
+    """요약의 숫자·요일이 모두 기준 글에 있는가. 오후 시각(19시)은 원문의 7시로도 인정한다.
+    근거 발화가 없으면(미확인 등) 비교할 것이 없어 None."""
+    if not source.strip():
+        return None
     have = numbers(source)
     nums_ok = all(n in have or (13 <= n <= 23 and n - 12 in have) for n in numbers(detail))
     return nums_ok and weekdays(detail) <= weekdays(source)
@@ -234,8 +270,8 @@ def to_contract(questions: list[dict], turns, raw: dict) -> tuple[list[dict], di
         certainty = a.get("certainty", "definite")
         st, leaning = settle(st, certainty)
         src = source_text(a, turns)
-        checked = facts_ok(a["detail"], src)
-        detail = a["detail"] if checked else (a.get("evidence_quote") or src)
+        checked = facts_ok(a["detail"], fact_source(a, turns))
+        detail = a["detail"] if checked is not False else (a.get("evidence_quote") or src)
         if leaning:
             detail = f"{UNSURE_LABEL[certainty]}: {detail}"
         row = {**q, "asked": st != "not_asked", "answered": st in ("yes", "no", "answered"),
@@ -252,7 +288,8 @@ def to_contract(questions: list[dict], turns, raw: dict) -> tuple[list[dict], di
     st, leaning = settle(st, certainty)
     src = source_text(c, turns)
     times = c.get("available_times", []) if st == "yes" else []
-    checked = all(facts_ok(t, src) for t in times + c.get("unavailable_times", []))
+    checks = [facts_ok(t, fact_source(c, turns)) for t in times + c.get("unavailable_times", [])]
+    checked = False if False in checks else (None if None in checks else True)
     consult = {"status": st, "consult_accepted": {"yes": True, "no": False}.get(st),
                "available_times": times, "unavailable_times": c.get("unavailable_times", []),
                "certainty": certainty, "leaning": leaning, "source_text": src[:500], "detail_checked": checked}
