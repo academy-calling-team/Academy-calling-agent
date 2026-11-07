@@ -8,9 +8,10 @@ from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 from sqlalchemy import select, func, update
 from sqlalchemy.exc import IntegrityError
-from schema import metadata, users, academies, inquiries, questions, calls, events, results, answers, control
-from schema import outbox, delivery_leases, corrections, academy_policies
 from schema import accounts,sessions,review_holds,review_actions,fallback_tasks
+from schema import (metadata, users, academies, inquiries, questions, calls, events, results, answers, control,
+                    outbox, delivery_leases, corrections, academy_policies,
+                    academy_classes, academy_call_hours, academy_setting_states)
 from worker_errors import WorkerRejected, WorkerProtocolError
 from real_test import RealTestPolicy, phone
 from contracts import QUESTION_LABELS, CALL_STATUS_LABELS_KR, CALL_OUTCOME_LABELS_KR
@@ -176,12 +177,89 @@ class Service:
             if existing: c.execute(update(academy_policies).where(academy_policies.c.academy_id==acid).values(**values))
             else:c.execute(academy_policies.insert().values(academy_id=acid,**values))
             c.execute(update(academies).where(academies.c.id==acid).values(hours=hours))
+    def calculate_priority(self, c, academy_id, student, created_at):
+        """실제 운영 반 단위 매칭 및 에이징(Starvation 방지) 우선순위 계산"""
+        classes = c.execute(select(academy_classes).where(academy_classes.c.academy_id == academy_id)).mappings().all()
+        best_score = 0
+        
+        for cls in classes:
+            # 1. 반(Class) 단위 매칭 검증
+            if (cls['grade_code'] == student['grade'] and 
+                cls['subject_code'] == student['subject'] and 
+                cls['level_code'] == student['level']):
+                
+                # 2. 정원 계산 없이 순수 상태값만으로 점수 부여
+                if cls['status'] == 'PRIORITY':
+                    score = 100
+                elif cls['status'] == 'OPEN':
+                    score = 50
+                else:
+                    score = 0 # CLOSED (조건은 맞으나 모집 마감)
+                    
+                if score > best_score:
+                    best_score = score
+                    
+        # 3. Starvation 보정: 대기 시간 10분당 1점 가산 (최대 40점)
+        wait_minutes = (self.now() - created_at).total_seconds() // 60
+        aging_score = min(40, wait_minutes // 10)
+        
+        return best_score + aging_score
+    def get_academy_settings(self, acid):
+        with self.engine.connect() as c:
+            ac = c.execute(select(academies).where(academies.c.id == acid)).mappings().first()
+            if not ac: raise HTTPException(404, 'Academy not found')
+            
+            classes = c.execute(select(academy_classes).where(academy_classes.c.academy_id == acid)).mappings().all()
+            hours = c.execute(select(academy_call_hours).where(academy_call_hours.c.academy_id == acid)).mappings().all()
+            
+            return dict(
+                accepting_new_inquiries=ac['accepting_new_inquiries'],
+                classes=[dict(c) for c in classes],
+                call_hours=[dict(h) for h in hours]
+            )
+
+    def update_academy_settings(self, acid, body):
+        payload = body.model_dump(mode='json')
+        with self.engine.begin() as c:
+            self.lock(c)
+            if c.execute(select(academies.c.id).where(academies.c.id == acid)).first() is None:
+                raise HTTPException(404, 'Academy not found')
+            
+            # 1. 수신 플래그 업데이트
+            c.execute(update(academies).where(academies.c.id == acid).values(
+                accepting_new_inquiries=payload['accepting_new_inquiries']))
+            
+            # 2. 반/시간 전체 삭제 후 재삽입 (트랜잭션)
+            c.execute(academy_classes.delete().where(academy_classes.c.academy_id == acid))
+            c.execute(academy_call_hours.delete().where(academy_call_hours.c.academy_id == acid))
+            
+            now_time = self.now()
+            for cls in payload['classes']:
+                c.execute(academy_classes.insert().values(id=uid(), academy_id=acid, created_at=now_time, updated_at=now_time, **cls))
+            for hr in payload['call_hours']:
+                c.execute(academy_call_hours.insert().values(academy_id=acid, created_at=now_time, **hr))
+                
+            # 3. 설정 상태 업데이트 (버전 및 수정시각)
+            state = c.execute(select(academy_setting_states).where(academy_setting_states.c.academy_id == acid)).first()
+            if state:
+                c.execute(update(academy_setting_states).where(academy_setting_states.c.academy_id == acid).values(
+                    is_class_configured=True, is_call_hours_configured=True, last_modified_at=now_time, version=state.version+1))
+            else:
+                c.execute(academy_setting_states.insert().values(academy_id=acid, 
+                    is_class_configured=True, is_call_hours_configured=True, last_modified_at=now_time, version=1))
+        return dict(status='updated')
+    
     def reserve(self):
         with self.engine.begin() as c:
             self.lock(c)
             active=c.execute(select(func.count()).select_from(calls).where(
                 calls.c.status.not_in(['finished','timeout']))).scalar_one()
-            available=max(0,self.policy.max_concurrent-active)
+            available=max(0,self.policy.max_concurrent-active)           
+            q_rows = c.execute(select(inquiries.c.id, inquiries.c.academy_id, inquiries.c.student, inquiries.c.created_at)
+                               .where(inquiries.c.status.in_(['queued','retry_wait']))).mappings().all()
+            for qr in q_rows:
+                new_priority = self.calculate_priority(c, qr['academy_id'], qr['student'], qr['created_at'])
+                c.execute(update(inquiries).where(inquiries.c.id == qr['id']).values(priority=new_priority))           
             rows=c.execute(select(inquiries).where(inquiries.c.status.in_(['queued','retry_wait']),
                 inquiries.c.next_at<=self.now()).order_by(inquiries.c.priority.desc(),inquiries.c.created_at,
                 inquiries.c.id).with_for_update()).mappings().all()

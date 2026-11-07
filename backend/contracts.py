@@ -162,3 +162,9 @@ class AcademyPolicyInput(StrictModel):
         for item in value:
             if date.fromisoformat(item).isoformat()!=item: raise ValueError('YYYY-MM-DD required')
         return value
+
+class AcademyClassInput(StrictModel):
+    grade_code: str = Field(pattern=r'^(E[1-6]|M[1-3]|H[1-3])$')
+    subject_code: Literal['KOR','ENG','MATH','SCI','SOC']
+    level_code: Literal['HIGH','MID','LOW']
+    status: Literal['OPEN','PRIORITY','CLOSED']
