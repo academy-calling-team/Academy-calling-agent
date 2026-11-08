@@ -1,6 +1,6 @@
 """Additive development schema. Table prefix isolates the old prototype."""
 from sqlalchemy import (MetaData, Table, Column, String, Integer, Boolean, DateTime,
-                        Text, JSON, ForeignKey, UniqueConstraint, CheckConstraint, Time, true)
+                        Text, JSON, ForeignKey, UniqueConstraint, CheckConstraint, Time)
 
 metadata = MetaData()
 opts = dict(mysql_engine='InnoDB', mysql_charset='utf8mb4', mysql_collate='utf8mb4_bin')
@@ -11,8 +11,7 @@ users = table('inquirers', Column('id', String(36), primary_key=True),
 academies = table('academies', Column('id', String(36), primary_key=True),
     Column('name', String(100), nullable=False), Column('region', String(80), nullable=False),
     Column('phone', String(30)), Column('is_mock', Boolean, nullable=False),
-    Column('hours', JSON, nullable=False),
-    Column('accepting_new_inquiries', Boolean, nullable=False, default=True, server_default=true()))
+    Column('hours', JSON, nullable=False))
 inquiries = table('inquiries', Column('id', String(36), primary_key=True),
     Column('inquirer_id', String(36), ForeignKey(users.c.id), nullable=False, index=True),
     Column('academy_id', String(36), ForeignKey(academies.c.id), nullable=False),

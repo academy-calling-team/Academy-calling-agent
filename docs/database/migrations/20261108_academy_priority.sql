@@ -1,19 +1,5 @@
 -- 학원 설정 스키마 적용. 대상 DB 선택 및 백업 후 배포 전에 실행.
 -- DDL 자동 커밋. 중간 실패 시 완료된 문장을 건너뛰고 다시 실행 가능.
-SET @academy_priority_ddl = IF(
-    EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = 'w5_academies'
-          AND COLUMN_NAME = 'accepting_new_inquiries'
-    ),
-    'SELECT 1',
-    'ALTER TABLE w5_academies ADD COLUMN accepting_new_inquiries BOOLEAN NOT NULL DEFAULT TRUE'
-);
-PREPARE academy_priority_stmt FROM @academy_priority_ddl;
-EXECUTE academy_priority_stmt;
-DEALLOCATE PREPARE academy_priority_stmt;
-
 CREATE TABLE IF NOT EXISTS w5_academy_classes (
 	id VARCHAR(36) NOT NULL,
 	academy_id VARCHAR(36) NOT NULL,

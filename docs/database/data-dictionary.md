@@ -12,7 +12,6 @@
 | phone | VARCHAR(30) | 아니오 |   |  |
 | is_mock | BOOLEAN | 예 |   |  |
 | hours | JSON | 예 |   |  |
-| accepting_new_inquiries | BOOLEAN | 예 |   | True |
 
 ## w5_control
 

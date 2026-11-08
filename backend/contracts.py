@@ -181,7 +181,6 @@ class CallHourInput(StrictModel):
         return self
 
 class AcademySettingsInput(StrictModel):
-    accepting_new_inquiries: bool
     classes: list[AcademyClassInput] = Field(max_length=50)
     call_hours: list[CallHourInput] = Field(max_length=50)
 

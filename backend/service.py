@@ -280,14 +280,13 @@ class Service:
 
     def get_academy_settings(self, acid):
         with self.engine.connect() as c:
-            ac = c.execute(select(academies).where(academies.c.id == acid)).mappings().first()
-            if not ac: raise HTTPException(404, 'Academy not found')
+            if c.execute(select(academies.c.id).where(academies.c.id == acid)).first() is None:
+                raise HTTPException(404, 'Academy not found')
             
             classes = c.execute(select(academy_classes).where(academy_classes.c.academy_id == acid)).mappings().all()
             hours = c.execute(select(academy_call_hours).where(academy_call_hours.c.academy_id == acid)).mappings().all()
             
             return dict(
-                accepting_new_inquiries=ac['accepting_new_inquiries'],
                 classes=[dict(c) for c in classes],
                 call_hours=[dict(h) for h in hours]
             )
@@ -298,12 +297,8 @@ class Service:
             self.lock(c)
             if c.execute(select(academies.c.id).where(academies.c.id == acid)).first() is None:
                 raise HTTPException(404, 'Academy not found')
-            
-            # 1. 수신 플래그 업데이트
-            c.execute(update(academies).where(academies.c.id == acid).values(
-                accepting_new_inquiries=payload['accepting_new_inquiries']))
-            
-            # 2. 반/시간 전체 삭제 후 재삽입 (트랜잭션)
+
+            # 반/시간 전체 삭제 후 재삽입 (트랜잭션)
             c.execute(academy_classes.delete().where(academy_classes.c.academy_id == acid))
             c.execute(academy_call_hours.delete().where(academy_call_hours.c.academy_id == acid))
             
@@ -315,7 +310,7 @@ class Service:
                     academy_id=acid, created_at=now_time, day_of_week=hr['day_of_week'],
                     start_time=time.fromisoformat(hr['start_time']), end_time=time.fromisoformat(hr['end_time'])))
                 
-            # 3. 설정 상태 업데이트 (버전 및 수정시각)
+            # 설정 상태 업데이트 (버전 및 수정시각)
             state = c.execute(select(academy_setting_states).where(academy_setting_states.c.academy_id == acid)).first()
             if state:
                 c.execute(update(academy_setting_states).where(academy_setting_states.c.academy_id == acid).values(

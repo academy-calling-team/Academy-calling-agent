@@ -9,7 +9,6 @@ erDiagram
         VARCHAR_30 phone
         BOOL is_mock
         JSON hours
-        BOOL accepting_new_inquiries
     }
     w5_control {
         VARCHAR_36 id PK

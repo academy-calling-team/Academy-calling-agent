@@ -6,7 +6,6 @@ CREATE TABLE w5_academies (
 	phone VARCHAR(30),
 	is_mock BOOL NOT NULL,
 	hours JSON NOT NULL,
-	accepting_new_inquiries BOOL NOT NULL DEFAULT true,
 	PRIMARY KEY (id)
 )ENGINE=InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_bin
 

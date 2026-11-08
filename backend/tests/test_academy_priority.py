@@ -12,7 +12,6 @@ from test_portable_smoke import login, portable
 ACADEMY = 'demo-academy'
 OTHER_ACADEMY = 'other-academy'
 SETTINGS = {
-    'accepting_new_inquiries': True,
     'classes': [{'grade_code': 'M2', 'subject_code': 'MATH', 'status': 'PRIORITY'}],
     'call_hours': [],
 }
@@ -103,6 +102,16 @@ def test_call_hours_and_cooldown_limit_reservations(priority_setup):
     assert reserved_inquiries(engine, service) == []
 
 
+def test_closed_preference_does_not_block_inquiry(priority_setup):
+    engine, service, _, _, inquire = priority_setup
+    closed = {**SETTINGS['classes'][0], 'status': 'CLOSED'}
+    service.update_academy_settings(ACADEMY, AcademySettingsInput.model_validate({
+        **SETTINGS, 'classes': [closed],
+    }))
+    inquiry = inquire('closed-preference')
+    assert reserved_inquiries(engine, service) == [inquiry]
+
+
 def test_browser_put_and_invalid_settings(priority_setup):
     _, _, client, auth, _ = priority_setup
     path = f'/api/academies/{ACADEMY}/settings'
@@ -116,6 +125,7 @@ def test_browser_put_and_invalid_settings(priority_setup):
     settings = {**SETTINGS, 'call_hours': [hour]}
     assert client.put(path, headers=auth, json=settings).status_code == 200
     before = client.get(path, headers=auth).json()
+    assert set(before) == {'classes', 'call_hours'}
     assert before['classes'][0]['level_code'] is None
     assert before['call_hours'][0]['start_time'] == '14:00:00'
     for invalid in [
