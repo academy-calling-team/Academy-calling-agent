@@ -168,3 +168,13 @@ class AcademyClassInput(StrictModel):
     subject_code: Literal['KOR','ENG','MATH','SCI','SOC']
     level_code: Literal['HIGH','MID','LOW']
     status: Literal['OPEN','PRIORITY','CLOSED']
+
+class CallHourInput(StrictModel):
+    day_of_week: int = Field(ge=0, le=6)
+    start_time: str = Field(pattern=r'^\d{2}:\d{2}(:\d{2})?$')
+    end_time: str = Field(pattern=r'^\d{2}:\d{2}(:\d{2})?$')
+
+class AcademySettingsInput(StrictModel):
+    accepting_new_inquiries: bool
+    classes: list[AcademyClassInput] = Field(max_length=50)
+    call_hours: list[CallHourInput] = Field(max_length=50)
