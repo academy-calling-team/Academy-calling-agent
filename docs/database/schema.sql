@@ -61,7 +61,6 @@ CREATE TABLE w5_academy_classes (
 	grade_code VARCHAR(10) NOT NULL,
 	subject_code VARCHAR(10) NOT NULL,
 	level_code VARCHAR(10),
-	status VARCHAR(20) NOT NULL,
 	created_at DATETIME NOT NULL,
 	updated_at DATETIME NOT NULL,
 	PRIMARY KEY (id),

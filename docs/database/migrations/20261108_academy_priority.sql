@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS w5_academy_classes (
 	grade_code VARCHAR(10) NOT NULL,
 	subject_code VARCHAR(10) NOT NULL,
 	level_code VARCHAR(10),
-	status VARCHAR(20) NOT NULL,
 	created_at DATETIME NOT NULL,
 	updated_at DATETIME NOT NULL,
 	PRIMARY KEY (id),
@@ -46,6 +45,22 @@ SET @academy_priority_ddl = IF(
           AND IS_NULLABLE = 'NO'
     ),
     'ALTER TABLE w5_academy_classes MODIFY COLUMN level_code VARCHAR(10) NULL',
+    'SELECT 1'
+);
+PREPARE academy_priority_stmt FROM @academy_priority_ddl;
+EXECUTE academy_priority_stmt;
+DEALLOCATE PREPARE academy_priority_stmt;
+
+-- Preserve rows from the earlier PR draft and allow inserts without its retired field.
+SET @academy_priority_ddl = IF(
+    EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'w5_academy_classes'
+          AND COLUMN_NAME = 'status'
+          AND IS_NULLABLE = 'NO'
+    ),
+    'ALTER TABLE w5_academy_classes MODIFY COLUMN status VARCHAR(20) NULL',
     'SELECT 1'
 );
 PREPARE academy_priority_stmt FROM @academy_priority_ddl;

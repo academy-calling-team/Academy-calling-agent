@@ -167,7 +167,6 @@ class AcademyClassInput(StrictModel):
     grade_code: str = Field(pattern=r'^(E[1-6]|M[1-3]|H[1-3])$')
     subject_code: Literal['KOR','ENG','MATH','SCI','SOC']
     level_code: Literal['HIGH','MID','LOW'] | None = None
-    status: Literal['OPEN','PRIORITY','CLOSED']
 
 class CallHourInput(StrictModel):
     day_of_week: int = Field(ge=0, le=6)

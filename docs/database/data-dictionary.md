@@ -56,7 +56,6 @@
 | grade_code | VARCHAR(10) | 예 |   |  |
 | subject_code | VARCHAR(10) | 예 |   |  |
 | level_code | VARCHAR(10) | 아니오 |   |  |
-| status | VARCHAR(20) | 예 |   | OPEN |
 | created_at | DATETIME | 예 |   |  |
 | updated_at | DATETIME | 예 |   |  |
 

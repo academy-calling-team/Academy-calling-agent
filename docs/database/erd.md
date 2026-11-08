@@ -38,7 +38,6 @@ erDiagram
         VARCHAR_10 grade_code
         VARCHAR_10 subject_code
         VARCHAR_10 level_code
-        VARCHAR_20 status
         DATETIME created_at
         DATETIME updated_at
     }

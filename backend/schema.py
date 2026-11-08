@@ -118,7 +118,6 @@ academy_classes = table('academy_classes',
     Column('grade_code', String(10), nullable=False),
     Column('subject_code', String(10), nullable=False),
     Column('level_code', String(10)),
-    Column('status', String(20), nullable=False, default='OPEN'), # OPEN, PRIORITY, CLOSED 만 남김
     Column('created_at', DateTime, nullable=False),
     Column('updated_at', DateTime, nullable=False))
 

@@ -29,14 +29,70 @@ def queue_order(row):
 def clock_seconds(value):
     return value.hour * 3600 + value.minute * 60 + value.second
 
-def within_hours(weekday, second, windows):
+def daily_windows(windows):
+    days = [[] for _ in range(7)]
     for day, start, end in windows:
-        if start < end and day == weekday and start <= second < end:
-            return True
-        if end < start and ((day == weekday and second >= start) or
-                            ((day + 1) % 7 == weekday and second < end)):
-            return True
-    return False
+        if start < end:
+            days[day].append((start, end))
+        elif end < start:
+            days[day].append((start, 86400))
+            if end:
+                days[(day + 1) % 7].append((0, end))
+    merged_days = []
+    for ranges in days:
+        merged = []
+        for start, end in sorted(ranges):
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+        merged_days.append(merged)
+    return merged_days
+
+def academy_windows(academy, call_hours):
+    operating = daily_windows((w['weekday'], w['start_minute'] * 60, w['end_minute'] * 60)
+                              for w in academy['hours'])
+    if not call_hours:
+        return operating
+    response = daily_windows((w['day_of_week'], clock_seconds(w['start_time']), clock_seconds(w['end_time']))
+                             for w in call_hours)
+    return [
+        [(max(start, first), min(end, last)) for start, end in operating_day
+         for first, last in response_day if max(start, first) < min(end, last)]
+        for operating_day, response_day in zip(operating, response)
+    ]
+
+def within_hours(local, windows):
+    second = clock_seconds(local)
+    return any(start <= second < end for start, end in windows[local.weekday()])
+
+def waiting_cutoffs(local_now, earliest, windows, closed_dates, targets):
+    # Find each waiting threshold once per academy, walking back through open hours.
+    cutoffs = {}
+    elapsed = timedelta()
+    targets = iter(sorted(set(targets)))
+    target = next(targets, None)
+    day = local_now.date()
+    while target is not None and day >= earliest.date():
+        if day.isoformat() not in closed_dates:
+            midnight = datetime.combine(day, time.min, tzinfo=local_now.tzinfo)
+            for start, end in reversed(windows[day.weekday()]):
+                start_at = max(earliest, midnight + timedelta(seconds=start))
+                end_at = min(local_now, midnight + timedelta(seconds=end))
+                duration = end_at - start_at
+                if duration <= timedelta():
+                    continue
+                while target is not None and elapsed + duration >= timedelta(minutes=target):
+                    cutoffs[target] = utc(end_at - (timedelta(minutes=target) - elapsed))
+                    target = next(targets, None)
+                if target is None:
+                    break
+                elapsed += duration
+        day -= timedelta(days=1)
+    return cutoffs
+
+def eligible_since(row):
+    return max(row['created_at'], row['next_at'])
 
 def aware(value):
     if isinstance(value, datetime): return value.replace(tzinfo=timezone.utc).isoformat()
@@ -56,8 +112,8 @@ class Policy:
     delivery_lease_seconds: int = 30
     disclosure_text: str = '개발용 예시: AI가 진행하는 녹음 통화입니다. 상담 가능하신가요?'
     # Development defaults for ordering eligible inquiries within an academy.
-    priority_aging_minutes: int = 30
-    priority_overdue_minutes: int = 90
+    priority_aging_minutes: int = 60
+    priority_overdue_minutes: int = 240
     def __post_init__(self):
         if min(self.max_concurrent,self.max_attempts,
                self.result_timeout_seconds,self.max_delivery_attempts,self.max_seconds,
@@ -178,18 +234,9 @@ class Service:
                 attempts=history,result=final,failure_reason=row['failure_reason'],
                 fallback_required=row['fallback_required'],fallback_status=fallback.status if fallback else None,
                 review_required=hold is not None,review_reason=hold['reason'] if hold else None))
-    def opened(self, academy, *, local=None, call_hours=()):
-        if local is None:
-            local = self.clock().astimezone(ZoneInfo('Asia/Seoul'))
-        weekday, second = local.weekday(), clock_seconds(local)
-        operating_hours = ((w['weekday'], w['start_minute'] * 60, w['end_minute'] * 60)
-                           for w in academy['hours'])
-        if not within_hours(weekday, second, operating_hours):
-            return False
-        return not call_hours or within_hours(weekday, second, (
-            (w['day_of_week'], clock_seconds(w['start_time']), clock_seconds(w['end_time']))
-            for w in call_hours
-        ))
+    def opened(self, academy):
+        local = self.clock().astimezone(ZoneInfo('Asia/Seoul'))
+        return within_hours(local, academy_windows(academy, ()))
     def set_academy_policy(self,acid,body):
         """Validated local configuration. No public scheduler-policy mutation endpoint."""
         values=body.model_dump(mode='json');hours=values.pop('hours')
@@ -201,7 +248,7 @@ class Service:
             if existing: c.execute(update(academy_policies).where(academy_policies.c.academy_id==acid).values(**values))
             else:c.execute(academy_policies.insert().values(academy_id=acid,**values))
             c.execute(update(academies).where(academies.c.id==acid).values(hours=hours))
-    def academy_queue_order(self, row, classes, now):
+    def academy_queue_order(self, row, classes, cutoffs):
         student = row['student']
         fields = (('grade_code', 'grade'), ('subject_code', 'subject'), ('level_code', 'level'))
         match_score = max(
@@ -209,21 +256,20 @@ class Service:
                  for setting, answer in fields) for rule in classes),
             default=0,
         )
-        eligible_since = max(row['created_at'], row['next_at'])
-        waited_minutes = max(0, (now - eligible_since).total_seconds() // 60)
-        overdue = waited_minutes >= self.policy.priority_overdue_minutes
-        score = match_score + waited_minutes // self.policy.priority_aging_minutes
+        since = eligible_since(row)
+        overdue_cutoff = cutoffs.get(self.policy.priority_overdue_minutes)
+        overdue = overdue_cutoff is not None and since <= overdue_cutoff
+        steps = (self.policy.priority_aging_minutes, self.policy.priority_aging_minutes * 2)
+        aging_score = sum(since <= cutoffs[step] for step in steps if step in cutoffs)
+        # Four points per match keeps the two ordinary waiting points below a single match.
+        score = match_score * 4 + aging_score
         # Keep explicitly assigned priority tiers ahead of automatic preferences.
         return (-row['priority'], not overdue, 0 if overdue else -score,
-                eligible_since if overdue else row['created_at'], row['created_at'], row['id'])
+                since if overdue else row['created_at'], row['created_at'], row['id'])
 
-    def academy_slots(self, c, academy_id, available, now, local_date):
-        rule = c.execute(select(academy_policies).where(
-            academy_policies.c.academy_id == academy_id)).mappings().first()
+    def academy_slots(self, c, academy_id, available, now, rule):
         if not rule:
             return available
-        if not rule['enabled'] or local_date in rule['closed_dates']:
-            return 0
         academy_calls = calls.join(inquiries)
         belongs_to_academy = inquiries.c.academy_id == academy_id
         active = c.execute(select(func.count()).select_from(academy_calls).where(
@@ -256,9 +302,15 @@ class Service:
                 continue
             call_hours = c.execute(select(academy_call_hours).where(
                 academy_call_hours.c.academy_id == academy_id)).mappings().all()
-            if not self.opened(academy, local=local, call_hours=call_hours):
+            windows = academy_windows(academy, call_hours)
+            if not within_hours(local, windows):
                 continue
-            slots = self.academy_slots(c, academy_id, available, now, local_date)
+            rule = c.execute(select(academy_policies).where(
+                academy_policies.c.academy_id == academy_id)).mappings().first()
+            closed_dates = set(rule['closed_dates']) if rule else set()
+            if (rule and not rule['enabled']) or local_date in closed_dates:
+                continue
+            slots = self.academy_slots(c, academy_id, available, now, rule)
             if slots <= 0:
                 continue
             limit = self.attempt_limit(c, academy_id)
@@ -271,10 +323,13 @@ class Service:
             if not eligible:
                 continue
             classes = c.execute(select(academy_classes).where(
-                academy_classes.c.academy_id == academy_id,
-                academy_classes.c.status.in_(['OPEN', 'PRIORITY']))).mappings().all()
+                academy_classes.c.academy_id == academy_id)).mappings().all()
             if classes:
-                eligible.sort(key=lambda row: self.academy_queue_order(row, classes, now))
+                earliest = min(eligible_since(row) for row in eligible).replace(tzinfo=timezone.utc)
+                step = self.policy.priority_aging_minutes
+                cutoffs = waiting_cutoffs(local, earliest.astimezone(local.tzinfo), windows, closed_dates,
+                                          (step, step * 2, self.policy.priority_overdue_minutes))
+                eligible.sort(key=lambda row: self.academy_queue_order(row, classes, cutoffs))
             groups[academy_id] = (academy, deque(eligible), slots)
         return groups
 
