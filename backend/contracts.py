@@ -1,4 +1,4 @@
-from datetime import datetime,date
+from datetime import datetime,date,time
 from typing import Literal
 from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
 
@@ -59,10 +59,14 @@ class AnswerInput(StrictModel):
     asked: bool
     answered: bool
     yes_no: bool | None
-    reason: Literal['unknown','refused','not_asked'] | None = None
+    reason: Literal['unknown','refused','not_asked','uncertain'] | None = None
     detail: str = Field(max_length=2000)
+    source_text: str | None = Field(default=None, min_length=1, max_length=2000)
+
     @model_validator(mode='after')
     def coherent(self):
+        if self.source_text is not None and (not self.asked or not self.source_text.strip()):
+            raise ValueError('Source text requires an asked question and a nonblank excerpt')
         if self.answered:
             if not self.asked or self.reason is not None or not self.detail.strip():
                 raise ValueError('Answered requires asked, detail and no reason')
@@ -162,3 +166,30 @@ class AcademyPolicyInput(StrictModel):
         for item in value:
             if date.fromisoformat(item).isoformat()!=item: raise ValueError('YYYY-MM-DD required')
         return value
+
+class AcademyClassInput(StrictModel):
+    grade_code: str = Field(pattern=r'^(E[1-6]|M[1-3]|H[1-3])$')
+    subject_code: Literal['KOR','ENG','MATH','SCI','SOC']
+    level_code: Literal['HIGH','MID','LOW'] | None = None
+
+class CallHourInput(StrictModel):
+    day_of_week: int = Field(ge=0, le=6)
+    start_time: str = Field(pattern=r'^\d{2}:\d{2}(:\d{2})?$')
+    end_time: str = Field(pattern=r'^\d{2}:\d{2}(:\d{2})?$')
+
+    @model_validator(mode='after')
+    def validate_window(self):
+        if time.fromisoformat(self.start_time) == time.fromisoformat(self.end_time):
+            raise ValueError('Call hours must have different start and end times')
+        return self
+
+class AcademySettingsInput(StrictModel):
+    classes: list[AcademyClassInput] = Field(max_length=50)
+    call_hours: list[CallHourInput] = Field(max_length=50)
+
+    @model_validator(mode='after')
+    def unique_classes(self):
+        keys = {(row.grade_code, row.subject_code, row.level_code) for row in self.classes}
+        if len(keys) != len(self.classes):
+            raise ValueError('Duplicate academy class combination')
+        return self

@@ -1,16 +1,18 @@
 """Durable MySQL development queue with a replaceable mock voice worker."""
 import hashlib
 import json
-from datetime import datetime, timezone, timedelta
+from collections import deque
+from datetime import datetime, time, timezone, timedelta
 from dataclasses import dataclass
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 from sqlalchemy import select, func, update
 from sqlalchemy.exc import IntegrityError
-from schema import metadata, users, academies, inquiries, questions, calls, events, results, answers, control
-from schema import outbox, delivery_leases, corrections, academy_policies
 from schema import accounts,sessions,review_holds,review_actions,fallback_tasks
+from schema import (metadata, users, academies, inquiries, questions, calls, events, results, answers, control,
+                    outbox, delivery_leases, corrections, academy_policies,
+                    academy_classes, academy_call_hours, academy_setting_states)
 from worker_errors import WorkerRejected, WorkerProtocolError
 from real_test import RealTestPolicy, phone
 from contracts import QUESTION_LABELS, CALL_STATUS_LABELS_KR, CALL_OUTCOME_LABELS_KR
@@ -19,7 +21,88 @@ def uid(): return str(uuid4())
 def digest(value): return hashlib.sha256(value.encode()).hexdigest()
 def fingerprint(value):
     return digest(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',',':')))
+
+def result_payload(body):
+    payload = body.model_dump(mode='json')
+    for answer in payload['answers']:
+        # Keep the serialized payload and hash compatible with results stored before source_text.
+        if answer['source_text'] is None:
+            del answer['source_text']
+    return payload
+
 def utc(value): return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+def queue_order(row):
+    return -row['priority'], row['created_at'], row['id']
+
+def clock_seconds(value):
+    return value.hour * 3600 + value.minute * 60 + value.second
+
+def daily_windows(windows):
+    days = [[] for _ in range(7)]
+    for day, start, end in windows:
+        if start < end:
+            days[day].append((start, end))
+        elif end < start:
+            days[day].append((start, 86400))
+            if end:
+                days[(day + 1) % 7].append((0, end))
+    merged_days = []
+    for ranges in days:
+        merged = []
+        for start, end in sorted(ranges):
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+        merged_days.append(merged)
+    return merged_days
+
+def academy_windows(academy, call_hours):
+    operating = daily_windows((w['weekday'], w['start_minute'] * 60, w['end_minute'] * 60)
+                              for w in academy['hours'])
+    if not call_hours:
+        return operating
+    response = daily_windows((w['day_of_week'], clock_seconds(w['start_time']), clock_seconds(w['end_time']))
+                             for w in call_hours)
+    return [
+        [(max(start, first), min(end, last)) for start, end in operating_day
+         for first, last in response_day if max(start, first) < min(end, last)]
+        for operating_day, response_day in zip(operating, response)
+    ]
+
+def within_hours(local, windows):
+    second = clock_seconds(local)
+    return any(start <= second < end for start, end in windows[local.weekday()])
+
+def waiting_cutoffs(local_now, earliest, windows, closed_dates, targets):
+    # Find each waiting threshold once per academy, walking back through open hours.
+    cutoffs = {}
+    elapsed = timedelta()
+    targets = iter(sorted(set(targets)))
+    target = next(targets, None)
+    day = local_now.date()
+    while target is not None and day >= earliest.date():
+        if day.isoformat() not in closed_dates:
+            midnight = datetime.combine(day, time.min, tzinfo=local_now.tzinfo)
+            for start, end in reversed(windows[day.weekday()]):
+                start_at = max(earliest, midnight + timedelta(seconds=start))
+                end_at = min(local_now, midnight + timedelta(seconds=end))
+                duration = end_at - start_at
+                if duration <= timedelta():
+                    continue
+                while target is not None and elapsed + duration >= timedelta(minutes=target):
+                    cutoffs[target] = utc(end_at - (timedelta(minutes=target) - elapsed))
+                    target = next(targets, None)
+                if target is None:
+                    break
+                elapsed += duration
+        day -= timedelta(days=1)
+    return cutoffs
+
+def eligible_since(row):
+    return max(row['created_at'], row['next_at'])
+
 def aware(value):
     if isinstance(value, datetime): return value.replace(tzinfo=timezone.utc).isoformat()
     if isinstance(value, dict): return {k:aware(v) for k,v in value.items()}
@@ -37,11 +120,16 @@ class Policy:
     max_seconds: int = 180
     delivery_lease_seconds: int = 30
     disclosure_text: str = '개발용 예시: AI가 진행하는 녹음 통화입니다. 상담 가능하신가요?'
+    # Development defaults for ordering eligible inquiries within an academy.
+    priority_aging_minutes: int = 60
+    priority_overdue_minutes: int = 240
     def __post_init__(self):
         if min(self.max_concurrent,self.max_attempts,
                self.result_timeout_seconds,self.max_delivery_attempts,self.max_seconds,
                self.delivery_lease_seconds) < 1:
             raise ValueError('Policy limits must be positive')
+        if min(self.priority_aging_minutes, self.priority_overdue_minutes) < 1:
+            raise ValueError('Priority waiting limits must be positive')
         if not self.retry_delays_seconds or any(delay < 1 for delay in self.retry_delays_seconds):
             raise ValueError('Retry delays must be positive')
     def retry_delay(self, attempt_no):
@@ -156,15 +244,8 @@ class Service:
                 fallback_required=row['fallback_required'],fallback_status=fallback.status if fallback else None,
                 review_required=hold is not None,review_reason=hold['reason'] if hold else None))
     def opened(self, academy):
-        local=self.clock().astimezone(ZoneInfo('Asia/Seoul'))
-        minute=local.hour*60+local.minute
-        # Explicit weekday schedules; empty/unknown schedules fail closed.
-        for w in academy['hours']:
-            start,end=w['start_minute'],w['end_minute']
-            if start<end and w['weekday']==local.weekday() and start<=minute<end: return True
-            if end<start and ((w['weekday']==local.weekday() and minute>=start) or
-                ((w['weekday']+1)%7==local.weekday() and minute<end)): return True
-        return False
+        local = self.clock().astimezone(ZoneInfo('Asia/Seoul'))
+        return within_hours(local, academy_windows(academy, ()))
     def set_academy_policy(self,acid,body):
         """Validated local configuration. No public scheduler-policy mutation endpoint."""
         values=body.model_dump(mode='json');hours=values.pop('hours')
@@ -176,39 +257,162 @@ class Service:
             if existing: c.execute(update(academy_policies).where(academy_policies.c.academy_id==acid).values(**values))
             else:c.execute(academy_policies.insert().values(academy_id=acid,**values))
             c.execute(update(academies).where(academies.c.id==acid).values(hours=hours))
+    def academy_queue_order(self, row, classes, cutoffs):
+        student = row['student']
+        fields = (('grade_code', 'grade'), ('subject_code', 'subject'), ('level_code', 'level'))
+        match_score = max(
+            (sum(rule[setting] is not None and rule[setting] == student.get(answer)
+                 for setting, answer in fields) for rule in classes),
+            default=0,
+        )
+        since = eligible_since(row)
+        overdue_cutoff = cutoffs.get(self.policy.priority_overdue_minutes)
+        overdue = overdue_cutoff is not None and since <= overdue_cutoff
+        steps = (self.policy.priority_aging_minutes, self.policy.priority_aging_minutes * 2)
+        aging_score = sum(since <= cutoffs[step] for step in steps if step in cutoffs)
+        # Four points per match keeps the two ordinary waiting points below a single match.
+        score = match_score * 4 + aging_score
+        # Keep explicitly assigned priority tiers ahead of automatic preferences.
+        return (-row['priority'], not overdue, 0 if overdue else -score,
+                since if overdue else row['created_at'], row['created_at'], row['id'])
+
+    def academy_slots(self, c, academy_id, available, now, rule):
+        if not rule:
+            return available
+        academy_calls = calls.join(inquiries)
+        belongs_to_academy = inquiries.c.academy_id == academy_id
+        active = c.execute(select(func.count()).select_from(academy_calls).where(
+            belongs_to_academy, calls.c.status.not_in(['finished', 'timeout']))).scalar_one()
+        slots = min(available, rule['max_concurrent'] - active)
+        if slots <= 0 or not rule['cooldown_seconds']:
+            return slots
+        latest_start = c.execute(select(func.max(calls.c.created_at)).select_from(academy_calls)
+                                 .where(belongs_to_academy)).scalar_one()
+        cooldown = timedelta(seconds=rule['cooldown_seconds'])
+        return 1 if latest_start is None or latest_start + cooldown <= now else 0
+
+    def eligible_academies(self, c, rows, available, now, local):
+        pending = {}
+        for row in rows:
+            pending.setdefault(row['academy_id'], []).append(row)
+
+        groups = {}
+        local_date = local.date().isoformat()
+        for academy_id, candidates in pending.items():
+            academy = c.execute(select(academies).where(
+                academies.c.id == academy_id)).mappings().one()
+            permitted = []
+            for row in candidates:
+                if not academy['is_mock'] and not self.real_test.permits(academy, row['inquirer_id']):
+                    self.fail(c, row['id'], 'real_test_disabled')
+                else:
+                    permitted.append(row)
+            if not permitted:
+                continue
+            call_hours = c.execute(select(academy_call_hours).where(
+                academy_call_hours.c.academy_id == academy_id)).mappings().all()
+            windows = academy_windows(academy, call_hours)
+            if not within_hours(local, windows):
+                continue
+            rule = c.execute(select(academy_policies).where(
+                academy_policies.c.academy_id == academy_id)).mappings().first()
+            closed_dates = set(rule['closed_dates']) if rule else set()
+            if (rule and not rule['enabled']) or local_date in closed_dates:
+                continue
+            slots = self.academy_slots(c, academy_id, available, now, rule)
+            if slots <= 0:
+                continue
+            limit = self.attempt_limit(c, academy_id)
+            eligible = []
+            for row in permitted:
+                if row['attempt_count'] >= limit:
+                    self.fail(c, row['id'], 'retry_exhausted')
+                else:
+                    eligible.append(row)
+            if not eligible:
+                continue
+            classes = c.execute(select(academy_classes).where(
+                academy_classes.c.academy_id == academy_id)).mappings().all()
+            if classes:
+                earliest = min(eligible_since(row) for row in eligible).replace(tzinfo=timezone.utc)
+                step = self.policy.priority_aging_minutes
+                cutoffs = waiting_cutoffs(local, earliest.astimezone(local.tzinfo), windows, closed_dates,
+                                          (step, step * 2, self.policy.priority_overdue_minutes))
+                eligible.sort(key=lambda row: self.academy_queue_order(row, classes, cutoffs))
+            groups[academy_id] = (academy, deque(eligible), slots)
+        return groups
+
+    def get_academy_settings(self, acid):
+        with self.engine.connect() as c:
+            if c.execute(select(academies.c.id).where(academies.c.id == acid)).first() is None:
+                raise HTTPException(404, 'Academy not found')
+            
+            classes = c.execute(select(academy_classes).where(academy_classes.c.academy_id == acid)).mappings().all()
+            hours = c.execute(select(academy_call_hours).where(academy_call_hours.c.academy_id == acid)).mappings().all()
+            
+            return dict(
+                classes=[dict(c) for c in classes],
+                call_hours=[dict(h) for h in hours]
+            )
+
+    def update_academy_settings(self, acid, body):
+        payload = body.model_dump(mode='json')
+        with self.engine.begin() as c:
+            self.lock(c)
+            if c.execute(select(academies.c.id).where(academies.c.id == acid)).first() is None:
+                raise HTTPException(404, 'Academy not found')
+
+            # 반/시간 전체 삭제 후 재삽입 (트랜잭션)
+            c.execute(academy_classes.delete().where(academy_classes.c.academy_id == acid))
+            c.execute(academy_call_hours.delete().where(academy_call_hours.c.academy_id == acid))
+            
+            now_time = self.now()
+            for cls in payload['classes']:
+                c.execute(academy_classes.insert().values(id=uid(), academy_id=acid, created_at=now_time, updated_at=now_time, **cls))
+            for hr in payload['call_hours']:
+                c.execute(academy_call_hours.insert().values(
+                    academy_id=acid, created_at=now_time, day_of_week=hr['day_of_week'],
+                    start_time=time.fromisoformat(hr['start_time']), end_time=time.fromisoformat(hr['end_time'])))
+                
+            # 설정 상태 업데이트 (버전 및 수정시각)
+            state = c.execute(select(academy_setting_states).where(academy_setting_states.c.academy_id == acid)).first()
+            if state:
+                c.execute(update(academy_setting_states).where(academy_setting_states.c.academy_id == acid).values(
+                    is_class_configured=True, is_call_hours_configured=True, last_modified_at=now_time, version=state.version+1))
+            else:
+                c.execute(academy_setting_states.insert().values(academy_id=acid, 
+                    is_class_configured=True, is_call_hours_configured=True, last_modified_at=now_time, version=1))
+        return dict(status='updated')
+    
     def reserve(self):
         with self.engine.begin() as c:
             self.lock(c)
-            active=c.execute(select(func.count()).select_from(calls).where(
-                calls.c.status.not_in(['finished','timeout']))).scalar_one()
-            available=max(0,self.policy.max_concurrent-active)
-            rows=c.execute(select(inquiries).where(inquiries.c.status.in_(['queued','retry_wait']),
-                inquiries.c.next_at<=self.now()).order_by(inquiries.c.priority.desc(),inquiries.c.created_at,
-                inquiries.c.id).with_for_update()).mappings().all()
-            reserved=[]
-            for row in rows:
-                if available<=0: break
-                if c.execute(select(review_holds.c.inquiry_id).where(
-                    review_holds.c.inquiry_id==row['id'],review_holds.c.open==True)).first():continue
-                ac=c.execute(select(academies).where(academies.c.id==row['academy_id'])).mappings().one()
-                if not ac['is_mock'] and not self.real_test.permits(ac,row['inquirer_id']):
-                    self.fail(c,row['id'],'real_test_disabled');continue
-                if not self.opened(ac): continue
-                rule=c.execute(select(academy_policies).where(
-                    academy_policies.c.academy_id==ac['id'])).mappings().first()
-                if rule:
-                    if not rule['enabled'] or self.clock().astimezone(ZoneInfo('Asia/Seoul')).date().isoformat() in rule['closed_dates']:
-                        continue
-                    # Optional per-academy policy. No default is silently imposed on old fixtures.
-                    local_active=c.execute(select(func.count()).select_from(calls.join(inquiries))
-                        .where(inquiries.c.academy_id==ac['id'],calls.c.status.not_in(['finished','timeout']))).scalar_one()
-                    latest_start=c.execute(select(func.max(calls.c.created_at)).select_from(calls.join(inquiries))
-                        .where(inquiries.c.academy_id==ac['id'])).scalar_one()
-                    if local_active>=rule['max_concurrent']: continue
-                    if latest_start and latest_start+timedelta(seconds=rule['cooldown_seconds'])>self.now(): continue
-                attempt=c.execute(select(func.count()).select_from(calls).where(calls.c.inquiry_id==row['id'])).scalar_one()+1
-                if attempt>self.attempt_limit(c,ac['id']):
-                    self.fail(c,row['id'],'retry_exhausted'); continue
+            active = c.execute(select(func.count()).select_from(calls).where(
+                calls.c.status.not_in(['finished', 'timeout']))).scalar_one()
+            available = self.policy.max_concurrent - active
+            if available <= 0:
+                return []
+            instant = self.clock()
+            now = utc(instant)
+            local = instant.astimezone(ZoneInfo('Asia/Seoul'))
+            attempt_count = select(func.count()).where(calls.c.inquiry_id == inquiries.c.id).scalar_subquery()
+            has_review_hold = select(review_holds.c.inquiry_id).where(
+                review_holds.c.inquiry_id == inquiries.c.id, review_holds.c.open.is_(True)).exists()
+            rows = c.execute(select(inquiries, attempt_count.label('attempt_count')).where(
+                inquiries.c.status.in_(['queued', 'retry_wait']), inquiries.c.next_at <= now,
+                ~has_review_hold).order_by(inquiries.c.priority.desc(), inquiries.c.created_at,
+                                          inquiries.c.id).with_for_update()).mappings().all()
+            groups = self.eligible_academies(c, rows, available, now, local)
+            reserved = []
+            while groups and len(reserved) < available:
+                academy_id = min(groups, key=lambda key: queue_order(groups[key][1][0]))
+                ac, candidates, slots = groups[academy_id]
+                row = candidates.popleft()
+                if candidates and slots > 1:
+                    groups[academy_id] = (ac, candidates, slots - 1)
+                else:
+                    del groups[academy_id]
+                attempt = row['attempt_count'] + 1
                 cid=uid()
                 qs=c.execute(select(questions).where(questions.c.inquiry_id==row['id']).order_by(questions.c.position)).mappings()
                 payload=dict(call_id=cid,inquiry_id=row['id'],attempt_no=attempt,to=ac['phone'],
@@ -222,7 +426,7 @@ class Service:
                     dispatch_payload=payload,delivery_count=0))
                 c.execute(outbox.insert().values(id=uid(),call_id=cid,created_at=self.now()))
                 c.execute(update(inquiries).where(inquiries.c.id==row['id']).values(status='calling'))
-                reserved.append(cid); available-=1
+                reserved.append(cid)
             return reserved
     def deliver(self, worker, call_ids=None):
         # Commit reservation before I/O. On unknown delivery, resend the SAME call_id.
@@ -277,7 +481,7 @@ class Service:
         return sent
     def correct_result(self,cid,body):
         """Local reviewer service only. Never changes a worker's original report or call state."""
-        payload=body.payload.model_dump(mode='json')
+        payload=result_payload(body.payload)
         with self.engine.begin() as c:
             self.lock(c)
             original=c.execute(select(results).where(results.c.call_id==cid)).mappings().first()
@@ -293,6 +497,10 @@ class Service:
             if {a['question_id']:a['question_code'] for a in payload['answers']}!=expected:
                 raise HTTPException(422,'Question identities cannot be corrected')
             current=previous['payload'] if previous else original['payload']
+            excerpts = {a['question_id']: a['source_text'] for a in current['answers'] if a.get('source_text')}
+            for answer, item in zip(body.payload.answers, payload['answers']):
+                if answer.asked and 'source_text' not in answer.model_fields_set and answer.question_id in excerpts:
+                    item['source_text'] = excerpts[answer.question_id]
             if payload==current: raise HTTPException(422,'Review contains no changes')
             c.execute(corrections.insert().values(id=uid(),call_id=cid,revision=revision+1,
                 reviewer=body.reviewer,reason=body.reason,payload=payload,created_at=self.now()))
@@ -364,7 +572,7 @@ class Service:
                 received_at=self.now(),payload_hash=fp,applied=applied))
             return dict(duplicate=False,applied=applied)
     def result(self,cid,body):
-        payload=body.model_dump(mode='json'); fp=fingerprint(payload)
+        payload=result_payload(body); fp=fingerprint(payload)
         with self.engine.begin() as c:
             self.lock(c)
             call=c.execute(select(calls).where(calls.c.id==cid).with_for_update()).mappings().first()
@@ -405,7 +613,7 @@ class Service:
                 payload=payload,received_at=self.now(),applied=applied))
             for a in body.answers:
                 c.execute(answers.insert().values(call_id=cid,question_id=a.question_id,asked=a.asked,
-                    answered=a.answered,yes_no=a.yes_no,reason=a.reason,detail=a.detail))
+                    answered=a.answered,yes_no=a.yes_no,reason=a.reason,detail=a.detail,source_text=a.source_text))
             return dict(duplicate=False,applied=applied)
     def expire(self):
         with self.engine.begin() as c:

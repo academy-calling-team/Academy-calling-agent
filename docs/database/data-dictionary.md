@@ -36,6 +36,29 @@
 | payload | JSON | 예 |   |  |
 | received_at | DATETIME | 예 |   |  |
 
+## w5_academy_call_hours
+
+| 필드 | DB 타입 | 필수 | 키·관계 | 기본값 |
+|---|---|---|---|---|
+| id | INTEGER | 예 | PK  |  |
+| academy_id | VARCHAR(36) | 예 | FK w5_academies.id |  |
+| day_of_week | INTEGER | 예 |   |  |
+| start_time | TIME | 예 |   |  |
+| end_time | TIME | 예 |   |  |
+| created_at | DATETIME | 예 |   |  |
+
+## w5_academy_classes
+
+| 필드 | DB 타입 | 필수 | 키·관계 | 기본값 |
+|---|---|---|---|---|
+| id | VARCHAR(36) | 예 | PK  |  |
+| academy_id | VARCHAR(36) | 예 | FK w5_academies.id |  |
+| grade_code | VARCHAR(10) | 예 |   |  |
+| subject_code | VARCHAR(10) | 예 |   |  |
+| level_code | VARCHAR(10) | 아니오 |   |  |
+| created_at | DATETIME | 예 |   |  |
+| updated_at | DATETIME | 예 |   |  |
+
 ## w5_academy_policies
 
 | 필드 | DB 타입 | 필수 | 키·관계 | 기본값 |
@@ -45,6 +68,16 @@
 | max_concurrent | INTEGER | 예 |   | 1 |
 | cooldown_seconds | INTEGER | 예 |   | 300 |
 | closed_dates | JSON | 예 |   | list() |
+
+## w5_academy_setting_states
+
+| 필드 | DB 타입 | 필수 | 키·관계 | 기본값 |
+|---|---|---|---|---|
+| academy_id | VARCHAR(36) | 예 | PK,FK w5_academies.id |  |
+| is_class_configured | BOOLEAN | 예 |   | False |
+| is_call_hours_configured | BOOLEAN | 예 |   | False |
+| last_modified_at | DATETIME | 예 |   |  |
+| version | INTEGER | 예 |   | 1 |
 
 ## w5_inquiries
 
@@ -156,6 +189,7 @@
 | yes_no | BOOLEAN | 아니오 |   |  |
 | reason | VARCHAR(30) | 아니오 |   |  |
 | detail | TEXT | 예 |   |  |
+| source_text | TEXT | 아니오 |   |  |
 
 ## w5_delivery_leases
 

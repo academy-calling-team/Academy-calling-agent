@@ -1,6 +1,6 @@
 """Additive development schema. Table prefix isolates the old prototype."""
 from sqlalchemy import (MetaData, Table, Column, String, Integer, Boolean, DateTime,
-                        Text, JSON, ForeignKey, UniqueConstraint, CheckConstraint)
+                        Text, JSON, ForeignKey, UniqueConstraint, CheckConstraint, Time)
 
 metadata = MetaData()
 opts = dict(mysql_engine='InnoDB', mysql_charset='utf8mb4', mysql_collate='utf8mb4_bin')
@@ -47,7 +47,8 @@ results = table('results', Column('call_id', String(36), ForeignKey(calls.c.id),
 answers = table('answers', Column('call_id', String(36), ForeignKey(calls.c.id), primary_key=True),
     Column('question_id', String(36), ForeignKey(questions.c.id), primary_key=True),
     Column('asked', Boolean, nullable=False), Column('answered', Boolean, nullable=False),
-    Column('yes_no', Boolean), Column('reason', String(30)), Column('detail', Text, nullable=False))
+    Column('yes_no', Boolean), Column('reason', String(30)), Column('detail', Text, nullable=False),
+    Column('source_text', Text))
 control = table('control', Column('id', String(36), primary_key=True))
 worker_receipts = table('mock_worker_receipts', Column('call_id', String(36), primary_key=True),
     Column('payload_hash', String(64), nullable=False), Column('payload', JSON, nullable=False),
@@ -111,3 +112,27 @@ provider_inbox=week6('provider_inbox',Column('id',String(64),primary_key=True),
     Column('type',String(60),nullable=False),Column('payload_hash',String(64),nullable=False),
     Column('status',String(30),nullable=False),Column('normalized',JSON,nullable=False),
     Column('error',String(100)),Column('received_at',DateTime,nullable=False),Column('processed_at',DateTime))
+
+academy_classes = table('academy_classes',
+    Column('id', String(36), primary_key=True),
+    Column('academy_id', String(36), ForeignKey(academies.c.id), nullable=False, index=True),
+    Column('grade_code', String(10), nullable=False),
+    Column('subject_code', String(10), nullable=False),
+    Column('level_code', String(10)),
+    Column('created_at', DateTime, nullable=False),
+    Column('updated_at', DateTime, nullable=False))
+
+academy_call_hours = table('academy_call_hours',
+    Column('id', Integer, primary_key=True, autoincrement=True),
+    Column('academy_id', String(36), ForeignKey(academies.c.id), nullable=False, index=True),
+    Column('day_of_week', Integer, nullable=False),
+    Column('start_time', Time, nullable=False),
+    Column('end_time', Time, nullable=False),
+    Column('created_at', DateTime, nullable=False))
+
+academy_setting_states = table('academy_setting_states',
+    Column('academy_id', String(36), ForeignKey(academies.c.id), primary_key=True),
+    Column('is_class_configured', Boolean, nullable=False, default=False),
+    Column('is_call_hours_configured', Boolean, nullable=False, default=False),
+    Column('last_modified_at', DateTime, nullable=False),
+    Column('version', Integer, nullable=False, default=1))
