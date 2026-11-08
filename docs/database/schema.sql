@@ -225,6 +225,7 @@ CREATE TABLE w5_answers (
 	yes_no BOOL,
 	reason VARCHAR(30),
 	detail TEXT NOT NULL,
+	source_text TEXT,
 	PRIMARY KEY (call_id, question_id),
 	FOREIGN KEY(call_id) REFERENCES w5_calls (id),
 	FOREIGN KEY(question_id) REFERENCES w5_questions (id)

@@ -189,6 +189,7 @@
 | yes_no | BOOLEAN | 아니오 |   |  |
 | reason | VARCHAR(30) | 아니오 |   |  |
 | detail | TEXT | 예 |   |  |
+| source_text | TEXT | 아니오 |   |  |
 
 ## w5_delivery_leases
 

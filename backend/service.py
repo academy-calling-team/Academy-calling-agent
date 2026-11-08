@@ -21,6 +21,15 @@ def uid(): return str(uuid4())
 def digest(value): return hashlib.sha256(value.encode()).hexdigest()
 def fingerprint(value):
     return digest(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',',':')))
+
+def result_payload(body):
+    payload = body.model_dump(mode='json')
+    for answer in payload['answers']:
+        # Keep the serialized payload and hash compatible with results stored before source_text.
+        if answer['source_text'] is None:
+            del answer['source_text']
+    return payload
+
 def utc(value): return value.astimezone(timezone.utc).replace(tzinfo=None)
 
 def queue_order(row):
@@ -472,7 +481,7 @@ class Service:
         return sent
     def correct_result(self,cid,body):
         """Local reviewer service only. Never changes a worker's original report or call state."""
-        payload=body.payload.model_dump(mode='json')
+        payload=result_payload(body.payload)
         with self.engine.begin() as c:
             self.lock(c)
             original=c.execute(select(results).where(results.c.call_id==cid)).mappings().first()
@@ -488,6 +497,10 @@ class Service:
             if {a['question_id']:a['question_code'] for a in payload['answers']}!=expected:
                 raise HTTPException(422,'Question identities cannot be corrected')
             current=previous['payload'] if previous else original['payload']
+            excerpts = {a['question_id']: a['source_text'] for a in current['answers'] if a.get('source_text')}
+            for answer, item in zip(body.payload.answers, payload['answers']):
+                if answer.asked and 'source_text' not in answer.model_fields_set and answer.question_id in excerpts:
+                    item['source_text'] = excerpts[answer.question_id]
             if payload==current: raise HTTPException(422,'Review contains no changes')
             c.execute(corrections.insert().values(id=uid(),call_id=cid,revision=revision+1,
                 reviewer=body.reviewer,reason=body.reason,payload=payload,created_at=self.now()))
@@ -559,7 +572,7 @@ class Service:
                 received_at=self.now(),payload_hash=fp,applied=applied))
             return dict(duplicate=False,applied=applied)
     def result(self,cid,body):
-        payload=body.model_dump(mode='json'); fp=fingerprint(payload)
+        payload=result_payload(body); fp=fingerprint(payload)
         with self.engine.begin() as c:
             self.lock(c)
             call=c.execute(select(calls).where(calls.c.id==cid).with_for_update()).mappings().first()
@@ -600,7 +613,7 @@ class Service:
                 payload=payload,received_at=self.now(),applied=applied))
             for a in body.answers:
                 c.execute(answers.insert().values(call_id=cid,question_id=a.question_id,asked=a.asked,
-                    answered=a.answered,yes_no=a.yes_no,reason=a.reason,detail=a.detail))
+                    answered=a.answered,yes_no=a.yes_no,reason=a.reason,detail=a.detail,source_text=a.source_text))
             return dict(duplicate=False,applied=applied)
     def expire(self):
         with self.engine.begin() as c:

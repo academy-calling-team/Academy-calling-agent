@@ -801,10 +801,174 @@
           }
         }
       }
+    },
+    "/api/academies/{academy_id}/settings": {
+      "get": {
+        "summary": "Get Academy Settings",
+        "description": "운영 반 및 전화 응대 시간 조회 (임시로 admin 권한 사용 중)",
+        "operationId": "get_academy_settings_api_academies__academy_id__settings_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "academy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Academy Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Academy Settings",
+        "description": "HTML 시안 기반 운영 반 및 모집 상태 트랜잭션 업데이트",
+        "operationId": "update_academy_settings_api_academies__academy_id__settings_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "academy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Academy Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcademySettingsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AcademyClassInput": {
+        "properties": {
+          "grade_code": {
+            "type": "string",
+            "pattern": "^(E[1-6]|M[1-3]|H[1-3])$",
+            "title": "Grade Code"
+          },
+          "subject_code": {
+            "type": "string",
+            "enum": [
+              "KOR",
+              "ENG",
+              "MATH",
+              "SCI",
+              "SOC"
+            ],
+            "title": "Subject Code"
+          },
+          "level_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "HIGH",
+                  "MID",
+                  "LOW"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level Code"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "grade_code",
+          "subject_code"
+        ],
+        "title": "AcademyClassInput"
+      },
+      "AcademySettingsInput": {
+        "properties": {
+          "classes": {
+            "items": {
+              "$ref": "#/components/schemas/AcademyClassInput"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Classes"
+          },
+          "call_hours": {
+            "items": {
+              "$ref": "#/components/schemas/CallHourInput"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Call Hours"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "classes",
+          "call_hours"
+        ],
+        "title": "AcademySettingsInput"
+      },
       "AnswerInput": {
         "properties": {
           "question_id": {
@@ -851,7 +1015,8 @@
                 "enum": [
                   "unknown",
                   "refused",
-                  "not_asked"
+                  "not_asked",
+                  "uncertain"
                 ]
               },
               {
@@ -864,6 +1029,19 @@
             "type": "string",
             "maxLength": 2000,
             "title": "Detail"
+          },
+          "source_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Text"
           }
         },
         "additionalProperties": false,
@@ -877,6 +1055,34 @@
           "detail"
         ],
         "title": "AnswerInput"
+      },
+      "CallHourInput": {
+        "properties": {
+          "day_of_week": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Day Of Week"
+          },
+          "start_time": {
+            "type": "string",
+            "pattern": "^\\d{2}:\\d{2}(:\\d{2})?$",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "type": "string",
+            "pattern": "^\\d{2}:\\d{2}(:\\d{2})?$",
+            "title": "End Time"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "day_of_week",
+          "start_time",
+          "end_time"
+        ],
+        "title": "CallHourInput"
       },
       "CallbackReview": {
         "properties": {

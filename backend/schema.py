@@ -47,7 +47,8 @@ results = table('results', Column('call_id', String(36), ForeignKey(calls.c.id),
 answers = table('answers', Column('call_id', String(36), ForeignKey(calls.c.id), primary_key=True),
     Column('question_id', String(36), ForeignKey(questions.c.id), primary_key=True),
     Column('asked', Boolean, nullable=False), Column('answered', Boolean, nullable=False),
-    Column('yes_no', Boolean), Column('reason', String(30)), Column('detail', Text, nullable=False))
+    Column('yes_no', Boolean), Column('reason', String(30)), Column('detail', Text, nullable=False),
+    Column('source_text', Text))
 control = table('control', Column('id', String(36), primary_key=True))
 worker_receipts = table('mock_worker_receipts', Column('call_id', String(36), primary_key=True),
     Column('payload_hash', String(64), nullable=False), Column('payload', JSON, nullable=False),

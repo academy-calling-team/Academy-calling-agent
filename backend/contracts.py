@@ -59,10 +59,14 @@ class AnswerInput(StrictModel):
     asked: bool
     answered: bool
     yes_no: bool | None
-    reason: Literal['unknown','refused','not_asked'] | None = None
+    reason: Literal['unknown','refused','not_asked','uncertain'] | None = None
     detail: str = Field(max_length=2000)
+    source_text: str | None = Field(default=None, min_length=1, max_length=2000)
+
     @model_validator(mode='after')
     def coherent(self):
+        if self.source_text is not None and (not self.asked or not self.source_text.strip()):
+            raise ValueError('Source text requires an asked question and a nonblank excerpt')
         if self.answered:
             if not self.asked or self.reason is not None or not self.detail.strip():
                 raise ValueError('Answered requires asked, detail and no reason')
