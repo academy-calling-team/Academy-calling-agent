@@ -1,7 +1,8 @@
 """Durable MySQL development queue with a replaceable mock voice worker."""
 import hashlib
 import json
-from datetime import datetime, timezone, timedelta
+from collections import deque
+from datetime import datetime, time, timezone, timedelta
 from dataclasses import dataclass
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -21,6 +22,22 @@ def digest(value): return hashlib.sha256(value.encode()).hexdigest()
 def fingerprint(value):
     return digest(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',',':')))
 def utc(value): return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+def queue_order(row):
+    return -row['priority'], row['created_at'], row['id']
+
+def clock_seconds(value):
+    return value.hour * 3600 + value.minute * 60 + value.second
+
+def within_hours(weekday, second, windows):
+    for day, start, end in windows:
+        if start < end and day == weekday and start <= second < end:
+            return True
+        if end < start and ((day == weekday and second >= start) or
+                            ((day + 1) % 7 == weekday and second < end)):
+            return True
+    return False
+
 def aware(value):
     if isinstance(value, datetime): return value.replace(tzinfo=timezone.utc).isoformat()
     if isinstance(value, dict): return {k:aware(v) for k,v in value.items()}
@@ -38,11 +55,16 @@ class Policy:
     max_seconds: int = 180
     delivery_lease_seconds: int = 30
     disclosure_text: str = '개발용 예시: AI가 진행하는 녹음 통화입니다. 상담 가능하신가요?'
+    # Development defaults for ordering eligible inquiries within an academy.
+    priority_aging_minutes: int = 30
+    priority_overdue_minutes: int = 90
     def __post_init__(self):
         if min(self.max_concurrent,self.max_attempts,
                self.result_timeout_seconds,self.max_delivery_attempts,self.max_seconds,
                self.delivery_lease_seconds) < 1:
             raise ValueError('Policy limits must be positive')
+        if min(self.priority_aging_minutes, self.priority_overdue_minutes) < 1:
+            raise ValueError('Priority waiting limits must be positive')
         if not self.retry_delays_seconds or any(delay < 1 for delay in self.retry_delays_seconds):
             raise ValueError('Retry delays must be positive')
     def retry_delay(self, attempt_no):
@@ -156,16 +178,18 @@ class Service:
                 attempts=history,result=final,failure_reason=row['failure_reason'],
                 fallback_required=row['fallback_required'],fallback_status=fallback.status if fallback else None,
                 review_required=hold is not None,review_reason=hold['reason'] if hold else None))
-    def opened(self, academy):
-        local=self.clock().astimezone(ZoneInfo('Asia/Seoul'))
-        minute=local.hour*60+local.minute
-        # Explicit weekday schedules; empty/unknown schedules fail closed.
-        for w in academy['hours']:
-            start,end=w['start_minute'],w['end_minute']
-            if start<end and w['weekday']==local.weekday() and start<=minute<end: return True
-            if end<start and ((w['weekday']==local.weekday() and minute>=start) or
-                ((w['weekday']+1)%7==local.weekday() and minute<end)): return True
-        return False
+    def opened(self, academy, *, local=None, call_hours=()):
+        if local is None:
+            local = self.clock().astimezone(ZoneInfo('Asia/Seoul'))
+        weekday, second = local.weekday(), clock_seconds(local)
+        operating_hours = ((w['weekday'], w['start_minute'] * 60, w['end_minute'] * 60)
+                           for w in academy['hours'])
+        if not within_hours(weekday, second, operating_hours):
+            return False
+        return not call_hours or within_hours(weekday, second, (
+            (w['day_of_week'], clock_seconds(w['start_time']), clock_seconds(w['end_time']))
+            for w in call_hours
+        ))
     def set_academy_policy(self,acid,body):
         """Validated local configuration. No public scheduler-policy mutation endpoint."""
         values=body.model_dump(mode='json');hours=values.pop('hours')
@@ -177,33 +201,83 @@ class Service:
             if existing: c.execute(update(academy_policies).where(academy_policies.c.academy_id==acid).values(**values))
             else:c.execute(academy_policies.insert().values(academy_id=acid,**values))
             c.execute(update(academies).where(academies.c.id==acid).values(hours=hours))
-    def calculate_priority(self, c, academy_id, student, created_at):
-        """실제 운영 반 단위 매칭 및 에이징(Starvation 방지) 우선순위 계산"""
-        classes = c.execute(select(academy_classes).where(academy_classes.c.academy_id == academy_id)).mappings().all()
-        best_score = 0
-        
-        for cls in classes:
-            # 1. 반(Class) 단위 매칭 검증
-            if (cls['grade_code'] == student['grade'] and 
-                cls['subject_code'] == student['subject'] and 
-                cls['level_code'] == student['level']):
-                
-                # 2. 정원 계산 없이 순수 상태값만으로 점수 부여
-                if cls['status'] == 'PRIORITY':
-                    score = 100
-                elif cls['status'] == 'OPEN':
-                    score = 50
+    def academy_queue_order(self, row, classes, now):
+        student = row['student']
+        fields = (('grade_code', 'grade'), ('subject_code', 'subject'), ('level_code', 'level'))
+        match_score = max(
+            (sum(rule[setting] is not None and rule[setting] == student.get(answer)
+                 for setting, answer in fields) for rule in classes),
+            default=0,
+        )
+        eligible_since = max(row['created_at'], row['next_at'])
+        waited_minutes = max(0, (now - eligible_since).total_seconds() // 60)
+        overdue = waited_minutes >= self.policy.priority_overdue_minutes
+        score = match_score + waited_minutes // self.policy.priority_aging_minutes
+        # Keep explicitly assigned priority tiers ahead of automatic preferences.
+        return (-row['priority'], not overdue, 0 if overdue else -score,
+                eligible_since if overdue else row['created_at'], row['created_at'], row['id'])
+
+    def academy_slots(self, c, academy_id, available, now, local_date):
+        rule = c.execute(select(academy_policies).where(
+            academy_policies.c.academy_id == academy_id)).mappings().first()
+        if not rule:
+            return available
+        if not rule['enabled'] or local_date in rule['closed_dates']:
+            return 0
+        academy_calls = calls.join(inquiries)
+        belongs_to_academy = inquiries.c.academy_id == academy_id
+        active = c.execute(select(func.count()).select_from(academy_calls).where(
+            belongs_to_academy, calls.c.status.not_in(['finished', 'timeout']))).scalar_one()
+        slots = min(available, rule['max_concurrent'] - active)
+        if slots <= 0 or not rule['cooldown_seconds']:
+            return slots
+        latest_start = c.execute(select(func.max(calls.c.created_at)).select_from(academy_calls)
+                                 .where(belongs_to_academy)).scalar_one()
+        cooldown = timedelta(seconds=rule['cooldown_seconds'])
+        return 1 if latest_start is None or latest_start + cooldown <= now else 0
+
+    def eligible_academies(self, c, rows, available, now, local):
+        pending = {}
+        for row in rows:
+            pending.setdefault(row['academy_id'], []).append(row)
+
+        groups = {}
+        local_date = local.date().isoformat()
+        for academy_id, candidates in pending.items():
+            academy = c.execute(select(academies).where(
+                academies.c.id == academy_id)).mappings().one()
+            permitted = []
+            for row in candidates:
+                if not academy['is_mock'] and not self.real_test.permits(academy, row['inquirer_id']):
+                    self.fail(c, row['id'], 'real_test_disabled')
                 else:
-                    score = 0 # CLOSED (조건은 맞으나 모집 마감)
-                    
-                if score > best_score:
-                    best_score = score
-                    
-        # 3. Starvation 보정: 대기 시간 10분당 1점 가산 (최대 40점)
-        wait_minutes = (self.now() - created_at).total_seconds() // 60
-        aging_score = min(40, wait_minutes // 10)
-        
-        return best_score + aging_score
+                    permitted.append(row)
+            if not permitted:
+                continue
+            call_hours = c.execute(select(academy_call_hours).where(
+                academy_call_hours.c.academy_id == academy_id)).mappings().all()
+            if not self.opened(academy, local=local, call_hours=call_hours):
+                continue
+            slots = self.academy_slots(c, academy_id, available, now, local_date)
+            if slots <= 0:
+                continue
+            limit = self.attempt_limit(c, academy_id)
+            eligible = []
+            for row in permitted:
+                if row['attempt_count'] >= limit:
+                    self.fail(c, row['id'], 'retry_exhausted')
+                else:
+                    eligible.append(row)
+            if not eligible:
+                continue
+            classes = c.execute(select(academy_classes).where(
+                academy_classes.c.academy_id == academy_id,
+                academy_classes.c.status.in_(['OPEN', 'PRIORITY']))).mappings().all()
+            if classes:
+                eligible.sort(key=lambda row: self.academy_queue_order(row, classes, now))
+            groups[academy_id] = (academy, deque(eligible), slots)
+        return groups
+
     def get_academy_settings(self, acid):
         with self.engine.connect() as c:
             ac = c.execute(select(academies).where(academies.c.id == acid)).mappings().first()
@@ -237,7 +311,9 @@ class Service:
             for cls in payload['classes']:
                 c.execute(academy_classes.insert().values(id=uid(), academy_id=acid, created_at=now_time, updated_at=now_time, **cls))
             for hr in payload['call_hours']:
-                c.execute(academy_call_hours.insert().values(academy_id=acid, created_at=now_time, **hr))
+                c.execute(academy_call_hours.insert().values(
+                    academy_id=acid, created_at=now_time, day_of_week=hr['day_of_week'],
+                    start_time=time.fromisoformat(hr['start_time']), end_time=time.fromisoformat(hr['end_time'])))
                 
             # 3. 설정 상태 업데이트 (버전 및 수정시각)
             state = c.execute(select(academy_setting_states).where(academy_setting_states.c.academy_id == acid)).first()
@@ -252,41 +328,32 @@ class Service:
     def reserve(self):
         with self.engine.begin() as c:
             self.lock(c)
-            active=c.execute(select(func.count()).select_from(calls).where(
-                calls.c.status.not_in(['finished','timeout']))).scalar_one()
-            available=max(0,self.policy.max_concurrent-active)           
-            q_rows = c.execute(select(inquiries.c.id, inquiries.c.academy_id, inquiries.c.student, inquiries.c.created_at)
-                               .where(inquiries.c.status.in_(['queued','retry_wait']))).mappings().all()
-            for qr in q_rows:
-                new_priority = self.calculate_priority(c, qr['academy_id'], qr['student'], qr['created_at'])
-                c.execute(update(inquiries).where(inquiries.c.id == qr['id']).values(priority=new_priority))           
-            rows=c.execute(select(inquiries).where(inquiries.c.status.in_(['queued','retry_wait']),
-                inquiries.c.next_at<=self.now()).order_by(inquiries.c.priority.desc(),inquiries.c.created_at,
-                inquiries.c.id).with_for_update()).mappings().all()
-            reserved=[]
-            for row in rows:
-                if available<=0: break
-                if c.execute(select(review_holds.c.inquiry_id).where(
-                    review_holds.c.inquiry_id==row['id'],review_holds.c.open==True)).first():continue
-                ac=c.execute(select(academies).where(academies.c.id==row['academy_id'])).mappings().one()
-                if not ac['is_mock'] and not self.real_test.permits(ac,row['inquirer_id']):
-                    self.fail(c,row['id'],'real_test_disabled');continue
-                if not self.opened(ac): continue
-                rule=c.execute(select(academy_policies).where(
-                    academy_policies.c.academy_id==ac['id'])).mappings().first()
-                if rule:
-                    if not rule['enabled'] or self.clock().astimezone(ZoneInfo('Asia/Seoul')).date().isoformat() in rule['closed_dates']:
-                        continue
-                    # Optional per-academy policy. No default is silently imposed on old fixtures.
-                    local_active=c.execute(select(func.count()).select_from(calls.join(inquiries))
-                        .where(inquiries.c.academy_id==ac['id'],calls.c.status.not_in(['finished','timeout']))).scalar_one()
-                    latest_start=c.execute(select(func.max(calls.c.created_at)).select_from(calls.join(inquiries))
-                        .where(inquiries.c.academy_id==ac['id'])).scalar_one()
-                    if local_active>=rule['max_concurrent']: continue
-                    if latest_start and latest_start+timedelta(seconds=rule['cooldown_seconds'])>self.now(): continue
-                attempt=c.execute(select(func.count()).select_from(calls).where(calls.c.inquiry_id==row['id'])).scalar_one()+1
-                if attempt>self.attempt_limit(c,ac['id']):
-                    self.fail(c,row['id'],'retry_exhausted'); continue
+            active = c.execute(select(func.count()).select_from(calls).where(
+                calls.c.status.not_in(['finished', 'timeout']))).scalar_one()
+            available = self.policy.max_concurrent - active
+            if available <= 0:
+                return []
+            instant = self.clock()
+            now = utc(instant)
+            local = instant.astimezone(ZoneInfo('Asia/Seoul'))
+            attempt_count = select(func.count()).where(calls.c.inquiry_id == inquiries.c.id).scalar_subquery()
+            has_review_hold = select(review_holds.c.inquiry_id).where(
+                review_holds.c.inquiry_id == inquiries.c.id, review_holds.c.open.is_(True)).exists()
+            rows = c.execute(select(inquiries, attempt_count.label('attempt_count')).where(
+                inquiries.c.status.in_(['queued', 'retry_wait']), inquiries.c.next_at <= now,
+                ~has_review_hold).order_by(inquiries.c.priority.desc(), inquiries.c.created_at,
+                                          inquiries.c.id).with_for_update()).mappings().all()
+            groups = self.eligible_academies(c, rows, available, now, local)
+            reserved = []
+            while groups and len(reserved) < available:
+                academy_id = min(groups, key=lambda key: queue_order(groups[key][1][0]))
+                ac, candidates, slots = groups[academy_id]
+                row = candidates.popleft()
+                if candidates and slots > 1:
+                    groups[academy_id] = (ac, candidates, slots - 1)
+                else:
+                    del groups[academy_id]
+                attempt = row['attempt_count'] + 1
                 cid=uid()
                 qs=c.execute(select(questions).where(questions.c.inquiry_id==row['id']).order_by(questions.c.position)).mappings()
                 payload=dict(call_id=cid,inquiry_id=row['id'],attempt_no=attempt,to=ac['phone'],
@@ -300,7 +367,7 @@ class Service:
                     dispatch_payload=payload,delivery_count=0))
                 c.execute(outbox.insert().values(id=uid(),call_id=cid,created_at=self.now()))
                 c.execute(update(inquiries).where(inquiries.c.id==row['id']).values(status='calling'))
-                reserved.append(cid); available-=1
+                reserved.append(cid)
             return reserved
     def deliver(self, worker, call_ids=None):
         # Commit reservation before I/O. On unknown delivery, resend the SAME call_id.

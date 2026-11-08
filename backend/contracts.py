@@ -1,4 +1,4 @@
-from datetime import datetime,date
+from datetime import datetime,date,time
 from typing import Literal
 from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
 
@@ -166,7 +166,7 @@ class AcademyPolicyInput(StrictModel):
 class AcademyClassInput(StrictModel):
     grade_code: str = Field(pattern=r'^(E[1-6]|M[1-3]|H[1-3])$')
     subject_code: Literal['KOR','ENG','MATH','SCI','SOC']
-    level_code: Literal['HIGH','MID','LOW']
+    level_code: Literal['HIGH','MID','LOW'] | None = None
     status: Literal['OPEN','PRIORITY','CLOSED']
 
 class CallHourInput(StrictModel):
@@ -174,7 +174,20 @@ class CallHourInput(StrictModel):
     start_time: str = Field(pattern=r'^\d{2}:\d{2}(:\d{2})?$')
     end_time: str = Field(pattern=r'^\d{2}:\d{2}(:\d{2})?$')
 
+    @model_validator(mode='after')
+    def validate_window(self):
+        if time.fromisoformat(self.start_time) == time.fromisoformat(self.end_time):
+            raise ValueError('Call hours must have different start and end times')
+        return self
+
 class AcademySettingsInput(StrictModel):
     accepting_new_inquiries: bool
     classes: list[AcademyClassInput] = Field(max_length=50)
     call_hours: list[CallHourInput] = Field(max_length=50)
+
+    @model_validator(mode='after')
+    def unique_classes(self):
+        keys = {(row.grade_code, row.subject_code, row.level_code) for row in self.classes}
+        if len(keys) != len(self.classes):
+            raise ValueError('Duplicate academy class combination')
+        return self

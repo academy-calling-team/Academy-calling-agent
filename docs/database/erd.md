@@ -9,6 +9,7 @@ erDiagram
         VARCHAR_30 phone
         BOOL is_mock
         JSON hours
+        BOOL accepting_new_inquiries
     }
     w5_control {
         VARCHAR_36 id PK
@@ -23,6 +24,26 @@ erDiagram
         JSON payload
         DATETIME received_at
     }
+    w5_academy_call_hours {
+        INTEGER id PK
+        VARCHAR_36 academy_id FK
+        INTEGER day_of_week
+        TIME start_time
+        TIME end_time
+        DATETIME created_at
+    }
+    w5_academies ||--o{ w5_academy_call_hours : "academy_id"
+    w5_academy_classes {
+        VARCHAR_36 id PK
+        VARCHAR_36 academy_id FK
+        VARCHAR_10 grade_code
+        VARCHAR_10 subject_code
+        VARCHAR_10 level_code
+        VARCHAR_20 status
+        DATETIME created_at
+        DATETIME updated_at
+    }
+    w5_academies ||--o{ w5_academy_classes : "academy_id"
     w5_academy_policies {
         VARCHAR_36 academy_id PK,FK
         BOOL enabled
@@ -31,6 +52,14 @@ erDiagram
         JSON closed_dates
     }
     w5_academies ||--o| w5_academy_policies : "academy_id"
+    w5_academy_setting_states {
+        VARCHAR_36 academy_id PK,FK
+        BOOL is_class_configured
+        BOOL is_call_hours_configured
+        DATETIME last_modified_at
+        INTEGER version
+    }
+    w5_academies ||--o| w5_academy_setting_states : "academy_id"
     w5_inquiries {
         VARCHAR_36 id PK
         VARCHAR_36 inquirer_id FK
