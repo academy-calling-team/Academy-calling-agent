@@ -196,9 +196,9 @@ def test_registration_requires_terms_consent_field(portable):
     assert response.status_code == 422, response.text
 
 def test_schema_shape():
-    assert len(metadata.tables) == 21
-    assert sum(len(t.columns) for t in metadata.tables.values()) == 126
-    assert sum(len(t.foreign_keys) for t in metadata.tables.values()) == 20
+    assert len(metadata.tables) == 24
+    assert sum(len(t.columns) for t in metadata.tables.values()) == 146
+    assert sum(len(t.foreign_keys) for t in metadata.tables.values()) == 23
 
 
 def test_database_configuration_has_no_original_pc_dependency(monkeypatch):
