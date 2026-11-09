@@ -102,11 +102,10 @@ class ReceiptStore:
                 "CREATE TABLE IF NOT EXISTS receipts ("
                 "call_id TEXT PRIMARY KEY, payload_hash TEXT NOT NULL, payload TEXT NOT NULL,"
                 " scenario TEXT NOT NULL, received_at TEXT NOT NULL, delivered_at TEXT,"
-                " rejected_at TEXT, last_error TEXT)"
+                " rejected_at TEXT, last_error TEXT, result_body TEXT)"
             )
-            # 0.2.0에서 만든 접수 기록 파일에는 거절 열이 없어서 추가한다
             columns = {row[1] for row in db.execute("PRAGMA table_info(receipts)")}
-            for column in ("rejected_at", "last_error"):
+            for column in ("rejected_at", "last_error", "result_body"):
                 if column not in columns:
                     db.execute(f"ALTER TABLE receipts ADD COLUMN {column} TEXT")
 
@@ -141,16 +140,33 @@ class ReceiptStore:
     def mark_delivered(self, call_id: str) -> None:
         with closing(self._connect()) as db, db:
             db.execute(
-                "UPDATE receipts SET delivered_at = ? WHERE call_id = ?",
+                "UPDATE receipts SET delivered_at = ?, result_body = NULL WHERE call_id = ?",
                 (datetime.now(timezone.utc).isoformat(), call_id),
             )
 
     def mark_rejected(self, call_id: str, error: str) -> None:
         with closing(self._connect()) as db, db:
             db.execute(
-                "UPDATE receipts SET rejected_at = ?, last_error = ? WHERE call_id = ?",
+                "UPDATE receipts SET rejected_at = ?, last_error = ?, result_body = NULL WHERE call_id = ?",
                 (datetime.now(timezone.utc).isoformat(), error[:500], call_id),
             )
+
+    def result_body(self, call_id: str) -> dict | None:
+        with closing(self._connect()) as db:
+            row = db.execute("SELECT result_body FROM receipts WHERE call_id = ?", (call_id,)).fetchone()
+        return json.loads(row[0]) if row and row[0] is not None else None
+
+    def save_result_body(self, call_id: str, result: dict) -> dict | None:
+        """Keep the first result until delivery is acknowledged or definitively rejected."""
+        body = json.dumps(result, ensure_ascii=False)
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE receipts SET result_body = ? WHERE call_id = ?"
+                " AND result_body IS NULL AND delivered_at IS NULL AND rejected_at IS NULL",
+                (body, call_id),
+            )
+            row = db.execute("SELECT result_body FROM receipts WHERE call_id = ?", (call_id,)).fetchone()
+        return json.loads(row[0]) if row and row[0] is not None else None
 
     def pending(self) -> list[str]:
         with closing(self._connect()) as db:

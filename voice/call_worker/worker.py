@@ -31,7 +31,7 @@ from sender import Sender  # noqa: E402
 
 from clawops import ClawOps, ClawOpsConfig  # noqa: E402
 from llm_judge import LLMJudge  # noqa: E402
-from real_call import ProviderCalls, RealCalls  # noqa: E402
+from real_call import ProviderCalls, RealCalls, deliver_result  # noqa: E402
 
 log = logging.getLogger("call_worker")
 REAL = "real"  # 접수 기록의 scenario 칸에 실제 통화임을 표시
@@ -84,6 +84,7 @@ def resume_pending(store: ReceiptStore, sender: Sender, real: RealCalls | None,
     """재시작할 때 못 보낸 건 처리. 실제 통화는 절대 다시 걸지 않는다.
 
     - 목업: 목업 워커처럼 다시 보낸다
+    - 실제, 결과 본문 있음: 저장한 본문을 그대로 다시 보낸다
     - 실제, ClawOps 통화 ID 있음: 그 통화를 이어서 따라가 결과를 보낸다
     - 실제, 통화 ID 없음: 걸렸는지 알 수 없어 거절로 기록하고 사람이 확인한다
     """
@@ -91,6 +92,8 @@ def resume_pending(store: ReceiptStore, sender: Sender, real: RealCalls | None,
         receipt = store.receipt(call_id)
         if receipt.scenario != REAL:
             sender.deliver(store, call_id)
+        elif (result := store.result_body(call_id)) is not None:
+            deliver_result(store, sender._post, call_id, result)
         elif real is not None and provider_calls is not None and provider_calls.get(call_id):
             real.follow(store, call_id)
         else:
