@@ -182,7 +182,7 @@ def check_schema(result: dict) -> None:
     assert result["outcome"] in SCHEMA["properties"]["outcome"]["enum"]
     assert set(result["unresolved"]) == {a["question_id"] for a in result["answers"] if not a["answered"]}
     for a in result["answers"]:
-        assert a["answered"] or a["reason"] in ("unknown", "refused", "not_asked")
+        assert a["answered"] or a["reason"] in ("unknown", "refused", "not_asked", "uncertain")
 
 
 # 목업 요청은 지금처럼
@@ -437,3 +437,105 @@ def test_instruction_lists_only_requested_questions():
     # ClawOps Variables 값은 문자열·숫자·참거짓만 된다
     assert variables["questions"] == "shuttle, vacancy, pickup"
     assert all(isinstance(v, (str, int, float, bool)) for v in variables.values())
+
+
+# ---- LLM 판정 연결 (11/9) -------------------------------------------------
+# 실제 LLM은 부르지 않는다. llm_judge.call_llm을 바꿔 끼워, 판정 출력 → 계약 변환 → 결과 전송 본문을 확인한다.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
+import llm_judge  # noqa: E402
+from contracts import ResultInput  # noqa: E402  (backend 계약: extra='forbid'라 남는 키가 있으면 실패)
+from llm_judge import LLMJudge  # noqa: E402
+
+Q1019 = [{"question_id": "q1", "question_code": "shuttle"}, {"question_id": "q2", "question_code": "pickup"},
+         {"question_id": "q3", "question_code": "class_time"}]
+
+
+def item(status, turns_, quote, detail, certainty="definite"):
+    return {"status": status, "certainty": certainty, "detail": detail, "evidence_turns": turns_, "evidence_quote": quote}
+
+
+LLM_1019 = {"answers": {
+    "shuttle": item("yes", [4], "침산동 쪽으로 다녀요", "침산동 쪽으로 운행"),
+    "pickup": item("no", [8], "픽업은 안 합니다", "수업 후 픽업 안 함", certainty="guess"),
+    "class_time": item("answered", [10], "화, 목 저녁 7시요", "화·목 저녁 7시")},
+    "consult": {"status": "yes", "certainty": "definite", "available_times": ["수요일 3시"], "unavailable_times": [],
+                "evidence_turns": [12], "evidence_quote": "수요일 3시에 오세요"}}
+
+
+def test_llm_judge_result_passes_backend_contract(monkeypatch):
+    monkeypatch.setattr(llm_judge, "call_llm", lambda *a, **k: {"result": LLM_1019})
+    result = build_result("c_llm", real_request(questions=Q1019), {"status": "completed", "duration": 103}, None,
+                          REAL_1019, LLMJudge("gemini-test", "k"))
+    ResultInput.model_validate(result)
+    check_schema(result)
+    got = {a["question_code"]: a for a in result["answers"]}
+    assert (got["shuttle"]["answered"], got["shuttle"]["yes_no"]) == (True, True)
+    assert got["shuttle"]["source_text"] == "네, 침산동 쪽으로 다녀요."
+    # 학원이 확정하지 않은 답(certainty=guess)은 미확인 + uncertain, 기운 쪽은 문구로만 남는다
+    assert (got["pickup"]["answered"], got["pickup"]["yes_no"], got["pickup"]["reason"]) == (False, None, "uncertain")
+    assert got["pickup"]["detail"].startswith("학원이 확실하지 않다고 함")
+    assert got["class_time"]["detail"] == "화·목 저녁 7시"
+    assert result["unresolved"] == ["q2"]
+    assert result["consult_accepted"] is True and result["available_times"] == ["수요일 3시"]
+    assert "LLM(gemini-test" in result["notes"]
+
+
+def no_wait_judge():
+    return LLMJudge("gemini-test", "k", sleep=lambda sec: None)
+
+
+def test_llm_failure_is_retried_then_succeeds(monkeypatch):
+    calls = []
+
+    def flaky(*a, **k):
+        calls.append(1)
+        if len(calls) < 3:
+            raise RuntimeError("Gemini 429")
+        return {"result": LLM_1019}
+    monkeypatch.setattr(llm_judge, "call_llm", flaky)
+    result = build_result("c_llm_retry", real_request(questions=Q1019), {"status": "completed", "duration": 103}, None,
+                          REAL_1019, no_wait_judge())
+    ResultInput.model_validate(result)
+    assert len(calls) == 3 and "LLM(gemini-test" in result["notes"]
+
+
+def test_llm_giving_up_sends_all_unknown_not_keyword(monkeypatch):
+    calls = []
+
+    def boom(*a, **k):
+        calls.append(1)
+        raise ValueError("망가진 JSON")
+    monkeypatch.setattr(llm_judge, "call_llm", boom)
+    result = build_result("c_llm_fail", real_request(questions=Q1019), {"status": "completed", "duration": 103}, None,
+                          REAL_1019, no_wait_judge())
+    ResultInput.model_validate(result)
+    assert len(calls) == len(llm_judge.JUDGE_ATTEMPT_WAITS)
+    assert all(not a["answered"] and a["reason"] == "unknown" for a in result["answers"])
+    assert result["unresolved"] == ["q1", "q2", "q3"]
+    assert result["consult_accepted"] is None and result["available_times"] == []
+    assert "실패로 모두 미확인" in result["notes"]
+    assert result["transcript"]  # 판정은 실패해도 전사는 보낸다
+
+
+def test_keyword_only_when_judge_not_configured():
+    result = build_result("c_kw2", real_request(questions=Q1019), {"status": "completed", "duration": 103}, None, REAL_1019)
+    ResultInput.model_validate(result)
+    assert "전사 규칙 기반" in result["notes"] and "LLM" not in result["notes"]
+
+
+def test_not_connected_call_never_calls_llm(monkeypatch):
+    monkeypatch.setattr(llm_judge, "call_llm", lambda *a, **k: pytest.fail("연결 안 된 통화에서 LLM 호출"))
+    result = build_result("c_na", real_request(), {"status": "no-answer"}, None, [], LLMJudge("gemini-test", "k"))
+    ResultInput.model_validate(result)
+
+
+def test_load_judge_from_env(monkeypatch):
+    from worker import load_judge
+    monkeypatch.delenv("LLM_JUDGE_MODEL", raising=False)
+    assert load_judge() is None
+    monkeypatch.setenv("LLM_JUDGE_MODEL", "gemini-3.5-flash-lite")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with pytest.raises(SystemExit):
+        load_judge()
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    assert load_judge().model == "gemini-3.5-flash-lite"
