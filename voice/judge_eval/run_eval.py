@@ -161,7 +161,7 @@ def main():
                 else:
                     got = next((a for a in extra["answers"] if a["question_code"] == item), {})
                     r["llm_detail"] = got.get("detail", "")
-                r["source_text"] = got.get("source_text", "")
+                r["source_text"] = got.get("source_text") or ""
                 r["detail_checked"] = got.get("detail_checked", True)
                 r["certainty"] = got.get("certainty", "")
                 r["leaning"] = got.get("leaning") or ""

@@ -252,7 +252,7 @@ UNSURE_LABEL = {"guess": "학원이 확실하지 않다고 함", "deferred": "�
 
 def settle(st: str, certainty: str) -> tuple[str, str | None]:
     """확실성 정책을 한 곳에 둔다. 학원이 확정하지 않은 yes/no/answered는 미확인으로 돌리고,
-    학원이 기운 쪽(leaning)은 따로 남긴다. 계약(contracts.py)의 reason은 아직 'unknown'뿐이라 그대로 쓴다."""
+    학원이 기운 쪽(leaning)은 따로 남긴다. 계약에서는 reason='uncertain'으로 보낸다(11/8 backend 반영)."""
     if st in ("yes", "no", "answered") and certainty in UNSURE_LABEL:
         return "unknown", st
     return st, None
@@ -276,9 +276,10 @@ def to_contract(questions: list[dict], turns, raw: dict) -> tuple[list[dict], di
             detail = f"{UNSURE_LABEL[certainty]}: {detail}"
         row = {**q, "asked": st != "not_asked", "answered": st in ("yes", "no", "answered"),
                "yes_no": {"yes": True, "no": False}.get(st), "reason": None, "detail": detail[:500] or "대답을 알아듣지 못함",
-               "status": st, "certainty": certainty, "leaning": leaning, "source_text": src[:500], "detail_checked": checked}
+               "status": st, "certainty": certainty, "leaning": leaning, "source_text": src[:2000] if src.strip() and st != "not_asked" else None,
+               "detail_checked": checked}
         if not row["answered"]:
-            row["reason"] = {"refused": "refused", "not_asked": "not_asked"}.get(st, "unknown")
+            row["reason"] = "uncertain" if leaning else {"refused": "refused", "not_asked": "not_asked"}.get(st, "unknown")
         answers.append(row)
     c = raw.get("consult", {})
     st = c.get("status", "unknown")
@@ -294,3 +295,12 @@ def to_contract(questions: list[dict], turns, raw: dict) -> tuple[list[dict], di
                "available_times": times, "unavailable_times": c.get("unavailable_times", []),
                "certainty": certainty, "leaning": leaning, "source_text": src[:500], "detail_checked": checked}
     return answers, consult
+
+
+# backend/contracts.py AnswerInput의 필드 (StrictModel extra='forbid'라 그 밖의 키를 보내면 거부됨)
+ANSWER_FIELDS = ("question_id", "question_code", "asked", "answered", "yes_no", "reason", "detail", "source_text")
+
+
+def contract_answers(rows: list[dict]) -> list[dict]:
+    """to_contract의 답변 행에서 평가용 필드(status·certainty·leaning·detail_checked)를 빼고 계약 필드만 남긴다."""
+    return [{k: r[k] for k in ANSWER_FIELDS if k in r} for r in rows]
