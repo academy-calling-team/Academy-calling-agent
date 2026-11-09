@@ -539,3 +539,18 @@ def test_load_judge_from_env(monkeypatch):
         load_judge()
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     assert load_judge().model == "gemini-3.5-flash-lite"
+
+
+def test_llm_token_usage_including_thoughts_is_logged(monkeypatch, caplog):
+    usage = llm_judge.usage_of(1300, 300, 250)
+    monkeypatch.setattr(llm_judge, "call_llm", lambda *a, **k: {"result": LLM_1019, "usage": usage})
+    judge = no_wait_judge()
+    with caplog.at_level("INFO", logger="call_worker"):
+        build_result("c_tok", real_request(questions=Q1019), {"status": "completed", "duration": 103}, None, REAL_1019, judge)
+    assert judge.last_usage["billed_output_tokens"] == 550
+    assert "thoughts 250, billed out 550" in caplog.text
+
+
+def test_openai_reasoning_tokens_split_from_visible_output():
+    u = llm_judge.usage_of(1000, 400 - 150, 150)
+    assert (u["completion_tokens"], u["thoughts_tokens"], u["billed_output_tokens"]) == (250, 150, 400)

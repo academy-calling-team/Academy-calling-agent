@@ -213,6 +213,12 @@ def facts_ok(detail: str, source: str) -> bool | None:
     return nums_ok and weekdays(detail) <= weekdays(source)
 
 
+def usage_of(prompt: int, completion: int, thoughts: int) -> dict:
+    """토큰 사용량을 한 모양으로. 두 회사 모두 추론(thoughts) 토큰을 출력 요금으로 받으므로 billed_output에 합친다."""
+    return {"prompt_tokens": prompt, "completion_tokens": completion, "thoughts_tokens": thoughts,
+            "billed_output_tokens": completion + thoughts}
+
+
 def _post_gemini(codes, turns, model, api_key, timeout, pace_sec, retry_waits):
     body = {"systemInstruction": {"parts": [{"text": SYSTEM}]},
             "contents": [{"role": "user", "parts": [{"text": user_message(codes, turns)}]}],
@@ -230,7 +236,7 @@ def _post_gemini(codes, turns, model, api_key, timeout, pace_sec, retry_waits):
     text = "".join(p.get("text", "") for p in data["candidates"][0]["content"]["parts"])
     u = data.get("usageMetadata", {})
     return {"result": json.loads(text), "model": data.get("modelVersion", model),
-            "usage": {"prompt_tokens": u.get("promptTokenCount", 0), "completion_tokens": u.get("candidatesTokenCount", 0)}}
+            "usage": usage_of(u.get("promptTokenCount", 0), u.get("candidatesTokenCount", 0), u.get("thoughtsTokenCount", 0))}
 
 
 def _post_openai(codes, turns, model, api_key, timeout, pace_sec, retry_waits):
@@ -240,7 +246,11 @@ def _post_openai(codes, turns, model, api_key, timeout, pace_sec, retry_waits):
     r = httpx.post(OPENAI_URL, json=body, headers={"Authorization": f"Bearer {api_key}"}, timeout=timeout)
     r.raise_for_status()
     data = r.json()
-    return {"result": json.loads(data["choices"][0]["message"]["content"]), "usage": data.get("usage", {}), "model": data.get("model")}
+    u = data.get("usage", {})
+    reasoning = (u.get("completion_tokens_details") or {}).get("reasoning_tokens", 0)
+    # OpenAI의 completion_tokens에는 추론 토큰이 이미 들어 있어, 보이는 출력과 추론을 나눠 Gemini와 같은 모양으로 맞춘다
+    return {"result": json.loads(data["choices"][0]["message"]["content"]), "model": data.get("model"),
+            "usage": usage_of(u.get("prompt_tokens", 0), u.get("completion_tokens", 0) - reasoning, reasoning)}
 
 
 def call_llm(codes, turns, model, api_key, cache_dir: Path | None = None, timeout=120.0,
@@ -326,15 +336,17 @@ class LLMJudge:
         self.model, self.api_key, self.timeout = model, api_key, timeout
         self.attempt_waits, self.sleep = attempt_waits, sleep
         self.attempts_used = 0
+        self.last_usage: dict = {}
 
     def __call__(self, questions: list[dict], turns) -> tuple[list[dict], dict]:
         codes = [q["question_code"] for q in questions]
         error = None
         for n, wait in enumerate(self.attempt_waits, 1):
             self.sleep(wait)
-            self.attempts_used = n
+            self.attempts_used, self.last_usage = n, {}
             try:
                 out = call_llm(codes, turns, self.model, self.api_key, timeout=self.timeout)
+                self.last_usage = out.get("usage", {})
                 rows, consult = to_contract(questions, turns, out["result"])
                 return contract_answers(rows), consult
             except Exception as exc:  # 네트워크·제한·JSON·스키마 오류 모두 다시 시도

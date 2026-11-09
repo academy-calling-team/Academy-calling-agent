@@ -243,7 +243,11 @@ def judge_answers(questions: list[dict], turns, judge) -> tuple[list[dict], bool
         answers = [{**q, "asked": True, "answered": False, "yes_no": None, "reason": "unknown",
                     "detail": JUDGE_FAILED_DETAIL} for q in questions]
         return answers, None, [], f"LLM 판정 {judge.attempts_used}회 실패로 모두 미확인({judge.model})"
-    log.info("LLM judge %s took %.1fs (%d attempt(s))", judge.model, time.monotonic() - started, judge.attempts_used)
+    u = judge.last_usage
+    # 실패한 시도의 토큰은 응답이 없어 알 수 없다(429·시간 초과는 대개 과금 없음). 성공한 시도의 값만 남긴다
+    log.info("LLM judge %s took %.1fs (%d attempt(s)); tokens in %s, out %s, thoughts %s, billed out %s",
+             judge.model, time.monotonic() - started, judge.attempts_used, u.get("prompt_tokens"),
+             u.get("completion_tokens"), u.get("thoughts_tokens"), u.get("billed_output_tokens"))
     return (answers, consult["consult_accepted"], consult["available_times"][:20],
             f"질문별 판정은 LLM({judge.model}, {PROMPT_VERSION})")
 

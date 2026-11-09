@@ -138,7 +138,7 @@ def main():
         key = env.get(name, "").strip().strip('"')
         if not key:
             sys.exit(f"voice/.env의 {name}가 비어 있습니다.")
-    rows, usage, served = [], {"prompt_tokens": 0, "completion_tokens": 0}, set()
+    rows, usage, served = [], {"prompt_tokens": 0, "completion_tokens": 0, "thoughts_tokens": 0}, set()
     for case in load_cases():
         turns = to_turns(case["segments"])
         kw = keyword_predict(case, turns)
@@ -188,7 +188,8 @@ def main():
         unsure = [r for r in rows if r["leaning"]]
         lines += ["", f"학원이 확정하지 않아 미확인으로 돌린 항목: {len(unsure)}건 (확실성 guess·deferred)"]
         lines += [f"- {r['set']} {r['case']} {r['item']}: 정답 {r['truth']} / 기운 쪽 {r['leaning']} ({r['certainty']}) / 원문 '{r['source_text']}'" for r in unsure]
-        lines += ["", f"실제 응답 모델: {sorted(str(m) for m in served)} / 프롬프트 판: {PROMPT_VERSION}", f"토큰: 입력 {usage['prompt_tokens']:,} / 출력 {usage['completion_tokens']:,} (캐시된 결과는 처음 호출 때 값)"]
+        lines += ["", f"실제 응답 모델: {sorted(str(m) for m in served)} / 프롬프트 판: {PROMPT_VERSION}", f"토큰: 입력 {usage['prompt_tokens']:,} / 출력 {usage['completion_tokens']:,} / 추론 {usage['thoughts_tokens']:,}"
+                  " (캐시된 결과는 처음 호출 때 값. 11/9 전에 캐시된 호출은 추론 토큰을 기록하지 않아 0으로 셈)"]
     lines += ["", "## 틀린 항목", "", "| 세트 | 통화 | 항목 | 정답 | " + " | ".join(methods) + " | 메모 |", "|---|---|---|---|" + "---|" * len(methods) + "---|"]
     for r in rows:
         if any(r[f"{m}_grade"] != "ok" for m in methods):
