@@ -30,6 +30,7 @@ from samples import SCENARIO_MODES, pick_scenario  # noqa: E402
 from sender import Sender  # noqa: E402
 
 from clawops import ClawOps, ClawOpsConfig  # noqa: E402
+from llm_judge import LLMJudge  # noqa: E402
 from real_call import ProviderCalls, RealCalls  # noqa: E402
 
 log = logging.getLogger("call_worker")
@@ -96,6 +97,21 @@ def resume_pending(store: ReceiptStore, sender: Sender, real: RealCalls | None,
             store.mark_rejected(call_id, "재시작 전 발신 여부 불명, 다시 걸지 않음. ClawOps 통화 목록 확인 필요")
 
 
+def load_judge() -> LLMJudge | None:
+    """LLM_JUDGE_MODEL이 있으면 LLM 판정을 켠다. gemini-로 시작하면 GEMINI_API_KEY, 아니면 OPENAI_API_KEY.
+    무료 키는 합성·역할극 통화에만 쓴다(실제 학원 통화는 유료 키). 없으면 전사 규칙 판정만 쓴다."""
+    model = os.getenv("LLM_JUDGE_MODEL", "").strip()
+    if not model:
+        log.info("LLM judge disabled (LLM_JUDGE_MODEL not set): keyword judge only")
+        return None
+    key_name = "GEMINI_API_KEY" if model.startswith("gemini") else "OPENAI_API_KEY"
+    key = os.getenv(key_name, "").strip().strip('"')
+    if not key:
+        raise SystemExit(f"LLM_JUDGE_MODEL={model}인데 {key_name}가 없음")
+    log.info("LLM judge enabled: %s", model)
+    return LLMJudge(model, key, timeout=float(os.getenv("LLM_JUDGE_TIMEOUT_SEC", "30")))
+
+
 def load_real(store_path: Path, sender: Sender) -> tuple[RealCalls | None, ProviderCalls | None, frozenset[str]]:
     if os.getenv("REAL_CALLS_ENABLED") != "1":
         log.info("real calls disabled (REAL_CALLS_ENABLED != 1): mock requests only")
@@ -109,7 +125,7 @@ def load_real(store_path: Path, sender: Sender) -> tuple[RealCalls | None, Provi
     config = ClawOpsConfig(*(os.environ[n] for n in names))
     provider_calls = ProviderCalls(store_path)
     # sender._post: 목업과 같은 재시도·거절 규칙으로 이벤트와 결과를 보낸다
-    real = RealCalls(ClawOps(config), provider_calls, sender._post)
+    real = RealCalls(ClawOps(config), provider_calls, sender._post, judge=load_judge())
     log.info("real calls enabled for %d allowed number(s)", len(allowed))
     return real, provider_calls, allowed
 

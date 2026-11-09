@@ -24,7 +24,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "voice" / "call_worker"))
 sys.path.insert(0, str(HERE))
 from extract import build_answers, consult_result, positions, to_turns  # noqa: E402
-from llm_judge import PROMPT_VERSION  # noqa: E402
+from llm_judge import EVAL_RETRY_WAITS, GEMINI_PACE_SEC, PROMPT_VERSION  # noqa: E402  (voice/call_worker/llm_judge.py)
 
 GREETING = [["A", "안녕하세요, 학부모님을 대신해 문의드리는 AI 상담원입니다. 이 통화는 녹음됩니다. 잠시 통화 괜찮으실까요?"], ["H", "네, 괜찮아요."]]
 
@@ -96,7 +96,7 @@ def keyword_predict(case, turns) -> dict:
 def llm_predict(case, turns, model, key, cache) -> tuple[dict, dict]:
     from llm_judge import call_llm, to_contract
     qs = [{"question_id": f"q{i}", "question_code": c} for i, c in enumerate(case["questions"])]
-    out = call_llm(case["questions"], turns, model, key, cache)
+    out = call_llm(case["questions"], turns, model, key, cache, pace_sec=GEMINI_PACE_SEC, retry_waits=EVAL_RETRY_WAITS)
     answers, consult = to_contract(qs, turns, out["result"])
     pred = {a["question_code"]: a["status"] for a in answers}
     pred["consult"] = consult["status"]

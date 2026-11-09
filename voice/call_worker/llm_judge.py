@@ -1,4 +1,5 @@
-"""통화 전사로 질문별 답을 LLM이 판정한다 (오프라인 평가용, 워커에는 아직 연결하지 않음).
+"""통화 전사로 질문별 답을 LLM이 판정한다. 실제 통화 워커(real_call.py)와 오프라인 평가(voice/judge_eval)가 같이 쓴다.
+배포 이미지에는 voice/call_worker/만 들어가므로 이 파일은 여기에 둔다.
 
 키워드 사전(voice/call_worker/extract.py)의 대안으로 10/28 9주차 회의에서 정한 방향이다.
 LLM은 판정과 함께 근거가 된 학원 발화 번호와 원문을 인용해야 하고, 인용이 실제 학원 발화에 없으면
@@ -16,6 +17,7 @@ judge-v3 (11/4 10주차 회의 반영)
 """
 import hashlib
 import json
+import logging
 import re
 import time
 from difflib import SequenceMatcher
@@ -23,10 +25,17 @@ from pathlib import Path
 
 import httpx
 
+log = logging.getLogger("call_worker")
+
 PROMPT_VERSION = "judge-v3"
 GROUNDED_MIN = 0.7
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
-GEMINI_PACE_SEC = 8
+GEMINI_PACE_SEC = 8              # 평가용: 무료 등급 분당 제한에 맞춘 호출 간격
+EVAL_RETRY_WAITS = (0, 30, 60, 90, 120, 180, 240)   # 평가용: 제한에 걸리면 오래 기다려도 됨
+WORKER_RETRY_WAITS = (0,)        # 워커용: HTTP 재시도는 하지 않고, 판정 전체 재시도(JUDGE_ATTEMPT_WAITS)로 처리
+# 워커 판정 재시도 간격(초). 429·시간 초과·망가진 JSON 등 어떤 실패든 판정을 처음부터 다시 부른다.
+# 최악: 4번 × 시간 제한 30초 + 대기 100초 = 약 220초. 전사 대기(최대 180초)와 합쳐도 백엔드 결과 대기 600초 안이다.
+JUDGE_ATTEMPT_WAITS = (0, 10, 30, 60)
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 QUESTION_TEXT = {
@@ -204,13 +213,13 @@ def facts_ok(detail: str, source: str) -> bool | None:
     return nums_ok and weekdays(detail) <= weekdays(source)
 
 
-def _post_gemini(codes, turns, model, api_key, timeout):
+def _post_gemini(codes, turns, model, api_key, timeout, pace_sec, retry_waits):
     body = {"systemInstruction": {"parts": [{"text": SYSTEM}]},
             "contents": [{"role": "user", "parts": [{"text": user_message(codes, turns)}]}],
             "generationConfig": {"temperature": 0, "responseMimeType": "application/json",
                                  "responseJsonSchema": schema(codes)["schema"]}}
-    time.sleep(GEMINI_PACE_SEC)  # 무료 등급 분당 제한에 맞춰 호출 간격을 둔다
-    for wait in (0, 30, 60, 90, 120, 180, 240):  # 제한에 걸리면 기다렸다 다시 부른다
+    time.sleep(pace_sec)
+    for wait in retry_waits:  # 제한(429)이나 일시 오류면 기다렸다 다시 부른다
         time.sleep(wait)
         r = httpx.post(GEMINI_URL.format(model=model), json=body, headers={"x-goog-api-key": api_key}, timeout=timeout)
         if r.status_code not in (429, 500, 503):
@@ -224,7 +233,7 @@ def _post_gemini(codes, turns, model, api_key, timeout):
             "usage": {"prompt_tokens": u.get("promptTokenCount", 0), "completion_tokens": u.get("candidatesTokenCount", 0)}}
 
 
-def _post_openai(codes, turns, model, api_key, timeout):
+def _post_openai(codes, turns, model, api_key, timeout, pace_sec, retry_waits):
     body = {"model": model, "temperature": 0,
             "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user_message(codes, turns)}],
             "response_format": {"type": "json_schema", "json_schema": schema(codes)}}
@@ -234,13 +243,14 @@ def _post_openai(codes, turns, model, api_key, timeout):
     return {"result": json.loads(data["choices"][0]["message"]["content"]), "usage": data.get("usage", {}), "model": data.get("model")}
 
 
-def call_llm(codes, turns, model, api_key, cache_dir: Path | None = None, timeout=120.0) -> dict:
+def call_llm(codes, turns, model, api_key, cache_dir: Path | None = None, timeout=120.0,
+             pace_sec: float = 0, retry_waits=WORKER_RETRY_WAITS) -> dict:
     key = hashlib.sha256(json.dumps([PROMPT_VERSION, model, SYSTEM, user_message(codes, turns), schema(codes)], ensure_ascii=False).encode()).hexdigest()[:24]
     path = cache_dir / f"{key}.json" if cache_dir else None
     if path and path.exists():
         return json.loads(path.read_text(encoding="utf-8"))
     post = _post_gemini if model.startswith("gemini") else _post_openai
-    out = post(codes, turns, model, api_key, timeout)
+    out = post(codes, turns, model, api_key, timeout, pace_sec, retry_waits)
     if path:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -304,3 +314,30 @@ ANSWER_FIELDS = ("question_id", "question_code", "asked", "answered", "yes_no", 
 def contract_answers(rows: list[dict]) -> list[dict]:
     """to_contract의 답변 행에서 평가용 필드(status·certainty·leaning·detail_checked)를 빼고 계약 필드만 남긴다."""
     return [{k: r[k] for k in ANSWER_FIELDS if k in r} for r in rows]
+
+
+class LLMJudge:
+    """워커가 쓰는 판정기. judge(questions, turns) → (계약 답변 행들, 상담 결과).
+    실패하면 attempt_waits 간격으로 판정 전체를 다시 부른다. 모두 실패하면 마지막 예외를 올리고,
+    그때 보낼 결과는 부르는 쪽(real_call.judge_answers)이 정한다."""
+
+    def __init__(self, model: str, api_key: str, timeout: float = 30.0,
+                 attempt_waits=JUDGE_ATTEMPT_WAITS, sleep=time.sleep):
+        self.model, self.api_key, self.timeout = model, api_key, timeout
+        self.attempt_waits, self.sleep = attempt_waits, sleep
+        self.attempts_used = 0
+
+    def __call__(self, questions: list[dict], turns) -> tuple[list[dict], dict]:
+        codes = [q["question_code"] for q in questions]
+        error = None
+        for n, wait in enumerate(self.attempt_waits, 1):
+            self.sleep(wait)
+            self.attempts_used = n
+            try:
+                out = call_llm(codes, turns, self.model, self.api_key, timeout=self.timeout)
+                rows, consult = to_contract(questions, turns, out["result"])
+                return contract_answers(rows), consult
+            except Exception as exc:  # 네트워크·제한·JSON·스키마 오류 모두 다시 시도
+                error = exc
+                log.warning("LLM judge attempt %d/%d failed: %s", n, len(self.attempt_waits), str(exc)[:300])
+        raise error
