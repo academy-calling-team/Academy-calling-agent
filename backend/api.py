@@ -22,7 +22,7 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
             dict(loc=list(e['loc']),msg=e['msg'],type=e['type']) for e in error.errors()]})
     origins=origins or ['http://localhost:5173','http://127.0.0.1:5173']
     if '*' in origins: raise ValueError('Explicit CORS origins required')
-    app.add_middleware(CORSMiddleware,allow_origins=origins,allow_methods=['GET','POST'],
+    app.add_middleware(CORSMiddleware,allow_origins=origins,allow_methods=['GET','POST','PUT'],
         allow_headers=['Authorization','Content-Type','Idempotency-Key'])
     bearer=HTTPBearer(auto_error=False)
     def auth(credentials:HTTPAuthorizationCredentials|None=Depends(bearer)):
@@ -89,7 +89,7 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
     if with_auth:
         from auth6 import AuthStore
         from contracts6 import Credentials,RegistrationCredentials,CallbackReview,FallbackReview
-        from contracts import CorrectionInput
+        from contracts import AcademySettingsInput, CorrectionInput
         from ops6 import Operations
         service.allow_legacy_tokens=False
         auth_store=AuthStore(service);app.state.auth_store=auth_store
@@ -125,4 +125,13 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
         def correction(call_id:str,body:CorrectionInput,actor:str=Depends(administrator)):
             # The review author is authenticated; a submitted label cannot impersonate another actor.
             return service.correct_result(call_id,body.model_copy(update={'reviewer':actor}))
+        @app.get('/api/academies/{academy_id}/settings', dependencies=[Depends(administrator)])
+        def get_academy_settings(academy_id: str):
+            """운영 반 및 전화 응대 시간 조회 (임시로 admin 권한 사용 중)"""
+            return service.get_academy_settings(academy_id)
+
+        @app.put('/api/academies/{academy_id}/settings', dependencies=[Depends(administrator)])
+        def update_academy_settings(academy_id: str, body: AcademySettingsInput):
+            """HTML 시안 기반 운영 반 및 모집 상태 트랜잭션 업데이트"""
+            return service.update_academy_settings(academy_id, body)
     return app

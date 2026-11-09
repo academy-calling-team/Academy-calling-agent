@@ -41,12 +41,54 @@ CREATE TABLE w5_mock_worker_receipts (
 ;
 
 
+CREATE TABLE w5_academy_call_hours (
+	id INTEGER NOT NULL AUTO_INCREMENT,
+	academy_id VARCHAR(36) NOT NULL,
+	day_of_week INTEGER NOT NULL,
+	start_time TIME NOT NULL,
+	end_time TIME NOT NULL,
+	created_at DATETIME NOT NULL,
+	PRIMARY KEY (id),
+	FOREIGN KEY(academy_id) REFERENCES w5_academies (id)
+)ENGINE=InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_bin
+
+;
+
+
+CREATE TABLE w5_academy_classes (
+	id VARCHAR(36) NOT NULL,
+	academy_id VARCHAR(36) NOT NULL,
+	grade_code VARCHAR(10) NOT NULL,
+	subject_code VARCHAR(10) NOT NULL,
+	level_code VARCHAR(10),
+	created_at DATETIME NOT NULL,
+	updated_at DATETIME NOT NULL,
+	PRIMARY KEY (id),
+	FOREIGN KEY(academy_id) REFERENCES w5_academies (id)
+)ENGINE=InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_bin
+
+;
+
+
 CREATE TABLE w5_academy_policies (
 	academy_id VARCHAR(36) NOT NULL,
 	enabled BOOL NOT NULL,
 	max_concurrent INTEGER NOT NULL,
 	cooldown_seconds INTEGER NOT NULL,
 	closed_dates JSON NOT NULL,
+	PRIMARY KEY (academy_id),
+	FOREIGN KEY(academy_id) REFERENCES w5_academies (id)
+)ENGINE=InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_bin
+
+;
+
+
+CREATE TABLE w5_academy_setting_states (
+	academy_id VARCHAR(36) NOT NULL,
+	is_class_configured BOOL NOT NULL,
+	is_call_hours_configured BOOL NOT NULL,
+	last_modified_at DATETIME NOT NULL,
+	version INTEGER NOT NULL,
 	PRIMARY KEY (academy_id),
 	FOREIGN KEY(academy_id) REFERENCES w5_academies (id)
 )ENGINE=InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_bin
@@ -183,6 +225,7 @@ CREATE TABLE w5_answers (
 	yes_no BOOL,
 	reason VARCHAR(30),
 	detail TEXT NOT NULL,
+	source_text TEXT,
 	PRIMARY KEY (call_id, question_id),
 	FOREIGN KEY(call_id) REFERENCES w5_calls (id),
 	FOREIGN KEY(question_id) REFERENCES w5_questions (id)

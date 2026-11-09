@@ -46,7 +46,8 @@
               "enum": [
                 "unknown",
                 "refused",
-                "not_asked"
+                "not_asked",
+                "uncertain"
               ],
               "type": "string"
             },
@@ -61,6 +62,20 @@
           "maxLength": 2000,
           "title": "Detail",
           "type": "string"
+        },
+        "source_text": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Text"
         }
       },
       "required": [
