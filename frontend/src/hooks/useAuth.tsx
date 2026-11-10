@@ -9,9 +9,13 @@ import {
   type ReactNode,
 } from 'react';
 import { ApiError, bumpSessionEpoch, setMockMode, type MockFault } from '../lib/api';
+import { previewUser, setPreviewUser } from '../lib/mock-academy';
+import type { AccountType } from '../lib/academy-model';
 import { mockRequest } from '../lib/mock-inquiries';
 
 export interface AccountUser {
+  userId?: string;
+  accountType?: AccountType;
   displayName: string;
   registered: boolean;
 }
@@ -24,7 +28,7 @@ interface AuthState {
   mockMode: boolean;
   mockFault: 'normal' | 'loading' | 'error';
   setMockFault: (f: MockFault) => void;
-  reload: () => Promise<void>;
+  reload: () => Promise<AccountUser | null | undefined>;
   logout: () => Promise<void>;
   pendingLogin: string;
   setPendingLogin: (v: string) => void;
@@ -69,10 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       if (mockMode) {
         if (epoch !== epochRef.current) return;
-        setUser({ displayName: '미리보기 사용자', registered: true });
+        const identity = previewUser();
+        setUser(identity);
         setMode('mock');
         setReady(true);
-        return;
+        return identity;
       }
       const r = await fetch('/api/account', {
         cache: 'no-store',
@@ -84,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setMode(data.mode === 'mock' ? 'mock' : 'backend');
       setUser(data.user);
       setReady(true);
+      return data.user;
     } catch {
       if (epoch !== epochRef.current) return;
       setReady(true);
@@ -99,7 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (mockMode) {
       bumpSessionEpoch();
       setUser(null);
-      window.location.href = '/?preview=mock#/overview';
+      setPreviewUser(null);
+      window.location.href = '/login?preview=mock';
       return;
     }
     const response = await fetch('/api/auth/logout', {

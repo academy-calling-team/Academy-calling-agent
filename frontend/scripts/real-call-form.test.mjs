@@ -102,3 +102,80 @@ test('unprepared real academy cannot submit', async () => {
     assert.equal(submissions.length, 0);
   } finally { await page.close(); }
 });
+
+test('academy preview registers, saves, reloads, validates overlap and isolates accounts without API traffic', async () => {
+  const page = await browser.newPage();
+  const requests = [];
+  page.on('request', request => { if (new URL(request.url()).pathname.startsWith('/api/')) requests.push(request.url()); });
+  try {
+    await page.goto(base + '/register?preview=mock');
+    await page.getByRole('radio', { name: '학원', exact: true }).check();
+    await page.locator('[name=login_name]').fill('academy_fixture');
+    await page.locator('[name=password]').fill('fixture-password-123');
+    await page.locator('[name=confirm_password]').fill('fixture-password-123');
+    await page.locator('[name=terms_agreed]').check();
+    await page.getByRole('button', { name: '회원가입 ↗' }).click();
+    await page.waitForURL('**/login?preview=mock');
+    await page.locator('[name=password]').fill('fixture-password-123');
+    await page.getByRole('button', { name: '로그인 ↗' }).click();
+    await page.waitForURL('**/academy/register?preview=mock');
+    await page.getByLabel('학원명 *', { exact: true }).fill('테스트 학원');
+    await page.getByLabel('문의받을 전화번호 *', { exact: true }).fill('053-123-4567');
+    await page.getByLabel('지역 *', { exact: true }).selectOption('대구 북구 침산동');
+    await page.getByRole('button', { name: '시간 1 월요일', exact: true }).click();
+    await page.getByRole('button', { name: '학원 등록', exact: true }).click();
+    await page.waitForURL('**/academy/manage?preview=mock');
+    await page.reload();
+    assert.equal(await page.getByLabel('학원명 *', { exact: true }).inputValue(), '테스트 학원');
+    await page.getByRole('button', { name: '＋ 시간 추가', exact: true }).click();
+    await page.getByRole('button', { name: '시간 2 월요일', exact: true }).click();
+    await page.getByRole('button', { name: '변경 사항 저장', exact: true }).click();
+    await page.getByRole('alert').filter({ hasText: '겹치지' }).waitFor();
+    page.on('dialog', dialog => dialog.accept());
+    await page.getByLabel('미리보기 시나리오').selectOption('new');
+    await page.waitForURL('**/academy/register?preview=mock');
+    assert.equal(await page.getByLabel('학원명 *', { exact: true }).inputValue(), '');
+    assert.equal(requests.length, 0);
+  } finally { await page.close(); }
+});
+
+test('academy reference layout shows simulation and structured preview on desktop and mobile', async () => {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  try {
+    await page.goto(base + '/academy/manage?preview=mock');
+    await page.evaluate(() => {
+      localStorage.setItem('hakwon:academy-preview:v1:session', JSON.stringify({ userId: 'layout-fixture', displayName: '학원 미리보기', registered: true, accountType: 'academy' }));
+      localStorage.setItem('hakwon:academy-preview:v1:profile:layout-fixture', JSON.stringify({ name: '침산 배움학원', phone: '053-000-0000', region: '대구 북구 침산동', address: '', classes: [{ subject_code: 'MATH', grade_code: 'M1', level_code: null }, { subject_code: 'ENG', grade_code: 'H1', level_code: 'HIGH' }], windows: [{ days: [0, 1, 2, 3, 4], start: '14:00', end: '18:00' }, { days: [5], start: '10:00', end: '13:00' }] }));
+    });
+    await page.reload();
+    assert.equal(await page.locator('details.academy-card').count(), 0);
+    assert.equal(await page.getByLabel('과목 일치 점수').isVisible(), true);
+    assert.equal(await page.locator('.academy-simulation tbody tr').count(), 4);
+    await page.screenshot({ path: '/tmp/academy-desktop.png', fullPage: true });
+    await page.getByRole('button', { name: '입력 내용 미리보기 →' }).click();
+    const preview = page.getByRole('dialog', { name: '입력한 학원 정보' });
+    await preview.waitFor();
+    assert.equal(await preview.locator('.academy-preview-preference').count(), 2);
+    assert.equal(await preview.locator('.academy-preview-schedule').count(), 2);
+    await page.screenshot({ path: '/tmp/academy-preview-desktop.png' });
+    await page.getByRole('button', { name: '돌아가서 수정' }).click();
+    assert.equal(await preview.isVisible(), false);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: '/tmp/academy-mobile.png', fullPage: true });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    await page.getByRole('button', { name: '입력 내용 미리보기 →' }).click();
+    const headBefore = await preview.locator('.academy-preview-head').boundingBox();
+    const footerBefore = await preview.locator('.academy-preview-footer').boundingBox();
+    const scrollTop = await preview.locator('.academy-preview-body').evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+      return element.scrollTop;
+    });
+    assert.ok(scrollTop > 0, 'mobile preview content should scroll');
+    assert.deepEqual(await preview.locator('.academy-preview-head').boundingBox(), headBefore);
+    assert.deepEqual(await preview.locator('.academy-preview-footer').boundingBox(), footerBefore);
+    await page.screenshot({ path: '/tmp/academy-preview-mobile.png' });
+    assert.equal(await preview.evaluate((element) => element.scrollWidth <= element.clientWidth), true);
+    await page.keyboard.press('Escape');
+    assert.equal(await preview.isVisible(), false);
+  } finally { await page.close(); }
+});

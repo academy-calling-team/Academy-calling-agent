@@ -1,3 +1,5 @@
+import { readAcademy, registerPreview, loginPreview } from '../lib/mock-academy';
+import type { AccountType } from '../lib/academy-model';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { submitBackendAuth, useAuth } from '../hooks/useAuth';
@@ -8,6 +10,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const { user, ready, error: authError, reload, logout, mockMode, pendingLogin, setPendingLogin } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+  const [accountType, setAccountType] = useState<AccountType>('parent');
   const [loginName, setLoginName] = useState(pendingLogin);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -15,19 +18,6 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  if (mockMode) {
-    return (
-      <section className="auth-panel">
-        <div className="eyebrow">ISOLATED PREVIEW</div>
-        <h1>미리보기 전용 모드</h1>
-        <p>격리된 미리보기에서는 실제 계정 기능을 사용하지 않습니다.</p>
-        <Link className="button primary" to="/tasks">
-          미리보기로 돌아가기 ↗
-        </Link>
-      </section>
-    );
-  }
 
   if (!ready) {
     return <div className="empty">계정 정보를 확인하고 있어요.</div>;
@@ -51,7 +41,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         <div className="eyebrow">MY ACCOUNT</div>
         <h1>{user.displayName}님</h1>
         <p>학원의신에 로그인되어 있어요.</p>
-        <Link className="button primary" to="/tasks">
+        <Link className="button primary" to={user.accountType === 'academy' ? '/academy/manage' : '/tasks'}>
           내 상담 보기 ↗
         </Link>
         <button className="logout-button" type="button" onClick={() => void logout()}>
@@ -74,22 +64,28 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     }
     setSubmitting(true);
     try {
-      await submitBackendAuth(register ? 'register' : 'login', {
-        login_name: loginName,
-        password,
-        ...(register ? { terms_agreed: terms } : {}),
-      });
+      if (mockMode) {
+        if (register) registerPreview(loginName, accountType);
+        else loginPreview(loginName);
+      } else {
+        await submitBackendAuth(register ? 'register' : 'login', {
+          login_name: loginName,
+          password,
+          ...(register ? { terms_agreed: terms } : {}),
+        });
+      }
       setPendingLogin(loginName);
       setPassword('');
       setConfirm('');
       if (register) {
         setPendingLogin(loginName);
-        navigate('/login');
+        navigate('/login' + (mockMode ? '?preview=mock' : ''));
         toast.show('가입이 완료되었습니다. 로그인해 주세요.');
       } else {
         setPendingLogin('');
-        await reload();
-        navigate('/');
+        const identity = await reload();
+        const target = identity?.accountType === 'academy' ? (readAcademy(identity.userId || '') ? '/academy/manage' : '/academy/register') : '/';
+        navigate(target + (mockMode ? '?preview=mock' : ''));
         toast.show('로그인되었습니다.');
       }
     } catch (err) {
@@ -123,7 +119,9 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         <div className="eyebrow">{register ? 'CREATE ACCOUNT' : 'WELCOME BACK'}</div>
         <h1>{register ? '학원의신과 함께 시작하세요' : '다시 만나 반가워요'}</h1>
         <p>{register ? '아이디와 비밀번호로 회원가입하세요.' : '아이디와 비밀번호를 입력해 주세요.'}</p>
+        {mockMode ? <p className="review-notice">미리보기 계정입니다. 비밀번호는 저장하거나 확인하지 않으며 실제 계정과 연결되지 않습니다.</p> : null}
         <form onSubmit={onSubmit}>
+          {register ? <fieldset className="account-types"><legend>회원 유형</legend>{(['parent', 'academy'] as const).map((type) => <label key={type}><input type="radio" name="account_type" checked={accountType === type} disabled={!mockMode && type === 'academy'} onChange={() => setAccountType(type)} />{type === 'parent' ? '학부모' : '학원'}</label>)}{!mockMode ? <p className="muted">학원 가입은 미리보기에서 먼저 이용할 수 있습니다. <a href="/register?preview=mock">미리보기 열기 ↗</a></p> : null}</fieldset> : null}
           <label className="field">
             아이디
             <input
@@ -197,11 +195,11 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         <div className="auth-switch">
           {register ? (
             <>
-              이미 계정이 있으신가요? <Link to="/login">로그인</Link>
+              이미 계정이 있으신가요? <Link to={mockMode ? "/login?preview=mock" : "/login"}>로그인</Link>
             </>
           ) : (
             <>
-              처음 이용하시나요? <Link to="/register">회원가입</Link>
+              처음 이용하시나요? <Link to={mockMode ? "/register?preview=mock" : "/register"}>회원가입</Link>
             </>
           )}
         </div>
