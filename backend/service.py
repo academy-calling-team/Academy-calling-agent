@@ -383,7 +383,106 @@ class Service:
                 c.execute(academy_setting_states.insert().values(academy_id=acid, 
                     is_class_configured=True, is_call_hours_configured=True, last_modified_at=now_time, version=1))
         return dict(status='updated')
-    
+    def get_my_academy(self, owner_id: str):
+        with self.engine.connect() as conn:
+            academy = conn.execute(
+                select(academies).where(academies.c.owner_id == owner_id)
+            ).mappings().first()
+            if not academy:
+                raise HTTPException(404, 'Academy not found')
+
+            academy_id = academy['id']
+            classes_rows = conn.execute(
+                select(academy_classes).where(academy_classes.c.academy_id == academy_id)
+            ).mappings().all()
+            call_hours_rows = conn.execute(
+                select(academy_call_hours).where(academy_call_hours.c.academy_id == academy_id)
+            ).mappings().all()
+
+        return {
+            "academy_id": academy_id,
+            "name": academy['name'],
+            "phone": academy['phone'],
+            "region": academy['region'],
+            "address": academy['hours'].get('address', '') if isinstance(academy['hours'], dict) else '',
+            "classes": [dict(grade_code=r['grade_code'], subject_code=r['subject_code'], level_code=r['level_code']) for r in classes_rows],
+            "call_hours": [dict(day_of_week=r['day_of_week'], start_time=r['start_time'].strftime("%H:%M"), end_time=r['end_time'].strftime("%H:%M")) for r in call_hours_rows],
+            "version": academy['version'],
+            "updated_at": aware(academy.get('updated_at', self.now()))
+        }
+
+    def create_my_academy(self, owner_id: str, body):
+        with self.engine.begin() as conn:
+            if conn.execute(select(academies.c.id).where(academies.c.owner_id == owner_id)).first():
+                raise HTTPException(409, 'Academy already registered to this account')
+
+            academy_id = str(uuid4())
+            now_time = self.now()
+            
+            conn.execute(academies.insert().values(
+                id=academy_id, name=body.name, region=body.region, phone=body.phone,
+                is_mock=False, hours={"address": body.address}, owner_id=owner_id, version=1
+            ))
+
+            for c in body.classes:
+                conn.execute(academy_classes.insert().values(
+                    id=str(uuid4()), academy_id=academy_id, grade_code=c.grade_code,
+                    subject_code=c.subject_code, level_code=c.level_code, created_at=now_time, updated_at=now_time
+                ))
+
+            for ch in body.call_hours:
+                conn.execute(academy_call_hours.insert().values(
+                    academy_id=academy_id, day_of_week=ch.day_of_week,
+                    start_time=time.fromisoformat(ch.start_time), end_time=time.fromisoformat(ch.end_time), created_at=now_time
+                ))
+
+            conn.execute(academy_setting_states.insert().values(
+                academy_id=academy_id, is_class_configured=bool(body.classes),
+                is_call_hours_configured=bool(body.call_hours), last_modified_at=now_time, version=1
+            ))
+        
+        return {"status": "success", "academy_id": academy_id}
+
+    def update_my_academy(self, owner_id: str, body, version: int):
+        with self.engine.begin() as conn:
+            academy = conn.execute(select(academies).where(academies.c.owner_id == owner_id)).mappings().first()
+            if not academy:
+                raise HTTPException(404, 'Academy not found')
+            
+            academy_id = academy['id']
+            now_time = self.now()
+
+            result = conn.execute(
+                update(academies)
+                .where(academies.c.id == academy_id, academies.c.version == version)
+                .values(name=body.name, region=body.region, phone=body.phone, hours={"address": body.address}, version=academies.c.version + 1)
+            )
+            
+            if result.rowcount == 0:
+                raise HTTPException(409, 'Version conflict. Data modified by another session.')
+
+            conn.execute(academy_classes.delete().where(academy_classes.c.academy_id == academy_id))
+            conn.execute(academy_call_hours.delete().where(academy_call_hours.c.academy_id == academy_id))
+
+            for c in body.classes:
+                conn.execute(academy_classes.insert().values(
+                    id=str(uuid4()), academy_id=academy_id, grade_code=c.grade_code,
+                    subject_code=c.subject_code, level_code=c.level_code, created_at=now_time, updated_at=now_time
+                ))
+
+            for ch in body.call_hours:
+                conn.execute(academy_call_hours.insert().values(
+                    academy_id=academy_id, day_of_week=ch.day_of_week,
+                    start_time=time.fromisoformat(ch.start_time), end_time=time.fromisoformat(ch.end_time), created_at=now_time
+                ))
+
+            conn.execute(
+                update(academy_setting_states)
+                .where(academy_setting_states.c.academy_id == academy_id)
+                .values(is_class_configured=bool(body.classes), is_call_hours_configured=bool(body.call_hours), last_modified_at=now_time, version=academy_setting_states.c.version + 1)
+            )
+
+        return {"status": "success", "version": version + 1}    
     def reserve(self):
         with self.engine.begin() as c:
             self.lock(c)

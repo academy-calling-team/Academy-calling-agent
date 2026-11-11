@@ -1,6 +1,7 @@
 from datetime import datetime,date,time
 from typing import Literal
 from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
+import re
 
 QUESTION_LABELS = {'shuttle':'통학 차량', 'pickup':'픽업', 'level_fit':'수준에 맞는 반',
                    'vacancy':'남은 자리', 'level_test':'레벨 테스트', 'class_time':'수업 요일·시간'}
@@ -193,3 +194,39 @@ class AcademySettingsInput(StrictModel):
         if len(keys) != len(self.classes):
             raise ValueError('Duplicate academy class combination')
         return self
+
+class MyAcademyUpsertRequest(StrictModel):
+    name: str = Field(min_length=1, max_length=80)
+    phone: str = Field(min_length=1, max_length=25, pattern=r'^\d{2,3}-\d{3,4}-\d{4}$')
+    region: str = Field(min_length=1, max_length=80)
+    address: str = Field(default='', max_length=160)
+    classes: list[AcademyClassInput] = Field(max_length=50, default_factory=list)
+    call_hours: list[CallHourInput] = Field(min_length=1, max_length=50)
+
+    @field_validator('region')
+    @classmethod
+    def region_selected(cls, value):
+        if value not in REGIONS:
+            raise ValueError('Select a valid region')
+        return value
+
+    @model_validator(mode='after')
+    def validate_complex_rules(self):
+        # 1. Classes 중복 검사
+        keys = {(row.grade_code, row.subject_code, row.level_code) for row in self.classes}
+        if len(keys) != len(self.classes):
+            raise ValueError('Duplicate academy class combination')
+        
+        # 2. Call Hours 겹침 검사
+        by_day = {}
+        for ch in self.call_hours:
+            by_day.setdefault(ch.day_of_week, []).append((time.fromisoformat(ch.start_time), time.fromisoformat(ch.end_time)))
+        
+        for day, times in by_day.items():
+            sorted_times = sorted(times, key=lambda x: x[0])
+            for i in range(len(sorted_times) - 1):
+                if sorted_times[i][1] > sorted_times[i+1][0]:
+                    raise ValueError(f'Overlapping call hours on day {day}')
+        return self
+
+    

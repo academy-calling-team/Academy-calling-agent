@@ -1,13 +1,14 @@
 import secrets
-from fastapi import FastAPI, Header, Query, HTTPException, Depends
+from fastapi import FastAPI, Header, Query, HTTPException, Depends, APIRouter
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update, insert
 from contracts import InquiryInput, EventInput, ResultInput, QUESTION_LABELS, REGIONS
-from schema import academies
+from schema import academies, academy_classes, academy_call_hours
 from service import Service
+
 
 def create_app(engine,internal_key,service=None,worker=None,origins=None,with_auth=False,queue_client=None):
     if not internal_key: raise ValueError('Internal key must be configured')
@@ -89,7 +90,8 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
     if with_auth:
         from auth6 import AuthStore
         from contracts6 import Credentials,RegistrationCredentials,CallbackReview,FallbackReview
-        from contracts import AcademySettingsInput, CorrectionInput
+        from contracts import AcademySettingsInput, CorrectionInput, MyAcademyUpsertRequest
+        from schema import academies, academy_classes, academy_call_hours
         from ops6 import Operations
         service.allow_legacy_tokens=False
         auth_store=AuthStore(service);app.state.auth_store=auth_store
@@ -125,6 +127,27 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
         def correction(call_id:str,body:CorrectionInput,actor:str=Depends(administrator)):
             # The review author is authenticated; a submitted label cannot impersonate another actor.
             return service.correct_result(call_id,body.model_copy(update={'reviewer':actor}))
+        def get_current_academy_owner(token: str = Depends(auth)):
+            user = auth_store.identity(token)
+            if user.get('account_type') != 'academy':
+                raise HTTPException(status_code=403, detail='Academy account required')
+            return user
+
+        @app.get('/api/my-academy')
+        def get_my_academy(user: dict = Depends(get_current_academy_owner)):
+            """현재 로그인한 학원 소유자의 학원 정보 조회"""
+            # 복잡한 DB 로직은 service.py로 넘깁니다.
+            return service.get_my_academy(user['inquirer_id'])
+
+        @app.post('/api/my-academy', status_code=201)
+        def create_my_academy(body: MyAcademyUpsertRequest, user: dict = Depends(get_current_academy_owner)):
+            """내 학원 최초 등록"""
+            return service.create_my_academy(user['inquirer_id'], body)
+
+        @app.put('/api/my-academy')
+        def update_my_academy(body: MyAcademyUpsertRequest, version: int = Query(...), user: dict = Depends(get_current_academy_owner)):
+            """내 학원 정보 수정 (버전 충돌 검증 포함)"""
+            return service.update_my_academy(user['inquirer_id'], body, version)
         @app.get('/api/academies/{academy_id}/settings', dependencies=[Depends(administrator)])
         def get_academy_settings(academy_id: str):
             """운영 반 및 전화 응대 시간 조회 (임시로 admin 권한 사용 중)"""

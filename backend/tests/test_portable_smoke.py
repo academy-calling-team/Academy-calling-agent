@@ -197,8 +197,8 @@ def test_registration_requires_terms_consent_field(portable):
 
 def test_schema_shape():
     assert len(metadata.tables) == 24
-    assert sum(len(t.columns) for t in metadata.tables.values()) == 145
-    assert sum(len(t.foreign_keys) for t in metadata.tables.values()) == 23
+    assert sum(len(t.columns) for t in metadata.tables.values()) == 148
+    assert sum(len(t.foreign_keys) for t in metadata.tables.values()) == 24
 
 
 def test_database_configuration_has_no_original_pc_dependency(monkeypatch):

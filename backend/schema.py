@@ -8,10 +8,15 @@ def table(name, *cols):
     return Table('w5_' + name, metadata, *cols, **opts)
 users = table('inquirers', Column('id', String(36), primary_key=True),
               Column('token_hash', String(64), nullable=False, unique=True))
-academies = table('academies', Column('id', String(36), primary_key=True),
-    Column('name', String(100), nullable=False), Column('region', String(80), nullable=False),
-    Column('phone', String(30)), Column('is_mock', Boolean, nullable=False),
-    Column('hours', JSON, nullable=False))
+academies = table('academies', 
+    Column('id', String(36), primary_key=True),
+    Column('name', String(100), nullable=False), 
+    Column('region', String(80), nullable=False),
+    Column('phone', String(30)), 
+    Column('is_mock', Boolean, nullable=False),
+    Column('hours', JSON, nullable=False),
+    Column('owner_id', String(36), ForeignKey(users.c.id), unique=True), 
+    Column('version', Integer, nullable=False, default=1))
 inquiries = table('inquiries', Column('id', String(36), primary_key=True),
     Column('inquirer_id', String(36), ForeignKey(users.c.id), nullable=False, index=True),
     Column('academy_id', String(36), ForeignKey(academies.c.id), nullable=False),
@@ -79,7 +84,9 @@ def week6(name,*cols): return Table('w6_'+name,metadata,*cols,**opts)
 accounts=week6('accounts',
     Column('user_id',String(36),ForeignKey(users.c.id),primary_key=True),
     Column('login_name',String(32),nullable=False,unique=True),
-    Column('password_hash',String(500),nullable=False),Column('role',String(16),nullable=False,default='member'),
+    Column('password_hash',String(500),nullable=False),
+    Column('role',String(16),nullable=False,default='member'),
+    Column('account_type', String(16), nullable=False, default='parent'),
     Column('enabled',Boolean,nullable=False,default=True),
     Column('failed_logins',Integer,nullable=False,default=0),
     Column('locked_until',DateTime),
