@@ -30,6 +30,9 @@ function Answers({ detail, questionLabels }: { detail: InquiryDetail; questionLa
               <h3>{questionLabels[q.question_code] || q.question_code}</h3>
               {view.detail ? <p>{view.detail}</p> : null}
               {view.reason ? <p className="answer-reason">미확인 사유: {view.reason}</p> : null}
+              {answer?.source_text?.trim() ? (
+                <p className="answer-source"><b>학원 발화 원문</b> {answer.source_text}</p>
+              ) : null}
             </div>
             <span className={`badge ${view.kind === 'unknown' ? 'review' : view.kind === 'no' ? 'failed' : ''}`}>
               {view.label}

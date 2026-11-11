@@ -21,7 +21,7 @@ before(async () => {
 after(async () => { await browser?.close(); server?.kill(); });
 
 const student = { grade: 'M2', subject: 'MATH', level: 'MID', region: '대구 북구 침산동' };
-async function fixture(path, { canSubmit = true, loggedIn = true } = {}) {
+async function fixture(path, { canSubmit = true, loggedIn = true, detail } = {}) {
   const page = await browser.newPage();
   const submissions = [];
   await page.route('**/api/**', async route => {
@@ -36,7 +36,7 @@ async function fixture(path, { canSubmit = true, loggedIn = true } = {}) {
     else if (p === '/api/academies') data = [{ academy_id: 'fixture-academy', name: '시험 학원', region: student.region, is_mock: false, is_test: true, can_submit: canSubmit }];
     else if (p === '/api/inquiries' && req.method() === 'POST') { submissions.push(req.postDataJSON()); data = { inquiry_id: 'fixture-inquiry', status: 'queued' }; }
     else if (p === '/api/inquiries') data = [{ inquiry_id: 'fixture-inquiry', status: 'completed', created_at: '2026-10-28T00:00:00Z' }];
-    else data = { inquiry_id: 'fixture-inquiry', status: 'completed', student, academy: { name: '시험 학원' }, questions: [], attempts: [], result: { answers: [], consult_accepted: true, available_times: ['수요일 3시'] } };
+    else data = { inquiry_id: 'fixture-inquiry', status: 'completed', student, academy: { name: '시험 학원' }, questions: [], attempts: [], result: { answers: [], consult_accepted: true, available_times: ['수요일 3시'] }, ...detail };
     await route.fulfill({ status: p === '/api/account' && !loggedIn ? 401 : 200, json: data });
   });
   await page.goto(base + path);
@@ -56,6 +56,33 @@ for (const path of ['/', '/tasks', '/detail/fixture-inquiry']) {
     } finally { await page.close(); }
   });
 }
+
+test('detail shows question excerpts and the uncertain reason, and accepts legacy answers', async () => {
+  const questions = [
+    { question_id: 'q1', question_code: 'shuttle' },
+    { question_id: 'q2', question_code: 'pickup' },
+    { question_id: 'q3', question_code: 'class_time' },
+  ];
+  const detail = {
+    questions,
+    result: {
+      answers: [
+        { ...questions[0], asked: true, answered: false, reason: 'uncertain', source_text: '원장님께 여쭤봐야 해요.' },
+        { ...questions[1], asked: true, answered: true, yes_no: true },
+        { ...questions[2], asked: false, answered: false, reason: 'not_asked', source_text: null },
+      ],
+      notes: '다시 문의해 주세요.',
+    },
+  };
+  const { page } = await fixture('/detail/fixture-inquiry', { detail });
+  try {
+    await page.getByText('학원에서 확정된 답변을 주지 않았습니다.', { exact: false }).waitFor();
+    await page.getByText('원장님께 여쭤봐야 해요.', { exact: false }).waitFor();
+    await page.getByText('다시 문의해 주세요.').waitFor();
+    assert.equal(await page.getByText('학원 발화 원문', { exact: true }).count(), 1);
+  } finally { await page.close(); }
+});
+
 async function fillInquiry(page) {
   await page.locator('[name=academy_id]').selectOption('fixture-academy');
   for (const k of ['grade', 'subject', 'level', 'region']) await page.locator(`[name=${k}]`).selectOption(student[k]);

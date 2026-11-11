@@ -12,7 +12,6 @@ from datetime import datetime, timezone
 
 from clawops import ClawOps, ClawOpsError
 from extract import CONSULT, QUESTIONS, build_answers, consult_result, disclosure_played, to_turns
-from llm_judge import PROMPT_VERSION
 
 log = logging.getLogger("call_worker")
 
@@ -195,15 +194,21 @@ class RealCalls:
         return [], None
 
     def _finish(self, store, call_id: str, request: dict, call: dict, summary: dict | None, segments: list[dict]) -> bool:
-        result = build_result(call_id, request, call, summary, segments, self.judge)
-        outcome, detail = self.post(f"/internal/calls/{call_id}/result", result)
-        if outcome == "ok":
-            store.mark_delivered(call_id)
-            log.info("%s: result delivered (%s)", call_id, result["outcome"])
-            return True
-        if outcome == "rejected":
-            store.mark_rejected(call_id, f"result {detail}")
-        return False
+        result = store.result_body(call_id)
+        if result is None:
+            result = store.save_result_body(call_id, build_result(call_id, request, call, summary, segments, self.judge))
+        return result is not None and deliver_result(store, self.post, call_id, result)
+
+
+def deliver_result(store, post, call_id: str, result: dict) -> bool:
+    outcome, detail = post(f"/internal/calls/{call_id}/result", result)
+    if outcome == "ok":
+        store.mark_delivered(call_id)
+        log.info("%s: result delivered (%s)", call_id, result["outcome"])
+        return True
+    if outcome == "rejected":
+        store.mark_rejected(call_id, f"result {detail}")
+    return False
 
 
 def outcome_of(call: dict) -> tuple[str, str | None]:
@@ -224,7 +229,7 @@ def outcome_of(call: dict) -> tuple[str, str | None]:
 
 
 def judge_answers(questions: list[dict], turns, judge) -> tuple[list[dict], bool | None, list[str], str]:
-    """(답변 행들, 상담 수락, 가능 시간, notes에 남길 판정 방식).
+    """(답변 행들, 상담 수락, 가능 시간, 학부모 안내).
 
     LLM 판정기가 있으면 LLM만 쓴다. 실패하면 판정기가 정해진 간격으로 다시 부르고(llm_judge.JUDGE_ATTEMPT_WAITS),
     그래도 실패하면 키워드 판정으로 바꾸지 않고 모두 미확인으로 보낸다. 키워드 판정은 시험 세트에서
@@ -233,19 +238,14 @@ def judge_answers(questions: list[dict], turns, judge) -> tuple[list[dict], bool
     """
     if judge is None:
         consult, times = consult_result(turns, questions)
-        return build_answers(questions, turns), consult, times, "질문별 판정은 전사 규칙 기반"
-    started = time.monotonic()
+        return build_answers(questions, turns), consult, times, ""
     try:
         answers, consult = judge(questions, turns)
-    except Exception as exc:
-        log.error("LLM judge gave up after %d attempt(s), %.1fs: %s",
-                  judge.attempts_used, time.monotonic() - started, str(exc)[:300])
+    except Exception:
         answers = [{**q, "asked": True, "answered": False, "yes_no": None, "reason": "unknown",
                     "detail": JUDGE_FAILED_DETAIL} for q in questions]
-        return answers, None, [], f"LLM 판정 {judge.attempts_used}회 실패로 모두 미확인({judge.model})"
-    log.info("LLM judge %s took %.1fs (%d attempt(s))", judge.model, time.monotonic() - started, judge.attempts_used)
-    return (answers, consult["consult_accepted"], consult["available_times"][:20],
-            f"질문별 판정은 LLM({judge.model}, {PROMPT_VERSION})")
+        return answers, None, [], "통화는 연결됐지만 답변을 확인하지 못했습니다."
+    return answers, consult["consult_accepted"], consult["available_times"][:20], ""
 
 
 def build_result(call_id: str, request: dict, call: dict, summary: dict | None, segments: list[dict],
@@ -253,9 +253,9 @@ def build_result(call_id: str, request: dict, call: dict, summary: dict | None, 
     outcome, rejection = outcome_of(call)
     connected = outcome == "answered"
     turns = to_turns(segments) if connected else []
-    method = "질문별 판정 없음(연결 안 됨 또는 전사 없음)"
+    notes = ""
     if connected and turns:
-        answers, consult, times, method = judge_answers(request["questions"], turns, judge)
+        answers, consult, times, notes = judge_answers(request["questions"], turns, judge)
         disclosure = disclosure_played(turns)
     else:
         reason, detail = ("unknown", "전사를 받지 못해 확인하지 못함") if connected else ("not_asked", NOT_CONNECTED_DETAIL)
@@ -276,7 +276,7 @@ def build_result(call_id: str, request: dict, call: dict, summary: dict | None, 
         "unresolved": unresolved,
         "summary_text": (str(core)[:2000] if core else
                          (f"{len(answers)}개 중 {confirmed}개 확인" if connected else "연결되지 않아 모든 항목이 미확인")),
-        "notes": f"실제 통화(ClawOps). {method}",
+        "notes": notes,
         "latency": None,
         "duration_sec": int(call.get("duration") or 0) if connected else 0,
         "transcript": [{"speaker": t.speaker, "at_ms": t.at_ms, "text": t.text} for t in turns][:1000],
