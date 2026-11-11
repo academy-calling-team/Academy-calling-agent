@@ -30,6 +30,7 @@ export interface InquiryAnswer extends InquiryQuestion {
   yes_no?: boolean | null;
   reason?: string | null;
   detail?: string | null;
+  source_text?: string | null;
 }
 
 export interface InquiryAttempt {
@@ -106,6 +107,7 @@ export const reasons: Record<string, string> = {
   unknown: '학원에서 답변을 확인하지 못했습니다.',
   refused: '학원에서 답변을 거절했습니다.',
   not_asked: '이 질문을 아직 묻지 못했습니다.',
+  uncertain: '학원에서 확정된 답변을 주지 않았습니다.',
 };
 
 export const failureReasons: Record<string, string> = {

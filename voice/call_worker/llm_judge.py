@@ -27,7 +27,7 @@ import httpx
 
 log = logging.getLogger("call_worker")
 
-PROMPT_VERSION = "judge-v3"
+PROMPT_VERSION = "judge-v3.1"
 GROUNDED_MIN = 0.7
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 GEMINI_PACE_SEC = 8              # 평가용: 무료 등급 분당 제한에 맞춘 호출 간격
@@ -62,7 +62,7 @@ SYSTEM = """당신은 학부모를 대신해 학원에 건 전화의 전사를 �
 - definite: 학원이 사실을 알고 말함. 정중하거나 부드럽게 돌려 말해도 뜻이 분명하면 definite
 - guess: 학원 스스로 확실하지 않다고 드러냄. 짐작으로 말함
 - deferred: 다른 사람(원장님 등)이나 나중 확인으로 답을 넘김. 앞에 답을 말했어도 확정을 넘기면 deferred
-status는 학원이 말한 내용대로 고르고, 확실성으로 status를 바꾸지 않는다. unknown·refused·not_asked이면 definite로 둔다.
+status는 학원이 말한 내용대로 고르고, 확실성으로 status를 바꾸지 않는다. 답을 주지 않고 다른 사람이나 나중 확인으로 넘겼으면 status=unknown, certainty=deferred로 둔다. 단순히 모르거나 답이 없는 경우와 refused·not_asked는 definite로 둔다.
 
 규칙:
 1. 각 질문은 그 질문이 묻는 사실만 판정한다. 다른 사실로 답을 뒤집지 않는다. 예를 들어 '맞는 반이 있는지'는 반의 존재를 묻는 것이고, 자리가 있는지는 별개다.
@@ -71,7 +71,7 @@ status는 학원이 말한 내용대로 고르고, 확실성으로 status를 바
 4. 학생 조건(학년·과목·수준·지역)이 전사에 나오고, 학원이 그 학생에게는 해당하지 않는다고 하면 no다.
 5. 무엇을 말했는지가 애매하면 unknown. 틀린 yes/no보다 unknown이 낫다.
 6. 상담(consult)은 이번 주 학부모 상담 가능 여부다. 가능한 때를 하나라도 말하면 yes이고 available_times에 적는다. 안 된다고 한 때는 unavailable_times에 적는다. 이번 주 전체가 안 된다고 하면 no다. 일부 시간만 안 된다고 하고 가능한 때를 말하지 않으면 unknown이다.
-7. yes/no/answered이면 evidence_turns에 근거 학원 발화 번호를, evidence_quote에 그 발화의 핵심 구절을 넣는다. 인용은 전사 글자 그대로 복사한다. 오타도 고치지 않고, 번역하거나 다시 쓰지 않는다.
+7. yes/no/answered 또는 guess/deferred이면 evidence_turns에 근거 학원 발화 번호를, evidence_quote에 그 발화의 핵심 구절을 넣는다. 인용은 전사 글자 그대로 복사한다. 오타도 고치지 않고, 번역하거나 다시 쓰지 않는다.
 8. detail은 학부모에게 보여 줄 한 줄 요약이다(한국어, 학원 말 기준, 30자 안팎). 학원 원문은 화면에 따로 나가므로 요약은 짧게 쓴다.
 9. detail과 available_times에는 학원이 말한 숫자·요일·시각만 쓴다. 숫자는 아라비아 숫자로 바꿔 써도 되지만, 학원이 말하지 않은 오전·오후, 날짜, 인원, 금액을 덧붙이지 않는다."""
 
@@ -213,6 +213,26 @@ def facts_ok(detail: str, source: str) -> bool | None:
     return nums_ok and weekdays(detail) <= weekdays(source)
 
 
+def _time_phrase(text: str) -> str:
+    text = _NATIVE_RE.sub(lambda m: str(_NATIVE[m[1]]) + m[0][len(m[1]):], text)
+    return re.sub(r"\s+", "", text)
+
+
+def _supported_times(times: list[str], unavailable: list[str], item: dict, turns) -> list[str]:
+    replies = [_time_phrase(turns[i].text) for i in _evidence(item, turns)]
+    unavailable_phrases = {_time_phrase(value) for value in unavailable}
+    supported = []
+    for value in times:
+        phrase = _time_phrase(value)
+        if not phrase or phrase in unavailable_phrases:
+            continue
+        # Match the day and time together in one academy reply. A bare hour cannot match a partial time.
+        end = r"(?!\d|반|간|험|작)" if phrase.endswith("시") else r"(?!\d)"
+        if any(re.search(r"(?<!\d)" + re.escape(phrase) + end, reply) for reply in replies):
+            supported.append(value)
+    return supported
+
+
 def _post_gemini(codes, turns, model, api_key, timeout, pace_sec, retry_waits):
     body = {"systemInstruction": {"parts": [{"text": SYSTEM}]},
             "contents": [{"role": "user", "parts": [{"text": user_message(codes, turns)}]}],
@@ -275,21 +295,23 @@ def to_contract(questions: list[dict], turns, raw: dict) -> tuple[list[dict], di
     for q in questions:
         a = by_code.get(q["question_code"], {"status": "unknown", "detail": "판정 누락", "evidence_turns": [], "evidence_quote": ""})
         st = a["status"]
-        if st in ("yes", "no", "answered") and not grounded(a, turns):
+        has_evidence = grounded(a, turns)
+        if st in ("yes", "no", "answered") and not has_evidence:
             st, a = "unknown", {**a, "detail": f"근거 확인 실패: {a['detail']}"}
         certainty = a.get("certainty", "definite")
         st, leaning = settle(st, certainty)
-        src = source_text(a, turns)
+        uncertain = st == "unknown" and certainty in UNSURE_LABEL and has_evidence
+        src = source_text(a, turns) if has_evidence else ""
         checked = facts_ok(a["detail"], fact_source(a, turns))
         detail = a["detail"] if checked is not False else (a.get("evidence_quote") or src)
-        if leaning:
+        if uncertain:
             detail = f"{UNSURE_LABEL[certainty]}: {detail}"
         row = {**q, "asked": st != "not_asked", "answered": st in ("yes", "no", "answered"),
                "yes_no": {"yes": True, "no": False}.get(st), "reason": None, "detail": detail[:500] or "대답을 알아듣지 못함",
                "status": st, "certainty": certainty, "leaning": leaning, "source_text": src[:2000] if src.strip() and st != "not_asked" else None,
                "detail_checked": checked}
         if not row["answered"]:
-            row["reason"] = "uncertain" if leaning else {"refused": "refused", "not_asked": "not_asked"}.get(st, "unknown")
+            row["reason"] = "uncertain" if uncertain else {"refused": "refused", "not_asked": "not_asked"}.get(st, "unknown")
         answers.append(row)
     c = raw.get("consult", {})
     st = c.get("status", "unknown")
@@ -299,10 +321,11 @@ def to_contract(questions: list[dict], turns, raw: dict) -> tuple[list[dict], di
     st, leaning = settle(st, certainty)
     src = source_text(c, turns)
     times = c.get("available_times", []) if st == "yes" else []
-    checks = [facts_ok(t, fact_source(c, turns)) for t in times + c.get("unavailable_times", [])]
+    unavailable = c.get("unavailable_times", [])
+    checks = [facts_ok(t, fact_source(c, turns)) for t in times + unavailable]
     checked = False if False in checks else (None if None in checks else True)
     consult = {"status": st, "consult_accepted": {"yes": True, "no": False}.get(st),
-               "available_times": times, "unavailable_times": c.get("unavailable_times", []),
+               "available_times": _supported_times(times, unavailable, c, turns), "unavailable_times": unavailable,
                "certainty": certainty, "leaning": leaning, "source_text": src[:500], "detail_checked": checked}
     return answers, consult
 
@@ -325,19 +348,23 @@ class LLMJudge:
                  attempt_waits=JUDGE_ATTEMPT_WAITS, sleep=time.sleep):
         self.model, self.api_key, self.timeout = model, api_key, timeout
         self.attempt_waits, self.sleep = attempt_waits, sleep
-        self.attempts_used = 0
 
     def __call__(self, questions: list[dict], turns) -> tuple[list[dict], dict]:
         codes = [q["question_code"] for q in questions]
+        started = time.monotonic()
         error = None
         for n, wait in enumerate(self.attempt_waits, 1):
             self.sleep(wait)
-            self.attempts_used = n
             try:
                 out = call_llm(codes, turns, self.model, self.api_key, timeout=self.timeout)
                 rows, consult = to_contract(questions, turns, out["result"])
-                return contract_answers(rows), consult
             except Exception as exc:  # 네트워크·제한·JSON·스키마 오류 모두 다시 시도
                 error = exc
                 log.warning("LLM judge attempt %d/%d failed: %s", n, len(self.attempt_waits), str(exc)[:300])
+            else:
+                log.info("LLM judge %s (%s) took %.1fs (%d attempt(s))",
+                         self.model, PROMPT_VERSION, time.monotonic() - started, n)
+                return contract_answers(rows), consult
+        log.error("LLM judge %s (%s) gave up after %d attempt(s), %.1fs",
+                  self.model, PROMPT_VERSION, len(self.attempt_waits), time.monotonic() - started)
         raise error

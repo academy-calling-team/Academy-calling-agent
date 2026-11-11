@@ -477,14 +477,89 @@ def test_llm_judge_result_passes_backend_contract(monkeypatch):
     assert got["class_time"]["detail"] == "화·목 저녁 7시"
     assert result["unresolved"] == ["q2"]
     assert result["consult_accepted"] is True and result["available_times"] == ["수요일 3시"]
-    assert "LLM(gemini-test" in result["notes"]
+    assert result["notes"] == ""
+
+
+@pytest.mark.parametrize("status, quote, expected_reason", [
+    ("unknown", "원장님께 여쭤봐야 해요", "uncertain"),
+    ("unknown", "전사에 없는 답변", "unknown"),
+    ("not_asked", "원장님께 여쭤봐야 해요", "not_asked"),
+])
+def test_deferred_reply_requires_evidence_and_an_asked_question(monkeypatch, status, quote, expected_reason):
+    raw = copy.deepcopy(LLM_1019)
+    raw["answers"]["pickup"] = item(status, [8], quote, "원장 확인 필요", certainty="deferred")
+    segments = copy.deepcopy(REAL_1019)
+    segments[8]["text"] = "원장님께 여쭤봐야 해요"
+    monkeypatch.setattr(llm_judge, "call_llm", lambda *a, **k: {"result": raw})
+    result = build_result("c_deferred", real_request(questions=Q1019), {"status": "completed"}, None,
+                          segments, no_wait_judge())
+    ResultInput.model_validate(result)
+    answer = result["answers"][1]
+    assert (answer["asked"], answer["answered"], answer["yes_no"]) == (status != "not_asked", False, None)
+    assert answer["reason"] == expected_reason
+    assert answer["source_text"] == (quote if expected_reason == "uncertain" else None)
+    assert result["unresolved"] == ["q2"]
+
+
+def test_consult_times_must_match_an_available_time_in_the_academy_reply(monkeypatch):
+    raw = copy.deepcopy(LLM_1019)
+    raw["consult"].update(
+        evidence_quote="수요일 세 시에 오세요",
+        available_times=["수요일 3시", "수요일 오후 3시", "월요일 3시", "월요일 오전 9시"],
+        unavailable_times=["월요일 오전 9시"],
+    )
+    segments = copy.deepcopy(REAL_1019)
+    segments[12]["text"] = "월요일 오전 9시는 어렵고 수요일 세 시에 오세요."
+    monkeypatch.setattr(llm_judge, "call_llm", lambda *a, **k: {"result": raw})
+    result = build_result("c_consult", real_request(questions=Q1019), {"status": "completed"}, None,
+                          segments, no_wait_judge())
+    ResultInput.model_validate(result)
+    assert result["consult_accepted"] is True
+    assert result["available_times"] == ["수요일 3시"]
+
+
+def test_restart_resends_saved_result_without_rejudging_or_dialing(parts, monkeypatch):
+    calls = []
+
+    def model(*args, **kwargs):
+        calls.append(1)
+        return {"result": LLM_1019}
+
+    monkeypatch.setattr(llm_judge, "call_llm", model)
+    clawops = FakeClawOps(["completed"])
+    client, backend, store, real, _ = parts(clawops)
+    real.judge = no_wait_judge()
+    initial_post = real.post
+
+    def post_with_lost_reply(path, body):
+        outcome = initial_post(path, body)
+        if path.endswith("/result"):
+            return "failed", "response lost after result commit"
+        return outcome
+
+    real.post = post_with_lost_reply
+    request = real_request(questions=Q1019)
+    assert client.post("/internal/calls", json=request, headers=HEADERS).status_code == 202
+    saved = store.result_body(request["call_id"])
+    assert saved is not None and store.pending() == [request["call_id"]]
+    assert saved == backend.result()
+
+    restarted_store = ReceiptStore(store.path)
+    sender = Sender("http://backend.test", KEY, delay_sec=0, transport=httpx.MockTransport(backend))
+    resume_pending(restarted_store, sender, None, None)
+
+    results = [body for path, body in backend.requests if path.endswith("/result")]
+    assert results == [saved, saved]
+    assert calls == [1] and len(clawops.created) == 1
+    assert restarted_store.pending() == []
+    assert restarted_store.result_body(request["call_id"]) is None
 
 
 def no_wait_judge():
     return LLMJudge("gemini-test", "k", sleep=lambda sec: None)
 
 
-def test_llm_failure_is_retried_then_succeeds(monkeypatch):
+def test_llm_failure_is_retried_then_succeeds(monkeypatch, caplog):
     calls = []
 
     def flaky(*a, **k):
@@ -493,10 +568,12 @@ def test_llm_failure_is_retried_then_succeeds(monkeypatch):
             raise RuntimeError("Gemini 429")
         return {"result": LLM_1019}
     monkeypatch.setattr(llm_judge, "call_llm", flaky)
-    result = build_result("c_llm_retry", real_request(questions=Q1019), {"status": "completed", "duration": 103}, None,
-                          REAL_1019, no_wait_judge())
+    with caplog.at_level("INFO", logger="call_worker"):
+        result = build_result("c_llm_retry", real_request(questions=Q1019), {"status": "completed", "duration": 103}, None,
+                              REAL_1019, no_wait_judge())
     ResultInput.model_validate(result)
-    assert len(calls) == 3 and "LLM(gemini-test" in result["notes"]
+    assert len(calls) == 3 and result["notes"] == ""
+    assert f"gemini-test ({llm_judge.PROMPT_VERSION})" in caplog.text and "3 attempt(s)" in caplog.text
 
 
 def test_llm_giving_up_sends_all_unknown_not_keyword(monkeypatch):
@@ -513,14 +590,14 @@ def test_llm_giving_up_sends_all_unknown_not_keyword(monkeypatch):
     assert all(not a["answered"] and a["reason"] == "unknown" for a in result["answers"])
     assert result["unresolved"] == ["q1", "q2", "q3"]
     assert result["consult_accepted"] is None and result["available_times"] == []
-    assert "실패로 모두 미확인" in result["notes"]
+    assert result["notes"] == "통화는 연결됐지만 답변을 확인하지 못했습니다."
     assert result["transcript"]  # 판정은 실패해도 전사는 보낸다
 
 
 def test_keyword_only_when_judge_not_configured():
     result = build_result("c_kw2", real_request(questions=Q1019), {"status": "completed", "duration": 103}, None, REAL_1019)
     ResultInput.model_validate(result)
-    assert "전사 규칙 기반" in result["notes"] and "LLM" not in result["notes"]
+    assert result["notes"] == ""
 
 
 def test_not_connected_call_never_calls_llm(monkeypatch):
