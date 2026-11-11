@@ -13,6 +13,8 @@ import numpy as np
 
 L = Path(sys.argv[1])
 REC, OUT = L / 'data' / 'recordings', L / 'data' / 'results'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from paths import rec_file  # noqa: E402  (날짜 폴더에서 녹음 찾기)
 BINS = [(0.02, 0.06), (0.06, 0.12), (0.12, 0.3)]
 
 
@@ -30,7 +32,7 @@ def zero_runs(seg, sr, min_len=0.02):
 
 tot = {}
 for name in sys.argv[2:]:
-    x, sr = load(REC / f'{name}_16k.wav')
+    x, sr = load(rec_file(f'{name}_16k.wav'))
     rows = json.load(open(OUT / f'{name}_rows.json', encoding='utf-8'))
     eng = name.split('_')[1]
     for who in ('AI', '사람'):

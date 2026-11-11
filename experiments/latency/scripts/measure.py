@@ -34,7 +34,9 @@ from pathlib import Path
 
 L = Path(__file__).resolve().parents[1]          # experiments/latency
 SCRIPTS = L / 'scripts'
-REC = L / 'data' / 'recordings'
+REC = L / 'data' / 'recordings'   # 날짜 폴더별 (data/recordings/<MMDD>/). 경로는 paths.rec_file로 찾는다
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from paths import rec_file  # noqa: E402
 OUT = L / 'data' / 'results'
 ENV_FILE = L.parents[1] / 'voice' / '.env'
 COLUMNS = ['name', 'engine', 'script', 'call_id', 'leg_id', 'latency', 'fix']
@@ -132,7 +134,8 @@ def cmd_fetch(path, names):
     co_calls = None
     changed = False
     for r in pick(rows, names):
-        dst = REC / f"{r['name']}.wav"
+        dst = rec_file(f"{r['name']}.wav")
+        dst.parent.mkdir(parents=True, exist_ok=True)
         if r['engine'] == 'vapi' and not r['leg_id']:
             v = get(f"https://api.vapi.ai/call/{r['call_id']}", env['VAPI_API_KEY'])
             if co_calls is None:
@@ -168,12 +171,12 @@ def cmd_analyze(path, names):
     check_python()
     for r in pick(read_calls(path), names):
         n = r['name']
-        wav = REC / f'{n}.wav'
+        wav = rec_file(f'{n}.wav')
         if not wav.exists():
             sys.exit(f'{n}: 녹음이 없습니다. 먼저 fetch를 실행하세요.')
         print(f'===== {n} ({r["engine"]}, 대본 {r["script"]})')
         script('to16k.py', wav, quiet=True)
-        wav16 = REC / f'{n}_16k.wav'
+        wav16 = rec_file(f'{n}_16k.wav')
         script('turns.py', wav16, n, quiet=True)
         out = script('one_call.py', wav16, n, quiet=True)
         print(next((x for x in out.splitlines() if x.startswith('cluster similarity')), ''))
