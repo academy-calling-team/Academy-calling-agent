@@ -4,7 +4,7 @@ from datetime import timedelta
 from pwdlib import PasswordHash
 from fastapi import HTTPException
 from sqlalchemy import select,update
-from schema import users,accounts,sessions
+from schema import users,accounts,sessions,academy_profiles
 from service import uid,digest,aware
 
 PASSWORDS=PasswordHash.recommended()
@@ -29,11 +29,12 @@ class AuthStore:
                 login_name=body.login_name,
                 password_hash=hashed,
                 role='member',
+                account_type=body.account_type,
                 enabled=True,
                 failed_logins=0,
                 terms_agreed_at=self.service.now()
             ))
-        return dict(inquirer_id=user_id,login_name=body.login_name,role='member')
+        return dict(inquirer_id=user_id,login_name=body.login_name,role='member',account_type=body.account_type)
     def login(self,body):
         with self.service.engine.connect() as c:
             snapshot=c.execute(select(accounts).where(accounts.c.login_name==body.login_name)).mappings().first()
@@ -63,11 +64,14 @@ class AuthStore:
     def identity(self,token):
         with self.service.engine.connect() as c:
             user_id=self.service.owner(c,token)
-            row=c.execute(select(accounts.c.login_name,accounts.c.role,sessions.c.expires_at)
+            row=c.execute(select(accounts.c.login_name,accounts.c.role,accounts.c.account_type,sessions.c.expires_at)
                 .join(sessions,accounts.c.user_id==sessions.c.user_id)
                 .where(accounts.c.user_id==user_id,sessions.c.token_hash==digest(token))).mappings().first()
             if not row:raise HTTPException(401,'Session required')
-            return aware(dict(inquirer_id=user_id,**row))
+            academy_id=c.execute(select(academy_profiles.c.academy_id).where(
+                academy_profiles.c.owner_id==user_id)).scalar()
+            return aware(dict(inquirer_id=user_id,**row,academy_id=academy_id,
+                              academy_registration_status='registered' if academy_id else 'unregistered'))
     def logout(self,token):
         with self.service.engine.begin() as c:
             self.service.owner(c,token)

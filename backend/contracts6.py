@@ -13,6 +13,7 @@ class Credentials(StrictModel):
         return value
 class RegistrationCredentials(Credentials):
     terms_agreed: StrictBool
+    account_type: Literal['parent','academy'] = 'parent'
 class CallbackReview(StrictModel):
     action:Literal['schedule','cancel']
     callback_at:datetime|None=None

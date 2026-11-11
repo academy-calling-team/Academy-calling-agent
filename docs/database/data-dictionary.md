@@ -106,6 +106,7 @@
 | login_name | VARCHAR(32) | 예 | UK  |  |
 | password_hash | VARCHAR(500) | 예 |   |  |
 | role | VARCHAR(16) | 예 |   | member |
+| account_type | VARCHAR(16) | 예 |   | parent |
 | enabled | BOOLEAN | 예 |   | True |
 | failed_logins | INTEGER | 예 |   | 0 |
 | locked_until | DATETIME | 아니오 |   |  |
@@ -139,6 +140,15 @@
 | position | INTEGER | 예 |   |  |
 - w5_uq_question_code: inquiry_id, code
 - w5_uq_question_position: inquiry_id, position
+
+## w6_academy_profiles
+
+| 필드 | DB 타입 | 필수 | 키·관계 | 기본값 |
+|---|---|---|---|---|
+| academy_id | VARCHAR(36) | 예 | PK,FK w5_academies.id |  |
+| owner_id | VARCHAR(36) | 예 | UK,FK w6_accounts.user_id |  |
+| address | VARCHAR(160) | 예 |   |  |
+- None: owner_id
 
 ## w6_fallback_tasks
 

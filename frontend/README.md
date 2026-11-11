@@ -66,3 +66,12 @@ _legacy/      重构前源码备份（勿引用）
 - 검사: `npm run typecheck`, `npx playwright install chromium`, `npm test`, `npm run build`. 로컬 Edge 사용 시 PowerShell에서 `$env:PLAYWRIGHT_CHANNEL='msedge'` 설정 후 `npm test`를 실행할 수 있습니다.
 - 브라우저 시험은 모든 `/api/` 응답을 가상 처리하며 실제 전화·공동 DB 쓰기가 없습니다. 회원가입·로그인·실통화 준비 확인과 목록 직접 진입/새로고침을 검사합니다.
 - PR은 일회용 MySQL·Redis의 백엔드/음성 검사와 프론트 검사를 수행합니다. 검사 통과 후 main 병합 시 기존 공동 API·큐·목업 워커가 배포됩니다. 프론트 화면 자체의 AWS 게시와 각 PC 파일 갱신은 별도입니다.
+
+## 学院管理（前端模拟版）
+
+打开 `/register?preview=mock` 选择 `학원` 注册，再在同一预览模式登录，进入学院资料登记／管理。
+页顶可切换家长、未登记学院、已登记学院三个场景。资料按模拟用户分开保存在当前浏览器；模拟密码不保存、不验证。
+支持基本资料、可增删的科目／年级／水平偏好、每周电话应答时间、实时摘要、预览保存与发信顺序演示。
+真实学院账号接入所需接口与字段见 [ACADEMY_API.md](./ACADEMY_API.md)。真实家长注册登录仍沿用原接口。
+
+已安装本机 Chrome 时，可用 `PLAYWRIGHT_CHANNEL=chrome npm test` 运行包含学院流程的浏览器测试。
