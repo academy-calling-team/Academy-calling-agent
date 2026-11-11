@@ -2,6 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 import os
+from pathlib import Path
 
 import pytest
 from sqlalchemy import select
@@ -139,3 +140,31 @@ def test_concurrent_mysql_updates_keep_one_version(academy_env):
             json={**PROFILE, 'name': '학원 ' + str(number), 'version': 1}), range(2)))
     assert sorted(response.status_code for response in responses) == [200, 409]
     assert client.get('/api/my-academy', headers=auth).json()['version'] == 2
+
+
+def test_mysql_migration_preserves_existing_accounts_and_repeats():
+    if not os.getenv('TEST_MYSQL_HOST'):
+        pytest.skip('Disposable MySQL is configured in CI')
+    from local_runtime import test_engine
+    engine = test_engine()
+    prefix = 'academy_migration_' + uuid4().hex[:8]
+    old_accounts, old_academies, profiles = (prefix + suffix for suffix in ('_accounts', '_academies', '_profiles'))
+    sql = (Path(__file__).resolve().parents[2] / 'docs/database/migrations/20261111_academy_accounts.sql').read_text(encoding='utf-8')
+    sql = sql.replace('w6_accounts', old_accounts).replace('w5_academies', old_academies).replace('w6_academy_profiles', profiles)
+    statements = [line for line in sql.splitlines() if not line.lstrip().startswith('--')]
+    try:
+        with engine.connect() as connection:
+            connection.exec_driver_sql(f"CREATE TABLE {old_accounts} (user_id VARCHAR(36) PRIMARY KEY) ENGINE=InnoDB CHARSET=utf8mb4 COLLATE=utf8mb4_bin")
+            connection.exec_driver_sql(f"CREATE TABLE {old_academies} (id VARCHAR(36) PRIMARY KEY) ENGINE=InnoDB CHARSET=utf8mb4 COLLATE=utf8mb4_bin")
+            connection.exec_driver_sql(f"INSERT INTO {old_accounts} VALUES ('existing-parent')")
+            connection.commit()
+            for _ in range(2):
+                for statement in '\n'.join(statements).split(';'):
+                    if statement.strip():
+                        connection.exec_driver_sql(statement).close()
+            assert connection.exec_driver_sql(f"SELECT account_type FROM {old_accounts} WHERE user_id='existing-parent'").scalar_one() == 'parent'
+    finally:
+        with engine.connect() as connection:
+            for table in (profiles, old_accounts, old_academies):
+                connection.exec_driver_sql(f"DROP TABLE IF EXISTS {table}")
+        engine.dispose()
