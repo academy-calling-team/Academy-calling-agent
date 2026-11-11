@@ -21,17 +21,26 @@ before(async () => {
 after(async () => { await browser?.close(); server?.kill(); });
 
 const student = { grade: 'M2', subject: 'MATH', level: 'MID', region: '대구 북구 침산동' };
-async function fixture(path, { canSubmit = true, loggedIn = true, detail } = {}) {
+async function fixture(path, { canSubmit = true, loggedIn = true, detail, accountType = 'parent' } = {}) {
   const page = await browser.newPage();
   const submissions = [];
+  let academy = null;
   await page.route('**/api/**', async route => {
     const req = route.request(), p = new URL(req.url()).pathname;
     await new Promise(r => setTimeout(r, p === '/api/account' ? 150 : 300));
     let data;
     if (p === '/api/account') {
-      data = { mode: 'backend', user: loggedIn ? { displayName: 'fixture', registered: true } : null };
+      data = { mode: 'backend', user: loggedIn ? { userId: 'fixture-user', displayName: 'fixture', registered: true,
+        accountType, academyRegistrationStatus: academy ? 'registered' : 'unregistered' } : null };
     } else if (p === '/api/auth/login') { loggedIn = true; data = { logged_in: true };
     } else if (p === '/api/auth/register') { submissions.push(req.postDataJSON()); data = { registered: true };
+    } else if (p === '/api/my-academy') {
+      if (req.method() !== 'GET') {
+        submissions.push(req.postDataJSON());
+        academy = { ...req.postDataJSON(), academy_id: 'fixture-academy', version: (academy?.version || 0) + 1, updated_at: '2026-11-11T00:00:00Z' };
+      }
+      await route.fulfill({ status: academy ? (req.method() === 'POST' ? 201 : 200) : 404, json: academy || {} });
+      return;
     } else if (p === '/api/options') data = { grade: ['M2'], subject: ['MATH'], level: ['MID'], regions: [student.region], question_codes: { shuttle: '통학 차량' } };
     else if (p === '/api/academies') data = [{ academy_id: 'fixture-academy', name: '시험 학원', region: student.region, is_mock: false, is_test: true, can_submit: canSubmit }];
     else if (p === '/api/inquiries' && req.method() === 'POST') { submissions.push(req.postDataJSON()); data = { inquiry_id: 'fixture-inquiry', status: 'queued' }; }
@@ -42,6 +51,30 @@ async function fixture(path, { canSubmit = true, loggedIn = true, detail } = {})
   await page.goto(base + path);
   return { page, submissions };
 }
+
+test('academy account registers through the API, reloads and edits with a version', async () => {
+  const { page, submissions } = await fixture('/academy/register', { accountType: 'academy' });
+  try {
+    await page.getByRole('heading', { name: '우리 학원 정보를 알려주세요' }).waitFor();
+    await page.getByLabel('학원명 *', { exact: true }).fill('연동 시험 학원');
+    await page.getByLabel('문의받을 전화번호 *', { exact: true }).fill('053-123-4567');
+    await page.getByLabel('지역 *', { exact: true }).selectOption(student.region);
+    await page.getByRole('button', { name: '시간 1 월요일', exact: true }).click();
+    await page.getByRole('button', { name: '학원 등록', exact: true }).click();
+    await page.waitForURL('**/academy/manage');
+    assert.equal(submissions[0].call_hours[0].day_of_week, 0);
+    assert.equal('windows' in submissions[0], false);
+    await page.reload();
+    await page.getByRole('heading', { name: '우리 학원 정보 관리' }).waitFor();
+    assert.equal(await page.getByLabel('학원명 *', { exact: true }).inputValue(), '연동 시험 학원');
+    await page.getByLabel('상세 주소', { exact: true }).fill('수정 주소');
+    await page.getByRole('button', { name: '변경 사항 저장', exact: true }).click();
+    await page.waitForFunction(() => document.body.innerText.includes('학원 정보가 저장되었습니다.'));
+    assert.equal(submissions[1].version, 1);
+    assert.equal(submissions[1].address, '수정 주소');
+    assert.equal(new URL(page.url()).search, '');
+  } finally { await page.close(); }
+});
 for (const path of ['/', '/tasks', '/detail/fixture-inquiry']) {
   test(`authenticated direct entry and reload finish loading: ${path}`, async () => {
     const { page } = await fixture(path);

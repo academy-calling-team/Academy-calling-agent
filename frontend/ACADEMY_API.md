@@ -1,6 +1,6 @@
-# 학원 계정 및 정보 API 연동 명세안
+# 학원 계정 및 정보 API
 
-학원 운영자의 회원가입, 계정 유형 조회, 학원 정보 등록·수정에 필요한 API와 검증·권한 요구사항입니다. API 경로와 필드는 백엔드 협의 후 확정합니다.
+학원 운영자의 회원가입, 계정 유형 조회, 학원 정보 등록·수정 API입니다. 작업 브랜치 구현 기준이며 공동 DB 마이그레이션과 배포 후 사용할 수 있습니다.
 
 ## 인증 API 명세
 
@@ -14,7 +14,7 @@
 {
   "inquirer_id": "user-id",
   "login_name": "academy_owner",
-  "role": "user",
+  "role": "member",
   "account_type": "academy",
   "academy_id": "academy-id",
   "academy_registration_status": "registered",
@@ -66,3 +66,14 @@ UI에서는 시간대 한 행에 여러 요일을 선택할 수 있습니다. AP
 - 기존 `/api/academies/{id}/settings`는 classes/call_hours만 처리하고 임시로 admin 권한을 사용하므로, 학원 운영자의 직접 등록 흐름을 처리하기에는 부족합니다.
 - BFF에는 my-academy의 인증 검사와 GET/POST/PUT 전달 처리가 필요합니다. 공개 학원 목록 조회와 학원 정보 관리 API를 구분하고, 관리 API에는 반드시 인증을 적용해야 합니다.
 - 시뮬레이터의 가중치, 수동 대기 보정값 및 정렬 결과는 백엔드에 전송하지 않으며, 실제 발신 정책도 변경하지 않습니다.
+
+## 2026-11-11 구현과 적용
+
+- 계정당 학원 1개 등록, 서버에서 소유자 확인, 다른 학원 ID 지정 필드 제외
+- 기존 계정의 account_type 기본값 parent, 학원 가입도 role은 member
+- POST의 학원 생성·계정 연결·선호 조건·응대 시간 저장을 하나의 트랜잭션으로 처리
+- PUT의 version 필수, 관리자 설정 수정도 같은 설정 버전으로 충돌 감지
+- 새 학원의 기본 운영시간은 매일 00~24시, 실제 발신 후보 선정에는 등록한 응대 시간과 기존 서버 정책 적용
+- 새 학원은 is_mock=false로 등록, 실발신은 기존 지정 시험 학원·계정·허용 번호 검사 적용
+- 적용 SQL은 docs/database/migrations/20261111_academy_accounts.sql, 배포 전 백업과 실행 필요
+- 기존 학원 계정 연결은 별도 운영자 확인 후속, 이번 등록에서는 서버가 새 academy_id 발급

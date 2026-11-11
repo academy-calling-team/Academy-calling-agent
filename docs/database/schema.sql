@@ -124,6 +124,7 @@ CREATE TABLE w6_accounts (
 	login_name VARCHAR(32) NOT NULL,
 	password_hash VARCHAR(500) NOT NULL,
 	`role` VARCHAR(16) NOT NULL,
+	account_type VARCHAR(16) NOT NULL DEFAULT 'parent',
 	enabled BOOL NOT NULL,
 	failed_logins INTEGER NOT NULL,
 	locked_until DATETIME,
@@ -165,6 +166,19 @@ CREATE TABLE w5_questions (
 	CONSTRAINT w5_uq_question_code UNIQUE (inquiry_id, code),
 	CONSTRAINT w5_uq_question_position UNIQUE (inquiry_id, position),
 	FOREIGN KEY(inquiry_id) REFERENCES w5_inquiries (id)
+)ENGINE=InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_bin
+
+;
+
+
+CREATE TABLE w6_academy_profiles (
+	academy_id VARCHAR(36) NOT NULL,
+	owner_id VARCHAR(36) NOT NULL,
+	address VARCHAR(160) NOT NULL,
+	PRIMARY KEY (academy_id),
+	FOREIGN KEY(academy_id) REFERENCES w5_academies (id),
+	UNIQUE (owner_id),
+	FOREIGN KEY(owner_id) REFERENCES w6_accounts (user_id)
 )ENGINE=InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_bin
 
 ;

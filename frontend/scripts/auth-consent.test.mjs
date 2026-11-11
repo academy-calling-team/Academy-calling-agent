@@ -33,6 +33,28 @@ test('registration forwards explicit boolean consent', async () => {
   assert.equal((await post('auth/register', { ...account, terms_agreed: true })).status, 201);
   assert.deepEqual(JSON.parse(calls[0].body), { ...account, terms_agreed: true });
 });
+
+test('academy registration forwards only the account type, and rejects admin as a type', async () => {
+  assert.equal((await post('auth/register', { ...account, terms_agreed: true, account_type: 'academy' })).status, 201);
+  assert.equal(JSON.parse(calls[0].body).account_type, 'academy');
+  assert.equal((await post('auth/register', { ...account, terms_agreed: true, account_type: 'admin' })).status, 422);
+  assert.equal(calls.length, 1);
+});
+
+test('my-academy writes require an authenticated cookie and preserve PUT and version', async () => {
+  assert.equal((await post('my-academy', {})).status, 401);
+  assert.equal(calls.length, 0);
+  const response = await handleApi(new Request('http://127.0.0.1:5173/api/my-academy', {
+    method: 'PUT',
+    headers: { origin: 'http://127.0.0.1:5173', 'content-type': 'application/json',
+      cookie: 'hakwon_backend_session=fixture-token' },
+    body: JSON.stringify({ version: 3 }),
+  }));
+  assert.equal(response.status, 200);
+  assert.equal(calls[0].method, 'PUT');
+  assert.equal(calls[0].headers.Authorization, 'Bearer fixture-token');
+  assert.deepEqual(JSON.parse(calls[0].body), { version: 3 });
+});
 test('login stores token in HttpOnly cookie without sending consent', async () => {
   const r = await post('auth/login', account);
   assert.equal(r.status, 200);

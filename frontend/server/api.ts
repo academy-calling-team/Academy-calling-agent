@@ -90,6 +90,9 @@ interface Identity {
   fullName: string | null;
   role: string;
   expiresAt: string;
+  accountType: 'parent' | 'academy';
+  academyId: string | null;
+  academyRegistrationStatus: 'registered' | 'unregistered';
 }
 
 async function currentIdentity(request: Request): Promise<Identity | null> {
@@ -104,6 +107,9 @@ async function currentIdentity(request: Request): Promise<Identity | null> {
     login_name: string;
     role: string;
     expires_at: string;
+    account_type?: 'parent' | 'academy';
+    academy_id?: string | null;
+    academy_registration_status?: 'registered' | 'unregistered';
   };
   return {
     userId: `backend:${data.inquirer_id}`,
@@ -112,6 +118,9 @@ async function currentIdentity(request: Request): Promise<Identity | null> {
     fullName: null,
     role: data.role,
     expiresAt: data.expires_at,
+    accountType: data.account_type || 'parent',
+    academyId: data.academy_id || null,
+    academyRegistrationStatus: data.academy_registration_status || 'unregistered',
   };
 }
 
@@ -129,15 +138,16 @@ async function businessRequest(
   path: string,
   body?: unknown,
   key?: string,
+  method?: 'POST' | 'PUT',
 ): Promise<Response> {
   try {
     const base = backendUrl();
     if (!base) return json({ message: '상담 서비스 연결을 준비하고 있습니다.' }, 503);
-    const isPublic = path.startsWith('/api/options') || path.startsWith('/api/academies');
+    const isPublic = path === '/api/options' || path === '/api/academies';
     const token = isPublic ? undefined : readCookie(cookieHeader(request), SESSION_COOKIE) ?? undefined;
     if (!isPublic && !token) return json({ message: businessMessages[401] }, 401);
     const upstream = await fetch(base + path, {
-      method: body === undefined ? 'GET' : 'POST',
+      method: method || (body === undefined ? 'GET' : 'POST'),
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -182,7 +192,7 @@ export async function handleApi(request: Request): Promise<Response | null> {
     const action = authMatch[1] as 'register' | 'login' | 'logout';
     try {
       if (!backendUrl()) return json({ message: '계정 서비스를 사용할 수 없습니다.' }, 503);
-      let body: { login_name: string; password: string; terms_agreed?: boolean } | undefined;
+      let body: { login_name: string; password: string; terms_agreed?: boolean; account_type?: 'parent' | 'academy' } | undefined;
       if (action !== 'logout') {
         const input = (await request.json()) as Record<string, unknown>;
         if (
@@ -201,6 +211,12 @@ export async function handleApi(request: Request): Promise<Response | null> {
             return json({ message: '회원가입을 진행하려면 이용약관에 동의해 주세요.' }, 422);
           }
           body.terms_agreed = true;
+          if (input.account_type !== undefined) {
+            if (input.account_type !== 'parent' && input.account_type !== 'academy') {
+              return json({ message: '회원 유형을 확인해 주세요.' }, 422);
+            }
+            body.account_type = input.account_type;
+          }
         }
       }
       const token =
@@ -255,7 +271,9 @@ export async function handleApi(request: Request): Promise<Response | null> {
         const response = json(
           {
             mode: 'backend',
-            user: user ? { displayName: user.displayName, registered: true } : null,
+            user: user ? { userId: user.userId, displayName: user.displayName, registered: true,
+              accountType: user.accountType, academyId: user.academyId,
+              academyRegistrationStatus: user.academyRegistrationStatus } : null,
           },
           user ? 200 : 401,
         );
@@ -270,6 +288,18 @@ export async function handleApi(request: Request): Promise<Response | null> {
 
   if (path === '/api/options' && request.method === 'GET') {
     return businessRequest(request, '/api/options');
+  }
+
+  if (path === '/api/my-academy') {
+    if (request.method === 'GET') return businessRequest(request, path);
+    if (request.method !== 'POST' && request.method !== 'PUT') return json({ message: '잘못된 요청입니다.' }, 405);
+    if (!writable(request)) return json({ message: '요청을 확인해 주세요.' }, 403);
+    try {
+      const body = await request.json();
+      return businessRequest(request, path, body, undefined, request.method);
+    } catch {
+      return json({ message: '입력 내용을 확인해 주세요.' }, 400);
+    }
   }
 
   if (path === '/api/academies' && request.method === 'GET') {

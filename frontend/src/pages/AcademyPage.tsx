@@ -6,6 +6,8 @@ import { days, emptyProfile, validateProfile, type AcademyProfile, type Preferen
 import { readAcademy, saveAcademy } from '../lib/mock-academy';
 import { mockOptions } from '../lib/mock-inquiries';
 import { fieldLabel } from '../lib/inquiry-model';
+import { ApiError, api } from '../lib/api';
+import { getAcademy, putAcademy } from '../lib/academy-api';
 
 function levelLabel(code: string) {
   return code === 'HIGH' ? '심화' : fieldLabel('level', code);
@@ -20,26 +22,59 @@ export default function AcademyPage() {
   if (!ready) return <div className="empty">계정 정보를 확인하고 있어요.</div>;
   if (error) return <div className="empty"><p>계정 정보를 확인할 수 없어요.</p><button className="button" onClick={() => void reload()}>다시 시도</button></div>;
   if (!user) return <Navigate to={'/login' + (mockMode ? '?preview=mock' : '')} replace />;
-  if (user.accountType !== 'academy' || !mockMode) return <Navigate to={'/' + (mockMode ? '?preview=mock' : '')} replace />;
+  if (user.accountType !== 'academy') return <Navigate to={'/' + (mockMode ? '?preview=mock' : '')} replace />;
   return <AcademyEditor key={user.userId} userId={user.userId!} />;
 }
 
 function AcademyEditor({ userId }: { userId: string }) {
+  const { mockMode } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  const [saved, setSaved] = useState<AcademyProfile | null>(() => readAcademy(userId));
+  const [saved, setSaved] = useState<AcademyProfile | null>(() => mockMode ? readAcademy(userId) : null);
   const [profile, setProfile] = useState<AcademyProfile>(() => saved || emptyProfile());
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(!mockMode);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [options, setOptions] = useState(mockOptions);
   const [weights, setWeights] = useState([1, 1, 1]);
   const [bonuses, setBonuses] = useState([0, 0, 0, 0]);
   const dialog = useRef<HTMLDialogElement>(null);
   const dirty = JSON.stringify(profile) !== JSON.stringify(saved || emptyProfile());
   useEffect(() => {
+    if (mockMode) return;
+    let cancelled = false;
+    setLoading(true);
+    setLoadFailed(false);
+    async function load() {
+      try {
+        const nextOptions = await api<typeof mockOptions>('/api/options');
+        let next = null;
+        try {
+          next = await getAcademy();
+        } catch (err) {
+          if (!(err instanceof ApiError) || err.status !== 404) throw err;
+        }
+        if (cancelled) return;
+        setOptions(nextOptions);
+        setSaved(next);
+        setProfile(next || emptyProfile());
+      } catch {
+        if (!cancelled) setLoadFailed(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, [mockMode, userId, loadAttempt]);
+  useEffect(() => {
+    if (loading || loadFailed) return;
     const expected = saved ? '/academy/manage' : '/academy/register';
-    if (location.pathname !== expected) navigate(expected + '?preview=mock', { replace: true });
-  }, [saved, location.pathname, navigate]);
+    if (location.pathname !== expected) navigate(expected + (mockMode ? '?preview=mock' : ''), { replace: true });
+  }, [saved, location.pathname, navigate, mockMode, loading, loadFailed]);
   useEffect(() => {
     if (!dirty) return;
     function beforeUnload(event: BeforeUnloadEvent) { event.preventDefault(); }
@@ -58,10 +93,15 @@ function AcademyEditor({ userId }: { userId: string }) {
     if (message) { setError(message); return; }
     setSaving(true);
     try {
-      const next = saveAcademy(userId, profile);
+      const next = mockMode ? saveAcademy(userId, profile) : await putAcademy(profile, saved === null);
       setSaved(next); setProfile(next); dialog.current?.close();
-      toast.show('미리보기 학원 정보가 저장되었습니다.');
-    } catch { setError('저장할 수 없습니다. 브라우저 저장 공간을 확인해 주세요.'); }
+      toast.show(mockMode ? '미리보기 학원 정보가 저장되었습니다.' : '학원 정보가 저장되었습니다.');
+    } catch (err) {
+      dialog.current?.close();
+      setError(err instanceof ApiError && err.status === 409
+        ? '이미 등록되었거나 다른 화면에서 수정되었습니다. 페이지를 새로고침해 최신 정보를 확인해 주세요.'
+        : '저장하지 못했습니다. 입력 내용과 연결 상태를 확인해 주세요.');
+    }
     finally { setSaving(false); }
   }
   const inquiries = [
@@ -73,6 +113,8 @@ function AcademyEditor({ userId }: { userId: string }) {
     const match = Math.max(0, ...profile.classes.map((p) => (p.subject_code === q.subject_code ? weights[0] : 0) + (p.grade_code === q.grade_code ? weights[1] : 0) + (p.level_code !== null && p.level_code === q.level_code ? weights[2] : 0)));
     return { ...q, id, match, score: match + bonuses[id] };
   }).sort((a, b) => b.score - a.score || a.id - b.id);
+  if (loading) return <div className="empty">학원 정보를 불러오고 있어요.</div>;
+  if (loadFailed) return <div className="empty"><p>학원 정보를 불러오지 못했습니다.</p><button className="button" onClick={() => setLoadAttempt((value) => value + 1)}>다시 시도</button></div>;
   return (
     <div className="academy-page">
       <div className="heading"><div><div className="eyebrow">ACADEMY SETTINGS</div><h1>{saved ? '우리 학원 정보 관리' : '우리 학원 정보를 알려주세요'}</h1><p>우선 받고 싶은 과목·학생의 현재 학년·수준과 전화 응대 시간을 알려주세요.</p></div></div>
@@ -82,16 +124,16 @@ function AcademyEditor({ userId }: { userId: string }) {
           <section className="academy-card"><div className="academy-section-head"><div><div className="academy-title"><span>01</span><h2>학원 기본 정보</h2></div><p className="academy-note">문의가 전달될 학원의 정보입니다.</p></div></div><div className="academy-fields">
             <label className="field">학원명 *<input placeholder="학원명을 입력하세요" required maxLength={80} value={profile.name} onChange={(e) => update({ name: e.target.value })} /></label>
             <label className="field">문의받을 전화번호 *<input type="tel" required maxLength={25} placeholder="053-000-0000" value={profile.phone} onChange={(e) => update({ phone: e.target.value })} /></label>
-            <label className="field">지역 *<select aria-label="지역 *" required value={profile.region} onChange={(e) => update({ region: e.target.value })}><option value="">지역 선택</option>{mockOptions.regions.map((r) => <option key={r}>{r}</option>)}</select></label>
+            <label className="field">지역 *<select aria-label="지역 *" required value={profile.region} onChange={(e) => update({ region: e.target.value })}><option value="">지역 선택</option>{options.regions.map((r) => <option key={r}>{r}</option>)}</select></label>
             <label className="field">상세 주소<input maxLength={160} value={profile.address} onChange={(e) => update({ address: e.target.value })} /></label>
           </div></section>
           <section className="academy-card"><div className="academy-section-head"><div><div className="academy-title"><span>02</span><h2>우선 받고 싶은 문의</h2></div><p className="academy-note">과목·현재 학년·수준의 일치도를 점수로 비교합니다. 수준은 선택하지 않아도 됩니다.</p></div><button className="button compact" type="button" disabled={profile.classes.length >= 50} onClick={() => update({ classes: [...profile.classes, { subject_code: 'MATH', grade_code: 'E1', level_code: null }] })}>＋ 선호 대상 추가</button></div>
             {!profile.classes.length ? <p className="academy-empty">선호 미설정 · 접수순으로 처리합니다.</p> : null}
             {profile.classes.map((p, index) => <div className="academy-row academy-preference-row" key={index}><div className="academy-row-head"><b>선호 대상 {index + 1}</b><button className="academy-remove" type="button" aria-label={`선호 대상 ${index + 1} 삭제`} onClick={() => update({ classes: profile.classes.filter((_, i) => i !== index) })}>×</button></div><div className="academy-preferences">
-              <label className="field">과목<select value={p.subject_code} onChange={(e) => patchPreference(index, { subject_code: e.target.value })}>{mockOptions.subject.map((s) => <option key={s} value={s}>{fieldLabel('subject', s)}</option>)}</select></label>
+              <label className="field">과목<select value={p.subject_code} onChange={(e) => patchPreference(index, { subject_code: e.target.value })}>{options.subject.map((s) => <option key={s} value={s}>{fieldLabel('subject', s)}</option>)}</select></label>
               <label className="field">학교급<select value={p.grade_code[0]} onChange={(e) => patchPreference(index, { grade_code: e.target.value + '1' })}>{[['E', '초등학교'], ['M', '중학교'], ['H', '고등학교']].map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select></label>
-              <label className="field">현재 학년<select value={p.grade_code} onChange={(e) => patchPreference(index, { grade_code: e.target.value })}>{mockOptions.grade.filter((g) => g[0] === p.grade_code[0]).map((g) => <option key={g} value={g}>{g.slice(1)}학년</option>)}</select></label>
-              <label className="field">수준 · 선택<select value={p.level_code || ''} onChange={(e) => patchPreference(index, { level_code: e.target.value || null })}><option value="">선호 없음</option>{mockOptions.level.map((l) => <option key={l} value={l}>{levelLabel(l)}</option>)}</select></label>
+              <label className="field">현재 학년<select value={p.grade_code} onChange={(e) => patchPreference(index, { grade_code: e.target.value })}>{options.grade.filter((g) => g[0] === p.grade_code[0]).map((g) => <option key={g} value={g}>{g.slice(1)}학년</option>)}</select></label>
+              <label className="field">수준 · 선택<select value={p.level_code || ''} onChange={(e) => patchPreference(index, { level_code: e.target.value || null })}><option value="">선호 없음</option>{options.level.map((l) => <option key={l} value={l}>{levelLabel(l)}</option>)}</select></label>
             </div></div>)}
             <p className="academy-legend"><strong>설정하지 않아도 문의는 접수됩니다.</strong><br />선호 조건은 같은 학원의 문의 전달 순서에 참고하며, 실제 반 배정이나 등록 가능 여부를 확정하지 않습니다.</p>
           </section>
@@ -113,7 +155,7 @@ function AcademyEditor({ userId }: { userId: string }) {
             <section className="academy-summary-section"><h3>문의 전달 순서는 이렇게 검토해요</h3><ol className="academy-order"><li><strong>과목·학년·수준</strong>의 일치 점수 계산</li><li><strong>대기 보정 점수</strong>를 더해 최종 점수 산정</li><li><strong>높은 점수부터 발신</strong>, 동점은 접수순</li></ol><p className="academy-note">선호 미설정·동점은 접수순을 기본으로 합니다. 구체적인 배점과 대기 보정 주기는 검토 중입니다.</p></section>
             <section className="academy-summary-section"><p className="academy-note">실제 남은 자리와 수강 가능 여부는 <strong>전화 문의로 확인</strong>합니다.</p></section>
           </div>
-          <p className="academy-demo-note">미리보기 · 입력 정보는 이 브라우저에만 저장됩니다.<br />실제 계정 연결이나 전화 발신은 진행하지 않습니다.</p>
+          {mockMode ? <p className="academy-demo-note">미리보기 · 입력 정보는 이 브라우저에만 저장됩니다.</p> : null}
           <button type="button" className="academy-cancel" onClick={() => { if (!dirty || window.confirm('변경 내용을 취소하시겠어요?')) { setProfile(saved || emptyProfile()); setError(''); } }}>변경 취소</button>
         </aside>
       </form>
@@ -125,7 +167,7 @@ function AcademyEditor({ userId }: { userId: string }) {
           <section className="academy-preview-section"><div className="academy-preview-section-title"><h3><span>02</span> 전화 응대 가능 시간</h3><span>한국 시간 · KST</span></div><div className="academy-preview-schedules">{profile.windows.map((w, i) => <div className="academy-preview-schedule" key={i}><div className="academy-preview-days">{days.map((day, d) => <span key={day} className={w.days.includes(d) ? 'selected' : ''}>{day}</span>)}</div><strong>{w.start}<span>–</span>{w.end}</strong></div>)}</div></section>
           <p className="academy-call-note">선호 조건은 문의 전달 순서에 참고합니다. 실제 남은 자리와 수강 가능 여부는 전화 문의로 확인합니다.</p>
         </div>
-        <div className="academy-preview-footer"><p>미리보기 · 이 브라우저에만 저장됩니다.</p><div><button type="button" className="button" onClick={() => dialog.current?.close()}>돌아가서 수정</button><button type="button" className="button primary" disabled={saving} onClick={() => void save()}>{saving ? '저장 중…' : '확인 후 저장'}</button></div></div>
+        <div className="academy-preview-footer"><p>{mockMode ? '미리보기 · 이 브라우저에만 저장됩니다.' : '저장하면 우리 학원 정보에 반영됩니다.'}</p><div><button type="button" className="button" onClick={() => dialog.current?.close()}>돌아가서 수정</button><button type="button" className="button primary" disabled={saving} onClick={() => void save()}>{saving ? '저장 중…' : '확인 후 저장'}</button></div></div>
       </dialog>
     </div>
   );

@@ -17,6 +17,8 @@ export interface AcademyProfile {
   classes: Preference[];
   windows: CallWindow[];
   updated_at?: string;
+  version?: number;
+  academy_id?: string;
 }
 export const days = ['월', '화', '수', '목', '금', '토', '일'];
 export function emptyProfile(): AcademyProfile {

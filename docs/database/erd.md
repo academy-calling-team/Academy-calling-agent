@@ -79,6 +79,7 @@ erDiagram
         VARCHAR_32 login_name UK
         VARCHAR_500 password_hash
         VARCHAR_16 role
+        VARCHAR_16 account_type
         BOOL enabled
         INTEGER failed_logins
         DATETIME locked_until
@@ -105,6 +106,13 @@ erDiagram
         INTEGER position
     }
     w5_inquiries ||--o{ w5_questions : "inquiry_id"
+    w6_academy_profiles {
+        VARCHAR_36 academy_id PK,FK
+        VARCHAR_36 owner_id UK,FK
+        VARCHAR_160 address
+    }
+    w5_academies ||--o| w6_academy_profiles : "academy_id"
+    w6_accounts ||--o| w6_academy_profiles : "owner_id"
     w6_fallback_tasks {
         VARCHAR_36 inquiry_id PK,FK
         VARCHAR_30 status

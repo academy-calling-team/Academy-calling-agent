@@ -68,7 +68,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         </Link>
         <div className="nav-label">AI 상담</div>
         <nav>
-          {user?.accountType === 'academy' ? <NavLink to="/academy/manage?preview=mock">◫ <span>우리 학원 관리</span></NavLink> : <>
+          {user?.accountType === 'academy' ? <NavLink to={'/academy/manage' + (mockMode ? '?preview=mock' : '')}>◫ <span>우리 학원 관리</span></NavLink> : <>
           <NavLink to="/" end>
             ◫ <span>상담 홈</span>
           </NavLink>

@@ -42,7 +42,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         <h1>{user.displayName}님</h1>
         <p>학원의신에 로그인되어 있어요.</p>
         <Link className="button primary" to={user.accountType === 'academy' ? '/academy/manage' : '/tasks'}>
-          내 상담 보기 ↗
+          {user.accountType === 'academy' ? '우리 학원 관리 ↗' : '내 상담 보기 ↗'}
         </Link>
         <button className="logout-button" type="button" onClick={() => void logout()}>
           로그아웃
@@ -71,7 +71,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         await submitBackendAuth(register ? 'register' : 'login', {
           login_name: loginName,
           password,
-          ...(register ? { terms_agreed: terms } : {}),
+          ...(register ? { terms_agreed: terms, account_type: accountType } : {}),
         });
       }
       setPendingLogin(loginName);
@@ -84,7 +84,8 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
       } else {
         setPendingLogin('');
         const identity = await reload();
-        const target = identity?.accountType === 'academy' ? (readAcademy(identity.userId || '') ? '/academy/manage' : '/academy/register') : '/';
+        const registeredAcademy = mockMode ? !!readAcademy(identity?.userId || '') : identity?.academyRegistrationStatus === 'registered';
+        const target = identity?.accountType === 'academy' ? (registeredAcademy ? '/academy/manage' : '/academy/register') : '/';
         navigate(target + (mockMode ? '?preview=mock' : ''));
         toast.show('로그인되었습니다.');
       }
@@ -121,7 +122,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         <p>{register ? '아이디와 비밀번호로 회원가입하세요.' : '아이디와 비밀번호를 입력해 주세요.'}</p>
         {mockMode ? <p className="review-notice">미리보기 계정입니다. 비밀번호는 저장하거나 확인하지 않으며 실제 계정과 연결되지 않습니다.</p> : null}
         <form onSubmit={onSubmit}>
-          {register ? <fieldset className="account-types"><legend>회원 유형</legend>{(['parent', 'academy'] as const).map((type) => <label key={type}><input type="radio" name="account_type" checked={accountType === type} disabled={!mockMode && type === 'academy'} onChange={() => setAccountType(type)} />{type === 'parent' ? '학부모' : '학원'}</label>)}{!mockMode ? <p className="muted">학원 가입은 미리보기에서 먼저 이용할 수 있습니다. <a href="/register?preview=mock">미리보기 열기 ↗</a></p> : null}</fieldset> : null}
+          {register ? <fieldset className="account-types"><legend>회원 유형</legend>{(['parent', 'academy'] as const).map((type) => <label key={type}><input type="radio" name="account_type" checked={accountType === type} onChange={() => setAccountType(type)} />{type === 'parent' ? '학부모' : '학원'}</label>)}</fieldset> : null}
           <label className="field">
             아이디
             <input

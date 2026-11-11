@@ -16,6 +16,8 @@ import { mockRequest } from '../lib/mock-inquiries';
 export interface AccountUser {
   userId?: string;
   accountType?: AccountType;
+  academyId?: string | null;
+  academyRegistrationStatus?: 'registered' | 'unregistered';
   displayName: string;
   registered: boolean;
 }
@@ -141,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export async function submitBackendAuth(
   action: 'register' | 'login',
-  payload: { login_name: string; password: string; terms_agreed?: boolean },
+  payload: { login_name: string; password: string; terms_agreed?: boolean; account_type?: AccountType },
 ): Promise<void> {
   const response = await fetch('/api/auth/' + action, {
     method: 'POST',

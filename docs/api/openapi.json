@@ -397,6 +397,105 @@
         }
       }
     },
+    "/api/my-academy": {
+      "get": {
+        "summary": "My Academy",
+        "operationId": "my_academy_api_my_academy_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Update My Academy",
+        "operationId": "update_my_academy_api_my_academy_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcademyProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Register Academy",
+        "operationId": "register_academy_api_my_academy_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcademyProfileInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/auth/register": {
       "post": {
         "summary": "Register",
@@ -942,6 +1041,116 @@
         ],
         "title": "AcademyClassInput"
       },
+      "AcademyProfileInput": {
+        "properties": {
+          "classes": {
+            "items": {
+              "$ref": "#/components/schemas/AcademyClassInput"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Classes"
+          },
+          "call_hours": {
+            "items": {
+              "$ref": "#/components/schemas/CallHourInput"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Call Hours"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 25,
+            "minLength": 7,
+            "title": "Phone"
+          },
+          "region": {
+            "type": "string",
+            "title": "Region"
+          },
+          "address": {
+            "type": "string",
+            "maxLength": 160,
+            "title": "Address",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "classes",
+          "call_hours",
+          "name",
+          "phone",
+          "region"
+        ],
+        "title": "AcademyProfileInput"
+      },
+      "AcademyProfileUpdate": {
+        "properties": {
+          "classes": {
+            "items": {
+              "$ref": "#/components/schemas/AcademyClassInput"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Classes"
+          },
+          "call_hours": {
+            "items": {
+              "$ref": "#/components/schemas/CallHourInput"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Call Hours"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 25,
+            "minLength": 7,
+            "title": "Phone"
+          },
+          "region": {
+            "type": "string",
+            "title": "Region"
+          },
+          "address": {
+            "type": "string",
+            "maxLength": 160,
+            "title": "Address",
+            "default": ""
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "classes",
+          "call_hours",
+          "name",
+          "phone",
+          "region",
+          "version"
+        ],
+        "title": "AcademyProfileUpdate"
+      },
       "AcademySettingsInput": {
         "properties": {
           "classes": {
@@ -1358,6 +1567,15 @@
           "terms_agreed": {
             "type": "boolean",
             "title": "Terms Agreed"
+          },
+          "account_type": {
+            "type": "string",
+            "enum": [
+              "parent",
+              "academy"
+            ],
+            "title": "Account Type",
+            "default": "parent"
           }
         },
         "additionalProperties": false,

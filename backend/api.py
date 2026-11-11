@@ -93,6 +93,17 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
         from ops6 import Operations
         service.allow_legacy_tokens=False
         auth_store=AuthStore(service);app.state.auth_store=auth_store
+        from academy_accounts import AcademyAccounts, AcademyProfileInput, AcademyProfileUpdate
+        academy_accounts = AcademyAccounts(service)
+        @app.get('/api/my-academy')
+        def my_academy(token: str = Depends(auth)):
+            return academy_accounts.get(token)
+        @app.post('/api/my-academy', status_code=201)
+        def register_academy(body: AcademyProfileInput, token: str = Depends(auth)):
+            return academy_accounts.save(token, body, create=True)
+        @app.put('/api/my-academy')
+        def update_my_academy(body: AcademyProfileUpdate, token: str = Depends(auth)):
+            return academy_accounts.save(token, body, create=False)
         ops=Operations(service,queue_client)
         def administrator(token:str=Depends(auth)):return auth_store.admin(token)
         @app.post('/auth/register',status_code=201)
