@@ -15,7 +15,7 @@ function formatKst(value?: string) {
   return value ? new Date(value).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }) : '';
 }
 
-function Answers({ detail, questionLabels }: { detail: InquiryDetail; questionLabels: Record<string, string> }) {
+function Answers({ detail }: { detail: InquiryDetail }) {
   return (
     <>
       {(detail.questions || []).map((q) => {
@@ -27,7 +27,7 @@ function Answers({ detail, questionLabels }: { detail: InquiryDetail; questionLa
           <div className={`answer ${view.kind}`} data-answer-kind={view.kind} key={q.question_id}>
             <span className="answer-symbol">{view.kind === 'unknown' ? '?' : view.kind === 'no' ? '−' : '✓'}</span>
             <div>
-              <h3>{questionLabels[q.question_code] || q.question_code}</h3>
+              <h3>{q.question_label_kr?.trim() || q.question_code}</h3>
               {view.detail ? <p>{view.detail}</p> : null}
               {view.reason ? <p className="answer-reason">미확인 사유: {view.reason}</p> : null}
               {answer?.source_text?.trim() ? (
@@ -137,7 +137,7 @@ export default function DetailPage() {
               </>
             ) : null}
             <h2>항목별 상담 결과</h2>
-            <Answers detail={t} questionLabels={{}} />
+            <Answers detail={t} />
             {t.result?.notes ? (
               <div className="notice">
                 <b>추가 안내</b>
@@ -177,11 +177,11 @@ export default function DetailPage() {
                 {t.attempts.map((a) => (
                   <li key={a.call_id}>
                     <p>
-                      #{a.attempt_no} · {a.status}
+                      #{a.attempt_no} · {a.status_label_kr?.trim() || a.status}
                     </p>
                     <small>
                       {formatKst(a.started_at)}
-                      {a.outcome ? ` · ${a.outcome}` : ''}
+                      {a.outcome ? ` · ${a.outcome_label_kr?.trim() || a.outcome}` : ''}
                     </small>
                   </li>
                 ))}

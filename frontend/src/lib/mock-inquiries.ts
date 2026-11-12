@@ -42,6 +42,7 @@ function fixtures(): MockRow[] {
     const questions = Object.keys(mockOptions.question_codes).map((code, i) => ({
       question_id: `${id}-q${i}`,
       question_code: code,
+      question_label_kr: mockOptions.question_codes[code] || code,
     }));
     const answers = questions.map((q, i) => ({
       ...q,
@@ -73,8 +74,10 @@ function fixtures(): MockRow[] {
                 call_id: `${id}-call`,
                 attempt_no: 1,
                 status: status === 'calling' ? 'answered' : 'finished',
+                status_label_kr: status === 'calling' ? '통화 중' : '통화 종료',
                 started_at: new Date().toISOString(),
                 outcome: status === 'failed' ? 'no_answer' : null,
+                outcome_label_kr: status === 'failed' ? '부재중' : null,
               },
             ],
       result:
@@ -166,7 +169,7 @@ export async function mockRequest(
       created_at: new Date().toISOString(),
       student: payload.student,
       academy,
-      questions: payload.question_codes.map((code, i) => ({ question_id: `${id}-${i}`, question_code: code })),
+      questions: payload.question_codes.map((code, i) => ({ question_id: `${id}-${i}`, question_code: code, question_label_kr: mockOptions.question_codes[code] || code })),
       attempts: [],
       result: null,
     };

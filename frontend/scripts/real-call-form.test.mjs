@@ -239,3 +239,39 @@ test('academy reference layout shows simulation and structured preview on deskto
     assert.equal(await preview.isVisible(), false);
   } finally { await page.close(); }
 });
+
+for (const labeled of [true, false]) {
+  test(`inquiry detail and list display ${labeled ? 'server Korean labels' : 'raw codes when labels are unavailable'}`, async () => {
+    const questions = [
+      { question_id: 'q-shuttle', question_code: 'shuttle', ...(labeled ? { question_label_kr: '통학 차량 · 서버 표시명' } : {}) },
+      { question_id: 'q-unknown', question_code: 'future_question', question_label_kr: null },
+      { question_id: 'q-blank', question_code: 'blank_question', question_label_kr: '  ' },
+    ];
+    const attempts = [
+      { call_id: 'call-1', attempt_no: 1, status: 'answered', started_at: '2026-11-12T01:00:00Z', outcome: 'answered', ...(labeled ? { status_label_kr: '통화 중', outcome_label_kr: '연결됨' } : {}) },
+      { call_id: 'call-2', attempt_no: 2, status: 'future_status', status_label_kr: null, started_at: '2026-11-12T02:00:00Z', outcome: 'future_outcome', outcome_label_kr: '  ' },
+      { call_id: 'call-3', attempt_no: 3, status: 'accepted', status_label_kr: '발신 요청 접수', started_at: '2026-11-12T03:00:00Z', outcome: null, outcome_label_kr: null },
+    ];
+    const { page } = await fixture('/detail/fixture-inquiry', { detail: { questions, attempts } });
+    try {
+      const title = labeled ? '통학 차량 · 서버 표시명' : 'shuttle';
+      for (let i = 0; i < 2; i++) {
+        await page.getByRole('heading', { name: title, exact: true }).waitFor();
+        await page.getByRole('heading', { name: 'future_question', exact: true }).waitFor();
+        await page.getByRole('heading', { name: 'blank_question', exact: true }).waitFor();
+        const logs = page.locator('.attempts li');
+        await logs.first().waitFor();
+        assert.equal((await logs.nth(0).locator('p').innerText()).trim(), '#1 · ' + (labeled ? '통화 중' : 'answered'));
+        assert.ok((await logs.nth(0).locator('small').innerText()).endsWith(' · ' + (labeled ? '연결됨' : 'answered')));
+        assert.equal((await logs.nth(1).locator('p').innerText()).trim(), '#2 · future_status');
+        assert.ok((await logs.nth(1).locator('small').innerText()).endsWith(' · future_outcome'));
+        assert.equal((await logs.nth(2).locator('small').innerText()).includes(' · '), false);
+        if (i === 0) await page.reload();
+      }
+      await page.goto(base + '/tasks');
+      await page.locator('.tags').getByText(title, { exact: true }).waitFor();
+      await page.locator('.tags').getByText('future_question', { exact: true }).waitFor();
+      await page.locator('.tags').getByText('blank_question', { exact: true }).waitFor();
+    } finally { await page.close(); }
+  });
+}
