@@ -22,6 +22,7 @@ export interface Academy {
 export interface InquiryQuestion {
   question_id: string;
   question_code: string;
+  question_label_kr?: string | null;
 }
 
 export interface InquiryAnswer extends InquiryQuestion {
@@ -37,8 +38,10 @@ export interface InquiryAttempt {
   call_id: string;
   attempt_no: number;
   status: string;
+  status_label_kr?: string | null;
   started_at: string;
   outcome?: string | null;
+  outcome_label_kr?: string | null;
 }
 
 export interface InquiryResult {
