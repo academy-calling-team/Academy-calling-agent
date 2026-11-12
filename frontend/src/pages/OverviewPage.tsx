@@ -1,15 +1,17 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { retryView } from '../lib/retry-view';
 import { useInquiryList } from '../hooks/useInquiries';
 import { usePolling, shouldPollList } from '../hooks/usePolling';
 import { ErrorPanel, Head, Loading } from '../components/ui';
-import { states, type InquiryListItem } from '../lib/inquiry-model';
+import { states, type InquiryDetail, type InquiryListItem } from '../lib/inquiry-model';
 
 function formatKst(value?: string) {
   return value ? new Date(value).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }) : '';
 }
 
-function Card({ item }: { item: InquiryListItem }) {
+function Card({ item, detail }: { item: InquiryListItem; detail?: InquiryDetail }) {
+  const retry = retryView(detail);
   return (
     <Link className="task" to={`/detail/${encodeURIComponent(item.inquiry_id)}`}>
       <div className="task-top">
@@ -19,7 +21,7 @@ function Card({ item }: { item: InquiryListItem }) {
           <small>상세 페이지에서 내용을 확인하세요.</small>
         </div>
         <div className="status-badges">
-          <span className={`badge ${item.status}`}>{states[item.status] || '상태 확인 필요'}</span>
+          <span className={`badge ${item.status}`}>{retry?.label || states[item.status] || '상태 확인 필요'}</span>
         </div>
       </div>
       <div className="task-bottom">
@@ -105,7 +107,7 @@ export default function OverviewPage() {
         ) : list.state === 'error' && !list.rows.length ? (
           <ErrorPanel message={list.error} onAction={() => void list.reload()} />
         ) : list.rows.length ? (
-          list.rows.slice(0, 5).map((item) => <Card key={item.inquiry_id} item={item} />)
+          list.rows.slice(0, 5).map((item) => <Card key={item.inquiry_id} item={item} detail={list.details[item.inquiry_id]} />)
         ) : (
           <div className="empty">
             <h3>표시할 상담이 없어요</h3>
