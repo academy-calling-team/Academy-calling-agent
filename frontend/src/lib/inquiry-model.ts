@@ -45,6 +45,9 @@ export interface InquiryAttempt {
 }
 
 export interface InquiryResult {
+  outcome?: string | null;
+  callback_requested?: boolean;
+  callback_at?: string | null;
   answers: InquiryAnswer[];
   summary_text?: string;
   notes?: string;

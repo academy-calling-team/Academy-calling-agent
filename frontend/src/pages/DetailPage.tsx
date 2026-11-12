@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
+import { retryView } from '../lib/retry-view';
 import { useInquiryDetail } from '../hooks/useInquiries';
 import { usePolling, shouldPollDetail } from '../hooks/usePolling';
 import { ErrorPanel, Loading, StatusBadge } from '../components/ui';
@@ -72,13 +73,12 @@ export default function DetailPage() {
   }
 
   const t = detail;
+  const retry = retryView(t);
   const phase = t.status === 'queued' ? 0 : ['calling', 'retry_wait'].includes(t.status) ? 1 : 2;
   const descriptions: Record<string, string> = {
     queued: '상담이 접수되었습니다. 운영 시간과 처리 순서에 맞춰 연락을 준비합니다.',
     calling: '선택한 질문을 확인하고 있습니다. 통화가 끝나면 결과를 정리합니다.',
-    retry_wait: t.review_required
-      ? '재연락 시간을 확인하지 못해 검토를 기다리고 있습니다. 자동 재발신은 보류됩니다.'
-      : '학원과 연결되지 않아 다시 연락할 순서를 기다리고 있습니다.',
+    retry_wait: retry?.description || '다시 연락할 순서를 기다리고 있습니다.',
     completed: '상담 처리가 완료되었습니다. 확인된 답변과 미확인 항목을 구분해 확인하세요.',
     failed:
       failureReasons[t.failure_reason || ''] ||
@@ -108,7 +108,7 @@ export default function DetailPage() {
               <div className="academy-icon">⌂</div>
               <h1>{t.academy?.name}</h1>
               <div className="status-badges">
-                <StatusBadge status={t.status} reviewRequired={t.review_required} states={states} />
+                <StatusBadge status={t.status} reviewRequired={t.review_required} states={{ ...states, retry_wait: retry?.label || states.retry_wait }} />
               </div>
             </div>
             <div className="meta">
@@ -117,18 +117,34 @@ export default function DetailPage() {
             </div>
           </div>
           <div className="timeline">
-            {['상담 접수', '전화 상담', '처리 결과'].map((label, i) => (
+            {['상담 접수', retry ? '재연락 대기' : '전화 상담', '처리 결과'].map((label, i) => (
               <span key={label} className={i <= phase ? 'done' : ''}>
                 {i < phase ? '✓' : i === phase ? '●' : '○'} {label}
               </span>
             ))}
           </div>
           <div className="result-body">
-            <div className={`notice ${t.status === 'failed' ? 'failure-notice' : ''}`}>
-              {descriptions[t.status] || '상담 상태를 확인하고 있습니다.'}
-            </div>
+            {retry ? (
+              <section className="retry-panel" aria-label="재연락 안내" data-retry-kind={retry.kind}>
+                <div className="eyebrow">FOLLOW-UP CALL</div>
+                <h2>{retry.label}</h2>
+                <p>{retry.description}</p>
+                {retry.requestedAt ? (
+                  <div className="retry-requested-time"><span>학원 요청 시간 · 한국 시간</span><strong>{formatKst(retry.requestedAt)}</strong><p>학원에서 요청한 시간입니다. 실제 발신은 응대 가능 시간과 처리 상황에 따라 달라질 수 있습니다.</p></div>
+                ) : <p className="retry-time-note">{retry.kind === 'review' ? '확인된 재연락 시간이 정해지면 안내합니다.' : '정확한 다음 발신 시각은 아직 확인되지 않았습니다.'}</p>}
+              </section>
+            ) : (
+              <div className={`notice ${t.status === 'failed' ? 'failure-notice' : ''}`}>
+                {descriptions[t.status] || '상담 상태를 확인하고 있습니다.'}
+              </div>
+            )}
             {t.academy?.is_mock === false ? (
               <p className="notice">실통화 시험 · 최대 1회 · 미응답 시 자동 재발신 없음</p>
+            ) : null}
+            {t.status === 'completed' && t.result?.callback_requested ? (
+              <p className="notice">{t.academy?.is_mock === false
+                ? '재연락 요청은 기록되었지만 실통화 시험은 1회로 종료되어 자동으로 다시 발신하지 않습니다.'
+                : '이전 통화의 재연락 요청이 기록되어 있습니다. 현재 처리 상태는 완료이며 추가 발신 일정이 확정된 것은 아닙니다.'}</p>
             ) : null}
             {t.review_required ? (
               <p className="review-notice">
