@@ -275,3 +275,52 @@ for (const labeled of [true, false]) {
     } finally { await page.close(); }
   });
 }
+
+test('each question separates its AI summary and original quote without fabricating missing text', async () => {
+  const questions = ['shuttle', 'pickup', 'level_fit', 'vacancy', 'level_test', 'class_time'].map((question_code, index) => ({
+    question_id: `comparison-${index}`, question_code, question_label_kr: `비교 질문 ${index + 1}`,
+  }));
+  const summary = '침산동에서 차량을 운행합니다.\n승차 장소는 별도 안내합니다.';
+  const quote = '네, 침산동 쪽은 차가 다녀요.\n<script>alert("test")</script> ' + '긴 원문'.repeat(80);
+  const detail = {
+    questions,
+    result: {
+      summary_text: '전체 상담 요약은 질문별 답변과 별도로 표시합니다.',
+      answers: [
+        { ...questions[0], asked: true, answered: true, yes_no: true, detail: summary, source_text: quote },
+        { ...questions[1], asked: true, answered: true, yes_no: false, detail: '해당 지역 픽업은 제공하지 않습니다.' },
+        { ...questions[2], asked: true, answered: false, reason: 'uncertain', detail: '담당자 확인이 필요합니다.', source_text: '담당 선생님께 확인해야 해요.' },
+        { ...questions[3], asked: true, answered: false, reason: 'refused', source_text: '정원은 안내해 드릴 수 없어요.' },
+        { ...questions[4], asked: false, answered: false, reason: 'not_asked', detail: '  ', source_text: '  ' },
+        { ...questions[5], asked: false, answered: false, reason: 'not_asked', detail: null, source_text: null },
+      ],
+    },
+  };
+  const { page } = await fixture('/detail/fixture-inquiry', { detail });
+  try {
+    await page.getByRole('heading', { name: '비교 질문 1' }).waitFor();
+    const rows = page.locator('.answer');
+    assert.equal(await rows.count(), 6);
+    assert.equal(await rows.nth(0).locator('.answer-summary p').textContent(), summary);
+    assert.equal(await rows.nth(0).locator('.answer-source blockquote').textContent(), quote);
+    assert.equal(await rows.nth(0).locator('script').count(), 0);
+    assert.equal(await rows.nth(1).locator('.answer-summary').count(), 1);
+    assert.equal(await rows.nth(1).locator('.answer-source').count(), 0);
+    assert.equal(await rows.nth(1).getAttribute('data-answer-kind'), 'no');
+    assert.equal(await rows.nth(2).getAttribute('data-answer-kind'), 'unknown');
+    assert.equal(await rows.nth(2).locator('.answer-source blockquote').textContent(), '담당 선생님께 확인해야 해요.');
+    assert.equal(await rows.nth(3).locator('.answer-summary').count(), 0);
+    assert.equal(await rows.nth(3).locator('.answer-source').count(), 1);
+    for (const index of [4, 5]) {
+      assert.equal(await rows.nth(index).locator('.answer-summary, .answer-source').count(), 0);
+      assert.equal(await rows.nth(index).getAttribute('data-answer-kind'), 'unknown');
+    }
+    await page.getByText(detail.result.summary_text, { exact: true }).waitFor();
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+      if (width === 390) await rows.first().scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `/tmp/academy-result-comparison-${width}.png`, fullPage: width !== 390 });
+    }
+  } finally { await page.close(); }
+});

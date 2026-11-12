@@ -224,7 +224,16 @@ fieldset{border:0;padding:0;margin:0;min-width:0}.refresh-row{display:flex;justi
   .academy-preview-preference { grid-template-columns: 45px 1fr auto; padding: 12px; gap: 8px; }
 }
 .academy-page .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
-.answer-source {
-    overflow-wrap: anywhere;
-    white-space: pre-wrap;
+/* 질문별 AI 요약과 학원 발화 원문 */
+.answer-content { flex: 1; min-width: 0; }
+.answer-summary, .answer-source { margin-top: 12px; padding: 12px 14px; border-radius: 9px; }
+.answer-summary { background: #f1f5ff; border: 1px solid #e2eaff; }
+.answer-source { background: #f7f9fc; border: 1px solid var(--line); }
+.answer-summary h4, .answer-source h4 { font-size: 11px; font-weight: 700; margin: 0 0 6px; }
+.answer-summary h4 { color: var(--blue); }
+.answer-source h4 { color: #536482; }
+.answer-summary p, .answer-source blockquote { margin: 0; color: #425675; font-size: 12px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.answer-source blockquote { padding-left: 12px; border-left: 2px solid #ccd7e8; }
+@media(max-width:650px) {
+  .answer-summary, .answer-source { padding: 10px 12px; }
 }
