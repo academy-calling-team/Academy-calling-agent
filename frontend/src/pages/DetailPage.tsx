@@ -26,12 +26,20 @@ function Answers({ detail }: { detail: InquiryDetail }) {
         return (
           <div className={`answer ${view.kind}`} data-answer-kind={view.kind} key={q.question_id}>
             <span className="answer-symbol">{view.kind === 'unknown' ? '?' : view.kind === 'no' ? '−' : '✓'}</span>
-            <div>
+            <div className="answer-content">
               <h3>{q.question_label_kr?.trim() || q.question_code}</h3>
-              {view.detail ? <p>{view.detail}</p> : null}
+              {view.detail.trim() ? (
+                <section className="answer-summary" aria-label="AI 요약">
+                  <h4>AI 요약</h4>
+                  <p>{view.detail}</p>
+                </section>
+              ) : null}
               {view.reason ? <p className="answer-reason">미확인 사유: {view.reason}</p> : null}
               {answer?.source_text?.trim() ? (
-                <p className="answer-source"><b>학원 발화 원문</b> {answer.source_text}</p>
+                <section className="answer-source" aria-label="학원 발화 원문">
+                  <h4>학원 발화 원문</h4>
+                  <blockquote>{answer.source_text}</blockquote>
+                </section>
               ) : null}
             </div>
             <span className={`badge ${view.kind === 'unknown' ? 'review' : view.kind === 'no' ? 'failed' : ''}`}>
