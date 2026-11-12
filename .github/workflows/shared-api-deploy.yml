@@ -54,6 +54,7 @@ jobs:
           PYTHONPATH=backend:backend/tests python -m pytest -q backend/tests
           PYTHONPATH=voice/mock_worker python -m pytest -q voice/mock_worker/test_app.py
           python -m pytest -q voice/call_worker/test_worker.py
+          python -m pytest -q voice/engines/test_service_agent.py
           python -m py_compile infra/deploy-shared-api.py infra/real-call-test.py backend/real_test_setup.py
           python -m pytest -q infra/tests
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4

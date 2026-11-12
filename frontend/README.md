@@ -1,77 +1,48 @@
-# 학원의신 · AI 상담（React 前端）
+# 학원의신 · React 프론트
 
-纯 React + Vite + TypeScript 前端。同源 `/api` 转发到后端，保持原有接口契约与 Cookie 会话。
+React·Vite·TypeScript 화면과 같은 출처의 `/api` 중계를 사용한다. 공동 백엔드는 배포된 서버를 사용하며 프론트는 각 PC에서 실행한다.
 
-## 启动
+## 최초 실행 · Windows PowerShell
 
-```bash
-npm install
-npm run dev
+Node.js 24를 설치하고 이 폴더에서 실행한다.
+
+```powershell
+npm.cmd ci
+if (!(Test-Path .env.local)) { Copy-Item .env.example .env.local }
+npm.cmd run dev
 ```
 
-访问 http://127.0.0.1:5173 。配置见 `.env.local`：
+브라우저: http://127.0.0.1:5173 . 설치 후 `프론트_실행.cmd`를 더블클릭해도 된다. 기존 `.env.local`은 덮어쓰지 않는다.
 
-```
+```dotenv
 ACADEMY_BACKEND_URL=https://team8-api.3.35.222.227.sslip.io/shared
 FRONTEND_ORIGIN=http://127.0.0.1:5173
 ```
 
-改配置后重启 `npm run dev`。
+설정 변경 후 서버를 재시작한다. DB 암호·내부 API 키는 프론트에 필요 없다. `VITE_` 변수에 비밀값을 넣지 않는다. macOS/Linux는 `npm.cmd` 대신 `npm`, 최초 복사는 `test -e .env.local || cp .env.example .env.local`을 사용한다.
 
-| 命令 | 作用 |
-|---|---|
-| `npm run dev` | 开发服务器 + `/api` 代理 |
-| `npm run build` | 类型检查并产出 `dist/` |
-| `npm run preview` | 预览构建结果（含 `/api`） |
-| `npm run lint` | TypeScript 检查 |
+## 검사와 빌드
 
-## 页面
-
-- `/` 首页概览
-- `/new` 新建咨询
-- `/tasks` 咨询列表（筛选 / 搜索 / 分页 / 轮询）
-- `/detail/:id` 咨询详情
-- `/login` `/register` 账号密码登录注册
-
-隔离预览：`http://127.0.0.1:5173/?preview=mock#/tasks`
-
-## 结构
-
-```
-src/          React 页面、hooks、样式、前端逻辑
-server/api.ts 同源 /api BFF（Cookie、Origin 校验、业务转发）
-public/       静态资源
-_legacy/      重构前源码备份（勿引用）
+```powershell
+npm.cmd run typecheck
+npx.cmd playwright install chromium
+npm.cmd test
+npm.cmd run build
 ```
 
-## API 契约（与后端保持不变）
+Edge를 사용하려면 `$env:PLAYWRIGHT_CHANNEL='msedge'`를 지정한 뒤 `npm.cmd test`를 실행한다. 회귀 시험의 업무 API는 가짜 응답이며 실제 전화·공동 DB 쓰기가 없다.
 
-| 前端 | 方法 | 说明 |
-|---|---|---|
-| `/api/auth/register\|login\|logout` | POST | HttpOnly Cookie `hakwon_backend_session` |
-| `/api/account` | GET | 当前用户 |
-| `/api/options` ` /api/academies` | GET | 表单目录 |
-| `/api/inquiries` | GET/POST | 列表 / 提交（`Idempotency-Key`） |
-| `/api/inquiries/:id` | GET | 详情 |
+빌드 미리보기는 `npm.cmd run preview`, 주소는 http://127.0.0.1:4173 이다. 개발 5173·미리보기 4173은 점유 시 다른 포트로 자동 이동하지 않는다. `npm start`는 제공하지 않는다.
 
-后端基址由 `ACADEMY_BACKEND_URL` 指定，浏览器不直连后端。
+## 화면과 데이터
 
-## 2026-10-28 공동서버 자동배포 정상화 보완
+- `/`, `/tasks`, `/new`, `/detail/:id`: 본인 문의·접수·결과·통화 기록.
+- `/login`, `/register`: 학부모/학원 계정 가입과 공통 로그인.
+- `/academy/register`, `/academy/manage`: 학원 계정의 실제 API 등록·조회·수정. 버전 충돌은 새로고침 후 확인한다.
+- `?preview=mock`: 브라우저 내 격리된 미리보기. 모의 계정 비밀번호는 저장·검증하지 않으며 실제 계정과 연결되지 않는다.
 
-10/24 React·Vite 리팩토링을 유지하며 후속 수정했습니다. 원인·해결·검증은 [작업 기록](../prompts/공동서버자동배포%20정상화작업진행.md)을 참고하세요.
+실제 모드의 가입·문의·학원 저장은 연결한 백엔드 DB에 반영된다. 화면 시험은 목업 학원을 사용하고, ClawOps 실제 전화는 지정 계정·허용 번호·서버 설정을 맞춘 별도 시험으로 진행한다.
 
-- Node.js 24에서 `npm ci` 후 `npm run dev`. Windows에서는 이 폴더의 `프론트_실행.cmd`를 더블클릭할 수 있습니다. 기존 Next.js/3000 기준 외부 실행 파일 대신 사용하세요.
-- 개발 주소는 http://127.0.0.1:5173, 빌드 미리보기는 http://127.0.0.1:4173. 포트 점유 시 다른 포트로 자동 이동하지 않고 종료합니다.
-- `.env.local`의 기존 값을 보존하세요. `FRONTEND_ORIGIN`은 실제 실행 주소에 맞춥니다. 비밀값을 `VITE_` 변수로 넣지 마세요.
-- 검사: `npm run typecheck`, `npx playwright install chromium`, `npm test`, `npm run build`. 로컬 Edge 사용 시 PowerShell에서 `$env:PLAYWRIGHT_CHANNEL='msedge'` 설정 후 `npm test`를 실행할 수 있습니다.
-- 브라우저 시험은 모든 `/api/` 응답을 가상 처리하며 실제 전화·공동 DB 쓰기가 없습니다. 회원가입·로그인·실통화 준비 확인과 목록 직접 진입/새로고침을 검사합니다.
-- PR은 일회용 MySQL·Redis의 백엔드/음성 검사와 프론트 검사를 수행합니다. 검사 통과 후 main 병합 시 기존 공동 API·큐·목업 워커가 배포됩니다. 프론트 화면 자체의 AWS 게시와 각 PC 파일 갱신은 별도입니다.
+프론트의 `/api/auth/*`, `/api/account`, `/api/options`, `/api/academies`, `/api/inquiries`, `/api/my-academy`는 기존 HttpOnly 세션·소유 권한을 유지하는 중계 경로다. 자세한 학원 입력 계약은 [ACADEMY_API.md](ACADEMY_API.md)를 참고한다.
 
-## 学院管理（前端模拟版）
-
-打开 `/register?preview=mock` 选择 `학원` 注册，再在同一预览模式登录，进入学院资料登记／管理。
-页顶可切换家长、未登记学院、已登记学院三个场景。资料按模拟用户分开保存在当前浏览器；模拟密码不保存、不验证。
-支持基本资料、可增删的科目／年级／水平偏好、每周电话应答时间、实时摘要、预览保存与发信顺序演示。
-真实学院账号接入所需接口与字段见 [ACADEMY_API.md](./ACADEMY_API.md)。真实家长注册登录仍沿用原接口。
-
-已安装本机 Chrome 时，可用 `PLAYWRIGHT_CHANNEL=chrome npm test` 运行包含学院流程的浏览器测试。
+[팀원 설치·접수/조회 시험·전체 로컬 환경](../docs/collaboration/README.md), [ClawOps 운영 기준](../docs/음성_엔진_운영기준.md).

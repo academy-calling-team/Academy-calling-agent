@@ -108,6 +108,7 @@ fallback_tasks=week6('fallback_tasks',Column('inquiry_id',String(36),ForeignKey(
     Column('message',Text),Column('created_at',DateTime,nullable=False),Column('reviewed_at',DateTime),
     Column('reviewer',String(100)),Column('review_reason',String(1000)),
     Column('dry_run_receipt',JSON))
+# Retained for historical provider records and existing DB compatibility; no active adapter writes these tables.
 provider_calls=week6('provider_calls',Column('call_id',String(36),ForeignKey(calls.c.id),primary_key=True),
     Column('provider',String(24),nullable=False),Column('external_id',String(100),nullable=False),
     Column('created_at',DateTime,nullable=False),
