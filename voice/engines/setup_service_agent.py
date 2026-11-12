@@ -1,6 +1,6 @@
 """실제 음성 워커가 쓸 ClawOps 서비스 에이전트를 만든다.
 
-10/13 지연 비교용 시험 에이전트(setup_test_agents.py, 프롬프트 v3)는 측정 조건을 지키려고 그대로 두고,
+10/13 지연 비교용 시험 에이전트(프롬프트 v3)는 측정 조건을 지키려고 그대로 두고,
 같은 모델·음성 설정에 범용 프롬프트(voice/prompts/service_agent_prompt.txt)를 넣은 에이전트를 따로 만든다.
 학원·학생·질문은 워커가 통화마다 CallContext로 넘긴다.
 
@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import setup_test_agents as t  # noqa: E402  (같은 모델·음성 설정과 요청 함수를 그대로 쓴다)
+import clawops_agents as t  # noqa: E402
 
 NAME = '서비스 GPT-Live luna none marin'
 PROMPT = t.ROOT / 'voice' / 'prompts' / 'service_agent_prompt.txt'

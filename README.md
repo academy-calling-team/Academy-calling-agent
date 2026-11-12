@@ -20,7 +20,7 @@
 
 ```
 backend/       FastAPI 서버, 발신 큐, 결과 저장 (MySQL)
-voice/         음성 워커: 도구 연동(Vapi, ClawOps), 질문 문장 생성, 결과 추출
+voice/         ClawOps 음성 워커, 질문 문장 생성, 결과 추출
 frontend/      문의 입력, 결과 조회 화면 (React)
 docs/          설계 문서, API 명세, 데이터 명세, 테스트 기준
 experiments/   음성인식 비교, 응답 지연 측정 같은 실험 기록과 결과
@@ -32,7 +32,7 @@ prompts/       생성형 AI 사용 기록 (과목 요건)
 
 - `main`에 바로 올리지 않고 브랜치를 만들어 PR로 합침
 - 브랜치 이름은 `파트/작업` 형식: `voice/stt-compare`, `backend/inquiry-api`, `frontend/result-page`, `docs/api-spec`
-- 커밋 메시지는 `[파트] 한 일` 형식: `[voice] Vapi 웹 통화 연동`
+- 커밋 메시지는 `[파트] 한 일` 형식: `[voice] ClawOps 통화 결과 처리`
 - API 키와 비밀번호는 `.env`에만 두고 절대 커밋하지 않음 (`.env.example`에 항목 이름만 적기)
 - 통화 녹음 파일은 올리지 않음. 필요하면 노션이나 드라이브 링크로
 - 생성형 AI를 쓴 작업은 `prompts/`에 기록
@@ -47,4 +47,5 @@ prompts/       생성형 AI 사용 기록 (과목 요건)
 
 - [프론트 실행](frontend/README.md)
 - [공동 주소·개인 시험 환경](docs/collaboration/README.md)
+- [ClawOps 운영 기준과 과거 비교 자료](docs/음성_엔진_운영기준.md)
 - [서버 운영·배포](docs/collaboration/서버_운영과_배포.md)

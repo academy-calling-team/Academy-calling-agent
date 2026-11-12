@@ -8,13 +8,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select,update,func
 from test_backend import env,create,tick,get,payload,send,event
 from test_extensions import queue
-from schema import accounts,sessions,inquiries,calls,results,fallback_tasks,review_holds,review_actions,provider_calls,provider_inbox
+from schema import accounts,sessions,inquiries,calls,results,fallback_tasks,review_holds,review_actions
 from contracts import CorrectionInput,ResultInput
 from contracts6 import Credentials,RegistrationCredentials,CallbackReview,FallbackReview
 from auth6 import AuthStore
 from api import create_app
 from worker import make_result
-from provider6 import VapiBridge
 from service import Service
 from ops6 import Operations
 
@@ -166,56 +165,6 @@ def test_readiness_db_and_redis(env,queue):
         def ping(self):raise ConnectionError('synthetic failure with private text')
     data=Operations(env['s'],Offline()).readiness()
     assert data['ready'] is False and 'private' not in str(data)
-
-def test_vapi_provider_mapping_idempotent_and_conflicting(env):
-    e=env;create(e);cid=tick(e)['reserved'][0];bridge=VapiBridge(e['s']);external='vapi-'+str(uuid4())
-    assert not bridge.bind(cid,external)['duplicate'] and bridge.bind(cid,external)['duplicate']
-    with pytest.raises(HTTPException) as error:bridge.bind(cid,'different-id')
-    assert error.value.status_code==409
-
-def vapi_message(external,kind='status-update',**extra):
-    return dict(message=dict(type=kind,call={'id':external},timestamp='2026-10-05T14:00:00+09:00',**extra))
-
-def test_provider_ended_waits_for_result_and_duplicate_inbox(env):
-    e=env;iid=create(e);cid=tick(e)['reserved'][0];bridge=VapiBridge(e['s']);external='vapi-'+str(uuid4());bridge.bind(cid,external)
-    raw=vapi_message(external,status='ended');stored=bridge.receive(raw)
-    assert bridge.receive(raw)['duplicate']
-    assert bridge.process(stored['inbox_id'])['status']=='processed'
-    assert get(e,iid)['status']=='calling'
-    result=make_result(payload(e,cid))
-    report=vapi_message(external,'end-of-call-report',artifact={'structuredOutputs':{'team8-result-v1':{'result':result}}})
-    stored=bridge.receive(report);assert bridge.process(stored['inbox_id'])['status']=='processed'
-    assert get(e,iid)['status']=='completed'
-    assert bridge.process(stored['inbox_id'])['duplicate']
-
-@pytest.mark.parametrize('bad',['missing','no_disclosure_field','wrong_question','outcome_conflict'])
-def test_provider_missing_or_inconsistent_output_quarantined(env,bad):
-    e=env;iid=create(e);cid=tick(e)['reserved'][0];b=VapiBridge(e['s']);external='vapi-'+str(uuid4());b.bind(cid,external)
-    output=make_result(payload(e,cid))
-    if bad=='no_disclosure_field':output.pop('disclosure_played')
-    if bad=='wrong_question':output['answers'][0]['question_id']='other-inquiry-question'
-    if bad=='outcome_conflict':event(e,cid,'no_answer')
-    artifact={} if bad=='missing' else {'structuredOutputs':{'team8-result-v1':{'result':output}}}
-    raw=vapi_message(external,'end-of-call-report',artifact=artifact)
-    raw['message']['artifact']['transcript']='raw transcript must not be retained by inbox'
-    item=b.receive(raw);processed=b.process(item['inbox_id'])
-    assert processed['status']=='quarantined'
-    with e['engine'].connect() as c:
-        normalized=c.execute(select(provider_inbox.c.normalized).where(provider_inbox.c.id==item['inbox_id'])).scalar_one()
-    assert 'raw transcript must not' not in str(normalized)
-    assert get(e,iid)['status']!='completed'
-
-def test_provider_unknown_call_never_creates_new_mapping(env):
-    bridge=VapiBridge(env['s'])
-    with pytest.raises(HTTPException) as error:bridge.receive(vapi_message('unmapped',status='ringing'))
-    assert error.value.status_code==404
-
-def test_provider_inbox_survives_processor_restart(env):
-    e=env;iid=create(e);cid=tick(e)['reserved'][0];b=VapiBridge(e['s']);external='vapi-'+str(uuid4());b.bind(cid,external)
-    report=vapi_message(external,'end-of-call-report',artifact={'structuredOutputs':{'team8-result-v1':{'result':make_result(payload(e,cid))}}})
-    item=b.receive(report);e['engine'].dispose()
-    assert VapiBridge(e['s']).process(item['inbox_id'])['status']=='processed'
-    assert get(e,iid)['status']=='completed'
 
 def test_http_worker_lost_202_looks_up_persisted_acceptance():
     import httpx
