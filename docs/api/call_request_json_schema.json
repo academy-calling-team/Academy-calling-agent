@@ -1,0 +1,292 @@
+{
+  "$defs": {
+    "Policy": {
+      "additionalProperties": false,
+      "properties": {
+        "max_reask": {
+          "minimum": 0,
+          "title": "Max Reask",
+          "type": "integer"
+        },
+        "max_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Max Seconds",
+          "type": "integer"
+        },
+        "is_retry": {
+          "title": "Is Retry",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "max_reask",
+        "max_seconds",
+        "is_retry"
+      ],
+      "title": "Policy",
+      "type": "object"
+    },
+    "Question": {
+      "additionalProperties": false,
+      "properties": {
+        "question_id": {
+          "maxLength": 36,
+          "minLength": 1,
+          "title": "Question Id",
+          "type": "string"
+        },
+        "question_code": {
+          "enum": [
+            "shuttle",
+            "pickup",
+            "level_fit",
+            "vacancy",
+            "level_test",
+            "class_time"
+          ],
+          "title": "Question Code",
+          "type": "string"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QuestionLocation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "question_id",
+        "question_code"
+      ],
+      "title": "Question",
+      "type": "object"
+    },
+    "QuestionLocation": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "집 근처",
+            "학교",
+            "다른 학원"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ],
+      "title": "QuestionLocation",
+      "type": "object"
+    },
+    "Student": {
+      "additionalProperties": false,
+      "properties": {
+        "grade": {
+          "title": "Grade",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "level": {
+          "title": "Level",
+          "type": "string"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Region"
+        }
+      },
+      "required": [
+        "grade",
+        "subject",
+        "level"
+      ],
+      "title": "Student",
+      "type": "object"
+    },
+    "TimeContext": {
+      "additionalProperties": false,
+      "properties": {
+        "inquiry_created_at": {
+          "title": "Inquiry Created At",
+          "type": "string"
+        },
+        "dispatch_requested_at": {
+          "title": "Dispatch Requested At",
+          "type": "string"
+        },
+        "timezone": {
+          "const": "Asia/Seoul",
+          "title": "Timezone",
+          "type": "string"
+        }
+      },
+      "required": [
+        "inquiry_created_at",
+        "dispatch_requested_at",
+        "timezone"
+      ],
+      "title": "TimeContext",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "백엔드가 POST /internal/calls로 보내는 발신 요청",
+  "examples": [
+    {
+      "academy_name": "OO수학학원",
+      "attempt_no": 2,
+      "call_id": "c_02",
+      "disclosure_text": "개발용 예시: AI가 진행하는 녹음 통화입니다.",
+      "fixed_checks": [
+        "consult_accepted",
+        "available_times"
+      ],
+      "inquiry_id": "q_8812",
+      "is_mock": true,
+      "policy": {
+        "is_retry": true,
+        "max_reask": 1,
+        "max_seconds": 180
+      },
+      "questions": [
+        {
+          "question_code": "shuttle",
+          "question_id": "q1"
+        },
+        {
+          "question_code": "level_fit",
+          "question_id": "q2"
+        },
+        {
+          "question_code": "vacancy",
+          "question_id": "q3"
+        }
+      ],
+      "student": {
+        "grade": "M2",
+        "level": "MID",
+        "region": "대구 북구 침산동",
+        "subject": "MATH"
+      },
+      "to": "0531234567"
+    }
+  ],
+  "properties": {
+    "call_id": {
+      "maxLength": 36,
+      "minLength": 1,
+      "title": "Call Id",
+      "type": "string"
+    },
+    "inquiry_id": {
+      "maxLength": 36,
+      "minLength": 1,
+      "title": "Inquiry Id",
+      "type": "string"
+    },
+    "attempt_no": {
+      "minimum": 1,
+      "title": "Attempt No",
+      "type": "integer"
+    },
+    "to": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "To"
+    },
+    "academy_name": {
+      "minLength": 1,
+      "title": "Academy Name",
+      "type": "string"
+    },
+    "student": {
+      "$ref": "#/$defs/Student"
+    },
+    "questions": {
+      "items": {
+        "$ref": "#/$defs/Question"
+      },
+      "maxItems": 6,
+      "minItems": 1,
+      "title": "Questions",
+      "type": "array"
+    },
+    "fixed_checks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Fixed Checks",
+      "type": "array"
+    },
+    "disclosure_text": {
+      "minLength": 1,
+      "title": "Disclosure Text",
+      "type": "string"
+    },
+    "policy": {
+      "$ref": "#/$defs/Policy"
+    },
+    "is_mock": {
+      "title": "Is Mock",
+      "type": "boolean"
+    },
+    "time_context": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TimeContext"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "call_id",
+    "inquiry_id",
+    "attempt_no",
+    "to",
+    "academy_name",
+    "student",
+    "questions",
+    "fixed_checks",
+    "disclosure_text",
+    "policy",
+    "is_mock"
+  ],
+  "title": "CallRequest",
+  "type": "object"
+}

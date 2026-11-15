@@ -559,6 +559,67 @@ def no_wait_judge():
     return LLMJudge("gemini-test", "k", sleep=lambda sec: None)
 
 
+def test_location_directions_and_call_day_reach_the_instruction():
+    request = real_request(student={'grade': 'M2', 'subject': 'MATH', 'level': 'MID', 'region': None}, questions=[
+        {'question_id': 'q1', 'question_code': 'shuttle', 'location': {'kind': '학교', 'name': '침산초등학교'}},
+        {'question_id': 'q2', 'question_code': 'pickup', 'location': {'kind': '집 근처', 'name': '침산네거리'}},
+    ])
+    request['time_context'] = {'inquiry_created_at': '2026-11-14T01:00:00Z',
+                               'dispatch_requested_at': '2026-11-14T14:59:00Z', 'timezone': 'Asia/Seoul'}
+    instruction, variables = build_instruction(request, reference_at='2026-11-14T15:01:00+00:00')
+    assert '2026-11-15T00:01:00+09:00' in instruction
+    assert '침산초등학교' in instruction and '침산네거리' in instruction
+    assert '등원 차량으로' in instruction and '하원 차량으로 학원에서' in instruction
+    assert 'None 거주' not in instruction and '거주 지역 미입력' in instruction
+    assert variables['timezone'] == 'Asia/Seoul'
+
+
+def test_location_and_time_context_reach_judgement_without_leaking_to_answers(monkeypatch):
+    seen = []
+    def model(codes, turns, *args, **kwargs):
+        seen.append(kwargs)
+        return {'result': LLM_1019}
+    monkeypatch.setattr(llm_judge, 'call_llm', model)
+    questions = copy.deepcopy(Q1019)
+    questions[0]['location'] = {'kind': '학교', 'name': '침산초등학교'}
+    request = real_request(questions=questions)
+    reference = '2026-11-15T03:00:00+00:00'
+    result = build_result('context-result', request, {'status': 'completed'}, None, REAL_1019,
+                          no_wait_judge(), reference_at=reference)
+    ResultInput.model_validate(result)
+    assert seen[0]['questions'][0]['location']['name'] == '침산초등학교'
+    assert seen[0]['time_context']['call_started_at'] == reference
+    assert '2026-11-15 12:00' in result['notes']
+    message = llm_judge.user_message(
+        ['shuttle'], to_turns(REAL_1019), questions=questions, time_context=seen[0]['time_context'])
+    assert '침산초등학교' in message and reference in message
+    assert all('location' not in row for row in result['answers'])
+
+
+def test_saved_call_reference_survives_restart_and_receipt_retry(parts):
+    clawops = FakeClawOps(['completed'])
+    client, backend, store, _, provider_calls = parts(clawops)
+    request = real_request()
+    assert client.post('/internal/calls', json=request, headers=HEADERS).status_code == 202
+    started = provider_calls.started_at(request['call_id'])
+    assert started and ProviderCalls(store.path).started_at(request['call_id']) == started
+    assert client.post('/internal/calls', json=request, headers=HEADERS).json()['duplicate'] is True
+    assert len(clawops.created) == 1
+
+
+def test_real_worker_accepts_locations_and_optional_region_without_result_extras(parts):
+    clawops = FakeClawOps(['completed'])
+    client, backend, *_ = parts(clawops)
+    questions = copy.deepcopy(Q1019)
+    questions[0]['location'] = {'kind': '학교', 'name': '침산초등학교'}
+    questions[1]['location'] = {'kind': '집 근처', 'name': '침산네거리'}
+    request = real_request(questions=questions, student={'grade': 'M2', 'subject': 'MATH', 'level': 'MID'})
+    assert client.post('/internal/calls', json=request, headers=HEADERS).status_code == 202
+    ResultInput.model_validate(backend.result())
+    assert all('location' not in row for row in backend.result()['answers'])
+    assert '날짜 해석 기준:' in backend.result()['notes']
+
+
 def test_llm_failure_is_retried_then_succeeds(monkeypatch, caplog):
     calls = []
 

@@ -56,7 +56,7 @@ def make_result(payload,outcome='answered',unanswered=None,negative=None):
     ans=[]
     for q in payload['questions']:
         ok=outcome=='answered' and q['question_code'] not in unanswered
-        ans.append(dict(**q,asked=outcome=='answered',answered=ok,
+        ans.append(dict(question_id=q['question_id'],question_code=q['question_code'],asked=outcome=='answered',answered=ok,
             yes_no=(q['question_code'] not in negative) if ok and q['question_code']!='class_time' else None,
             reason=None if ok else ('unknown' if outcome=='answered' else 'not_asked'),
             detail=('화목 19:00' if q['question_code']=='class_time' else '목업 정답') if ok else '미확인'))

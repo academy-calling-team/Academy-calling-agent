@@ -344,6 +344,7 @@ export async function handleApi(request: Request): Promise<Response | null> {
             academy_id: body.academy_id,
             student: body.student,
             question_codes: body.question_codes,
+            ...(body.locations !== undefined ? { locations: body.locations } : {}),
           },
           key,
         );

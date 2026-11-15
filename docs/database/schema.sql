@@ -162,6 +162,8 @@ CREATE TABLE w5_questions (
 	inquiry_id VARCHAR(36) NOT NULL,
 	code VARCHAR(30) NOT NULL,
 	position INTEGER NOT NULL,
+	location_kind VARCHAR(20),
+	location_name VARCHAR(100),
 	PRIMARY KEY (id),
 	CONSTRAINT w5_uq_question_code UNIQUE (inquiry_id, code),
 	CONSTRAINT w5_uq_question_position UNIQUE (inquiry_id, position),

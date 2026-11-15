@@ -21,6 +21,30 @@ HEADERS = {"X-Internal-Key": KEY}
 ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,80}")
 
 
+def test_new_optional_metadata_preserves_legacy_receipt_payload():
+    request = CallRequest.model_validate(SAMPLE_REQUEST)
+    assert request.payload() == SAMPLE_REQUEST
+    extended = make_request()
+    extended['student']['region'] = None
+    extended['questions'][0]['location'] = {'kind': '학교', 'name': '침산초등학교'}
+    extended['time_context'] = {'inquiry_created_at': '2026-11-14T04:00:00+00:00',
+                                'dispatch_requested_at': '2026-11-15T05:00:00+00:00', 'timezone': 'Asia/Seoul'}
+    parsed = CallRequest.model_validate(extended).payload()
+    assert parsed['questions'][0]['location']['name'] == '침산초등학교'
+    for mode in ('answered', 'partial', 'no_answer'):
+        result = build_result(parsed, mode)
+        assert all('location' not in row for row in result['answers'])
+
+
+@pytest.mark.parametrize('patch', [
+    {'questions': [{'question_id': 'q1', 'question_code': 'vacancy', 'location': {'kind': '학교', 'name': '학교'}}]},
+    {'time_context': {'inquiry_created_at': '2026-11-14T04:00:00', 'dispatch_requested_at': '2026-11-15T05:00:00Z', 'timezone': 'Asia/Seoul'}},
+])
+def test_invalid_location_direction_and_naive_context_are_rejected(patch):
+    with pytest.raises(ValidationError):
+        CallRequest.model_validate(make_request(**patch))
+
+
 def make_request(**changes) -> dict:
     request = copy.deepcopy(SAMPLE_REQUEST)
     request.update(changes)

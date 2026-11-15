@@ -77,7 +77,8 @@ def build_result(request: dict, scenario: Scenario) -> dict:
             answers.append(_missing(question, asked=True, reason="unknown", detail="원장님 확인 필요"))
         else:
             yes_no, detail = ANSWERS[question["question_code"]]
-            answers.append({**question, "asked": True, "answered": True, "yes_no": yes_no, "reason": None, "detail": detail})
+            answers.append({"question_id": question['question_id'], "question_code": question['question_code'],
+                            "asked": True, "answered": True, "yes_no": yes_no, "reason": None, "detail": detail})
     unresolved = [answer["question_id"] for answer in answers if not answer["answered"]]
     confirmed = len(answers) - len(unresolved)
     return {
@@ -102,4 +103,5 @@ def build_result(request: dict, scenario: Scenario) -> dict:
 
 
 def _missing(question: dict, *, asked: bool, reason: str, detail: str) -> dict:
-    return {**question, "asked": asked, "answered": False, "yes_no": None, "reason": reason, "detail": detail}
+    return {"question_id": question['question_id'], "question_code": question['question_code'],
+            "asked": asked, "answered": False, "yes_no": None, "reason": reason, "detail": detail}

@@ -6,8 +6,15 @@ export interface Student {
   grade: string;
   subject: string;
   level: string;
-  region: string;
+  region?: string | null;
 }
+
+export type LocationCode = 'shuttle' | 'pickup';
+export type LocationKind = '집 근처' | '학교' | '다른 학원';
+export interface QuestionLocation { kind: LocationKind; name: string }
+export type QuestionLocations = Partial<Record<LocationCode, QuestionLocation>>;
+export const locationLabels: Record<LocationCode, string> = { shuttle: '등원 출발지', pickup: '하원 목적지' };
+export const locationKinds: LocationKind[] = ['집 근처', '학교', '다른 학원'];
 
 export interface Academy {
   academy_id: string;
@@ -23,6 +30,7 @@ export interface InquiryQuestion {
   question_id: string;
   question_code: string;
   question_label_kr?: string | null;
+  location?: QuestionLocation;
 }
 
 export interface InquiryAnswer extends InquiryQuestion {
@@ -42,6 +50,7 @@ export interface InquiryAttempt {
   started_at: string;
   outcome?: string | null;
   outcome_label_kr?: string | null;
+  time_context?: { inquiry_created_at: string; dispatch_requested_at: string; timezone: 'Asia/Seoul' };
 }
 
 export interface InquiryResult {
@@ -95,6 +104,7 @@ export interface FormValues {
   level: string;
   region: string;
   question_codes: string[];
+  locations?: QuestionLocations;
   real_test_confirm?: boolean;
 }
 
@@ -169,6 +179,13 @@ export function answerView(answer?: InquiryAnswer | null): AnswerView {
 }
 
 export function inquiryPayload(form: FormValues) {
+  const locations: QuestionLocations = {};
+  for (const code of ['shuttle', 'pickup'] as const) {
+    const location = form.locations?.[code];
+    if (form.question_codes.includes(code) && location) {
+      locations[code] = { kind: location.kind, name: location.name.trim() };
+    }
+  }
   return {
     academy_id: form.academy_id,
     student: {
@@ -178,6 +195,7 @@ export function inquiryPayload(form: FormValues) {
       region: form.region,
     },
     question_codes: [...form.question_codes],
+    ...(Object.keys(locations).length ? { locations } : {}),
   };
 }
 

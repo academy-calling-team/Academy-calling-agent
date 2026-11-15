@@ -9,6 +9,11 @@ import {
   fieldLabel,
   inquiryPayload,
   submissionKey,
+  locationLabels,
+  locationKinds,
+  type LocationCode,
+  type LocationKind,
+  type QuestionLocations,
   type FormValues,
   type SubmissionKey,
 } from '../lib/inquiry-model';
@@ -44,6 +49,7 @@ export default function NewInquiryPage() {
         academy_id: string;
         student: Omit<FormValues, 'academy_id' | 'question_codes' | 'real_test_confirm'>;
         question_codes: string[];
+        locations?: QuestionLocations;
       };
       setPending({ fingerprint: stored.fingerprint, key: stored.key });
       setFormValues({
@@ -51,8 +57,9 @@ export default function NewInquiryPage() {
         grade: payload.student.grade,
         subject: payload.student.subject,
         level: payload.student.level,
-        region: payload.student.region,
+        region: payload.student.region || '',
         question_codes: payload.question_codes,
+        locations: payload.locations,
         real_test_confirm: false,
       });
     } catch {
@@ -88,6 +95,10 @@ export default function NewInquiryPage() {
     }
     const options = catalog.options;
     const payload = inquiryPayload(formValues);
+    if (Object.values(payload.locations || {}).some((location) => !location.name)) {
+      setError('선택한 위치의 장소명을 입력해 주세요.');
+      return;
+    }
     if (
       !options ||
       !catalog.academies.some((a) => a.academy_id === payload.academy_id) ||
@@ -134,12 +145,22 @@ export default function NewInquiryPage() {
   }
 
   function toggleQuestion(code: string) {
-    setFormValues((prev) => ({
-      ...prev,
-      question_codes: prev.question_codes.includes(code)
-        ? prev.question_codes.filter((c) => c !== code)
-        : [...prev.question_codes, code],
-    }));
+    setFormValues((prev) => {
+      const selected = prev.question_codes.includes(code);
+      const locations = { ...prev.locations };
+      if (selected && (code === 'shuttle' || code === 'pickup')) delete locations[code];
+      return { ...prev, locations, question_codes: selected
+        ? prev.question_codes.filter((c) => c !== code) : [...prev.question_codes, code] };
+    });
+  }
+
+  function updateLocation(code: LocationCode, kind: LocationKind | '', name?: string) {
+    setFormValues((prev) => {
+      const locations = { ...prev.locations };
+      if (!kind) delete locations[code];
+      else locations[code] = { kind, name: name ?? locations[code]?.name ?? '' };
+      return { ...prev, locations };
+    });
   }
 
   if (!ready || catalog.state === 'loading' || catalog.state === 'idle') {
@@ -265,6 +286,23 @@ export default function NewInquiryPage() {
                   </label>
                 ))}
               </div>
+              {(['shuttle', 'pickup'] as const).filter((code) => formValues.question_codes.includes(code)).map((code) => {
+                const location = formValues.locations?.[code];
+                return <fieldset className="question-location" key={code}>
+                  <legend>{locationLabels[code]} · 선택</legend>
+                  <p>{code === 'shuttle' ? '학생이 출발해 학원으로 오는 위치입니다.' : '수업 후 학원에서 학생을 데려다줄 위치입니다.'}</p>
+                  <div className="fields">
+                    <label className="field">장소 종류<select name={`location_${code}_kind`} value={location?.kind || ''}
+                      onChange={(e) => updateLocation(code, e.target.value as LocationKind | '')}>
+                      <option value="">위치 미입력</option>{locationKinds.map((kind) => <option key={kind}>{kind}</option>)}
+                    </select></label>
+                    <label className="field">장소명<input type="text" name={`location_${code}_name`} maxLength={100}
+                      required={Boolean(location)} disabled={!location} value={location?.name || ''}
+                      placeholder={code === 'shuttle' ? '예: 침산초등학교' : '예: 침산네거리'}
+                      onChange={(e) => updateLocation(code, location!.kind, e.target.value)} /></label>
+                  </div>
+                </fieldset>;
+              })}
             </section>
           </fieldset>
         </div>

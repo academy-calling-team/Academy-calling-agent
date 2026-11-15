@@ -181,6 +181,9 @@ class Service:
         return row.id
     def create(self, body, token, key):
         payload=body.model_dump(mode='json')
+        # Optional location metadata must not change hashes of pre-location inquiries.
+        if not payload.get('locations'):
+            payload.pop('locations', None)
         with self.engine.begin() as c:
             self.lock(c)
             owner=self.owner(c,token)
@@ -231,7 +234,9 @@ class Service:
                 history.append(dict(call_id=call['id'],attempt_no=call['attempt_no'],status=call['status'],
                     status_label_kr=CALL_STATUS_LABELS_KR.get(call['status'],call['status']),
                     started_at=call['created_at'],outcome=call['outcome'],
-                    outcome_label_kr=CALL_OUTCOME_LABELS_KR.get(call['outcome'],call['outcome'])))
+                    outcome_label_kr=CALL_OUTCOME_LABELS_KR.get(call['outcome'],call['outcome']),
+                    **({'time_context': call['dispatch_payload']['time_context']}
+                       if call['dispatch_payload'].get('time_context') else {})))
                 res=c.execute(select(results).where(results.c.call_id==call['id'],results.c.applied==True)).mappings().first()
                 if res:
                     review=c.execute(select(corrections).where(corrections.c.call_id==call['id'])
@@ -241,7 +246,7 @@ class Service:
                     final={k:v for k,v in effective.items() if k not in
                            ('transcript','recording_url','result_id','rejection_reason')}
                     final['review_revision']=review['revision'] if review else 0
-            return aware(dict(inquiry_id=iid,inquirer_id=owner,status=row['status'],student=row['student'],
+            return aware(dict(inquiry_id=iid,inquirer_id=owner,status=row['status'],created_at=row['created_at'],student=row['student'],
                 academy={'academy_id':ac['id'],'name':ac['name'],'is_mock':ac['is_mock'],
                          **self.real_test.public(ac)},
                 questions=[dict(
@@ -425,6 +430,8 @@ class Service:
                 qs=c.execute(select(questions).where(questions.c.inquiry_id==row['id']).order_by(questions.c.position)).mappings()
                 payload=dict(call_id=cid,inquiry_id=row['id'],attempt_no=attempt,to=ac['phone'],
                     academy_name=ac['name'],student=row['student'],
+                    time_context=dict(inquiry_created_at=aware(row['created_at']),
+                                      dispatch_requested_at=aware(now),timezone='Asia/Seoul'),
                     questions=[dict(
                         question_id=q['id'],
                         question_code=q['code'],

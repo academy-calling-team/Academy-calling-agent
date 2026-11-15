@@ -13,8 +13,8 @@ from dataclasses import dataclass
 
 # 질문 코드별: (AI에게 줄 질문 문장, 전사에서 AI 질문을 찾을 키워드)
 QUESTIONS: dict[str, tuple[str, tuple[str, ...]]] = {
-    "shuttle": ("통학 차량이 있는지, 있다면 운행 지역과 시간", ("차량", "셔틀", "통학")),
-    "pickup": ("수업 후 픽업을 해 주는지", ("픽업",)),
+    "shuttle": ("통학 차량이 있는지, 있다면 운행 지역과 시간", ("차량", "셔틀", "통학", "등원")),
+    "pickup": ("수업 후 픽업을 해 주는지", ("픽업", "하원")),
     "level_fit": ("학생 학년·과목·수준에 맞는 반이 있는지", ("수준", "맞는 반")),
     "vacancy": ("지금 등록할 자리가 남아 있는지", ("자리", "등록할 자", "남은 자")),
     "level_test": ("레벨 테스트가 있는지, 있다면 언제 보는지", ("레벨", "테스트")),
@@ -246,13 +246,13 @@ def build_answers(questions: list[dict], turns: list[Turn]) -> list[dict]:
     answers = []
     for q, (code, keywords, others, i, blocks) in zip(questions, _segments(questions, turns)):
         if i is None:
-            answers.append({**q, "asked": False, "answered": False, "yes_no": None,
+            answers.append({"question_id": q['question_id'], "question_code": q['question_code'], "asked": False, "answered": False, "yes_no": None,
                             "reason": "not_asked", "detail": "통화에서 이 질문을 확인하지 못함"})
             continue
         answered, yes_no, reason, said = decide(code, blocks, keywords, others)
         if code == "class_time" and answered:
             yes_no = None
-        answers.append({**q, "asked": True, "answered": answered,
+        answers.append({"question_id": q['question_id'], "question_code": q['question_code'], "asked": True, "answered": answered,
                         "yes_no": yes_no if answered else None,
                         "reason": None if answered else (reason or "unknown"),
                         "detail": said[:500] or "대답을 알아듣지 못함"})
