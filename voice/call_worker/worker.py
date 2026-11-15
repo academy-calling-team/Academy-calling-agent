@@ -60,7 +60,7 @@ def create_app(internal_key: str, store: ReceiptStore, sender: Sender | None = N
             if normalize(request.to or "") not in allowed_to:
                 raise HTTPException(422, "Destination is not on the real-call allow list")
             scenario = REAL
-        state = store.accept(request.call_id, request.model_dump(mode="json"), scenario)
+        state = store.accept(request.call_id, request.payload(), scenario)
         if state == "conflict":
             raise HTTPException(409, "Call ID reused with different payload")
         if state == "new":

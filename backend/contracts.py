@@ -15,29 +15,49 @@ CALL_OUTCOME_LABELS_KR = {
 }
 REGIONS = ['대구 북구 침산동', '대구 북구 태전동', '대구 수성구 범어동']
 QuestionCode = Literal['shuttle','pickup','level_fit','vacancy','level_test','class_time']
+LocationQuestionCode = Literal['shuttle', 'pickup']
+LocationKind = Literal['집 근처', '학교', '다른 학원']
 Outcome = Literal['answered','no_answer','busy','rejected','machine','invalid_number']
+
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
+
+class QuestionLocation(StrictModel):
+    kind: LocationKind
+    name: str = Field(min_length=1, max_length=100)
+    @field_validator('name')
+    @classmethod
+    def nonblank_name(cls, value):
+        if not value.strip():
+            raise ValueError('Location name must not be blank')
+        return value.strip()
+
 class Student(StrictModel):
     grade: str = Field(pattern=r'^(E[1-6]|M[1-3]|H[1-3])$')
     subject: Literal['KOR','ENG','MATH','SCI','SOC']
     level: Literal['HIGH','MID','LOW']
-    region: str
+    region: str | None = None
     @field_validator('region')
     @classmethod
     def region_selected(cls, value):
-        if value not in REGIONS:
+        if value is not None and value not in REGIONS:
             raise ValueError('Select a mock region from /api/options')
         return value
+
 class InquiryInput(StrictModel):
     inquirer_id: str = Field(min_length=1, max_length=36)
     academy_id: str = Field(min_length=1, max_length=36)
     student: Student
     question_codes: list[QuestionCode] = Field(min_length=1, max_length=6)
+    locations: dict[LocationQuestionCode, QuestionLocation] | None = None
     @model_validator(mode='after')
-    def unique(self):
+    def unique_and_valid_locations(self):
         if len(set(self.question_codes)) != len(self.question_codes):
             raise ValueError('Duplicate question codes')
+        if self.locations:
+            unknown_keys = set(self.locations.keys()) - set(self.question_codes)
+            if unknown_keys:
+                raise ValueError('Location provided for unrequested question code')
         return self
 
 class EventInput(StrictModel):

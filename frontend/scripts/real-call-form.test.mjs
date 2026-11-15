@@ -163,6 +163,32 @@ test('unprepared real academy cannot submit', async () => {
   } finally { await page.close(); }
 });
 
+test('question locations survive pending restore, submit and detail display', async () => {
+  const detail = { questions: [{ question_id: 'q-location', question_code: 'shuttle', question_label_kr: '통학 차량',
+    location: { kind: '학교', name: '침산초등학교' } }] };
+  const { page, submissions } = await fixture('/new', { detail });
+  try {
+    await fillInquiry(page);
+    await page.locator('[name=location_shuttle_kind]').selectOption('학교');
+    await page.locator('[name=location_shuttle_name]').fill('침산초등학교');
+    const payload = { academy_id: 'fixture-academy', student, question_codes: ['shuttle'],
+      locations: { shuttle: { kind: '학교', name: '침산초등학교' } } };
+    await page.evaluate((payload) => sessionStorage.setItem('hakwon:pending-inquiry', JSON.stringify({
+      owner: 'fixture', mode: 'backend', fingerprint: JSON.stringify(payload), key: 'location-pending',
+    })), payload);
+    await page.reload();
+    await page.locator('[name=location_shuttle_name]').waitFor();
+    assert.equal(await page.locator('[name=location_shuttle_name]').inputValue(), '침산초등학교');
+    await page.locator('[name=real_test_confirm]').check();
+    await page.getByRole('button', { name: '상담 접수 ↗', exact: true }).click();
+    await page.waitForURL('**/detail/fixture-inquiry');
+    await page.getByText('등원 출발지: 학교 · 침산초등학교', { exact: true }).waitFor();
+    assert.deepEqual(submissions.at(-1).locations, payload.locations);
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  } finally { await page.close(); }
+});
+
 test('academy preview registers, saves, reloads, validates overlap and isolates accounts without API traffic', async () => {
   const page = await browser.newPage();
   const requests = [];

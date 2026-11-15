@@ -123,7 +123,7 @@ export default function TasksPage() {
                     <h3>{academy?.name || item.inquiry_id}</h3>
                     <small>
                       {student
-                        ? `${student.region} · ${student.grade} · ${student.subject}`
+                        ? `${student.region || '지역 미입력'} · ${student.grade} · ${student.subject}`
                         : '상세 페이지에서 내용을 확인하세요.'}
                     </small>
                   </div>

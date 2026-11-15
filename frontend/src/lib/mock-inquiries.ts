@@ -1,4 +1,4 @@
-import type { Academy, CatalogOptions, InquiryDetail, InquiryListItem, InquiryStatus } from './inquiry-model';
+import type { Academy, CatalogOptions, InquiryDetail, InquiryListItem, InquiryStatus, QuestionLocations, LocationCode } from './inquiry-model';
 
 const namespace = 'hakwon:isolated-mock:v1';
 
@@ -178,6 +178,7 @@ export async function mockRequest(
       academy_id: string;
       student: InquiryDetail['student'];
       question_codes: string[];
+      locations?: QuestionLocations;
     };
     const key = init.headers?.['Idempotency-Key'] || '';
     if (data.keys[key]) {
@@ -191,7 +192,9 @@ export async function mockRequest(
       created_at: new Date().toISOString(),
       student: payload.student,
       academy,
-      questions: payload.question_codes.map((code, i) => ({ question_id: `${id}-${i}`, question_code: code, question_label_kr: mockOptions.question_codes[code] || code })),
+      questions: payload.question_codes.map((code, i) => ({ question_id: `${id}-${i}`, question_code: code,
+        question_label_kr: mockOptions.question_codes[code] || code,
+        ...(payload.locations?.[code as LocationCode] ? { location: payload.locations[code as LocationCode] } : {}) })),
       attempts: [],
       result: null,
     };

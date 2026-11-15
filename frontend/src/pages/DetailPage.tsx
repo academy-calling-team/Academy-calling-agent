@@ -8,6 +8,7 @@ import {
   answerView,
   failureReasons,
   fieldLabel,
+  locationLabels,
   states,
   type InquiryDetail,
 } from '../lib/inquiry-model';
@@ -29,6 +30,7 @@ function Answers({ detail }: { detail: InquiryDetail }) {
             <span className="answer-symbol">{view.kind === 'unknown' ? '?' : view.kind === 'no' ? '−' : '✓'}</span>
             <div className="answer-content">
               <h3>{q.question_label_kr?.trim() || q.question_code}</h3>
+              {q.location ? <p className="question-location-summary">{q.question_code === 'shuttle' ? locationLabels.shuttle : locationLabels.pickup}: {q.location.kind} · {q.location.name}</p> : null}
               {view.detail.trim() ? (
                 <section className="answer-summary" aria-label="AI 요약">
                   <h4>AI 요약</h4>
@@ -113,8 +115,9 @@ export default function DetailPage() {
             </div>
             <div className="meta">
               {fieldLabel('grade', t.student.grade)} · {fieldLabel('subject', t.student.subject)} ·{' '}
-              {fieldLabel('level', t.student.level)} · {t.student.region}
+              {fieldLabel('level', t.student.level)} · {t.student.region || '지역 미입력'}
             </div>
+            {t.created_at ? <p className="muted">문의 접수 · {formatKst(t.created_at)}</p> : null}
           </div>
           <div className="timeline">
             {['상담 접수', retry ? '재연락 대기' : '전화 상담', '처리 결과'].map((label, i) => (

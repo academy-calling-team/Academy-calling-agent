@@ -138,6 +138,8 @@
 | inquiry_id | VARCHAR(36) | 예 | FK w5_inquiries.id |  |
 | code | VARCHAR(30) | 예 |   |  |
 | position | INTEGER | 예 |   |  |
+| location_kind | VARCHAR(20) | 아니오 |   |  |
+| location_name | VARCHAR(100) | 아니오 |   |  |
 - w5_uq_question_code: inquiry_id, code
 - w5_uq_question_position: inquiry_id, position
 

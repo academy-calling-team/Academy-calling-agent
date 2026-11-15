@@ -38,12 +38,45 @@ class Student(Strict):
     grade: str
     subject: str
     level: str
-    region: str
+    region: str | None = None
+
+
+class QuestionLocation(Strict):
+    kind: Literal['집 근처', '학교', '다른 학원']
+    name: str = Field(min_length=1, max_length=100)
+
+    @model_validator(mode='after')
+    def nonblank_name(self):
+        if not self.name.strip():
+            raise ValueError('Location name must not be blank')
+        self.name = self.name.strip()
+        return self
 
 
 class Question(Strict):
     question_id: str = Field(min_length=1, max_length=36)
     question_code: QuestionCode
+    location: QuestionLocation | None = None
+
+    @model_validator(mode='after')
+    def location_question(self):
+        if self.location is not None and self.question_code not in ('shuttle', 'pickup'):
+            raise ValueError('Only shuttle and pickup have a location')
+        return self
+
+
+class TimeContext(Strict):
+    inquiry_created_at: str
+    dispatch_requested_at: str
+    timezone: Literal['Asia/Seoul']
+
+    @model_validator(mode='after')
+    def aware_times(self):
+        for value in (self.inquiry_created_at, self.dispatch_requested_at):
+            instant = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            if instant.tzinfo is None or instant.utcoffset() is None:
+                raise ValueError('Time context requires a timezone offset')
+        return self
 
 
 class Policy(Strict):
@@ -69,6 +102,17 @@ class CallRequest(Strict):
     disclosure_text: str = Field(min_length=1)
     policy: Policy
     is_mock: bool
+    time_context: TimeContext | None = None
+
+    def payload(self) -> dict:
+        """Keep old receipt hashes stable when new optional metadata is absent."""
+        data = self.model_dump(mode='json')
+        if self.time_context is None:
+            data.pop('time_context')
+        for question in data['questions']:
+            if question['location'] is None:
+                question.pop('location')
+        return data
 
     @model_validator(mode="after")
     def coherent(self):
@@ -199,7 +243,7 @@ def create_app(internal_key: str, store: ReceiptStore, sender: Sender | None = N
         if not request.is_mock:
             raise HTTPException(422, "Mock worker accepts mock calls only")
         scenario = pick_scenario(scenario_mode, request.attempt_no)
-        state = store.accept(request.call_id, request.model_dump(mode="json"), scenario)
+        state = store.accept(request.call_id, request.payload(), scenario)
         if state == "conflict":
             raise HTTPException(409, "Call ID reused with different payload")
         if state == "new" and sender is not None:

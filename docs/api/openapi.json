@@ -1510,6 +1510,26 @@
             "maxItems": 6,
             "minItems": 1,
             "title": "Question Codes"
+          },
+          "locations": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/QuestionLocation"
+                },
+                "propertyNames": {
+                  "enum": [
+                    "shuttle",
+                    "pickup"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locations"
           }
         },
         "additionalProperties": false,
@@ -1548,6 +1568,32 @@
           "turns"
         ],
         "title": "Latency"
+      },
+      "QuestionLocation": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "집 근처",
+              "학교",
+              "다른 학원"
+            ],
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "name"
+        ],
+        "title": "QuestionLocation"
       },
       "RegistrationCredentials": {
         "properties": {
@@ -1780,7 +1826,14 @@
             "title": "Level"
           },
           "region": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Region"
           }
         },
@@ -1789,8 +1842,7 @@
         "required": [
           "grade",
           "subject",
-          "level",
-          "region"
+          "level"
         ],
         "title": "Student"
       },

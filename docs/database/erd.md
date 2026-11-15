@@ -104,6 +104,8 @@ erDiagram
         VARCHAR_36 inquiry_id FK
         VARCHAR_30 code
         INTEGER position
+        VARCHAR_20 location_kind
+        VARCHAR_100 location_name
     }
     w5_inquiries ||--o{ w5_questions : "inquiry_id"
     w6_academy_profiles {
