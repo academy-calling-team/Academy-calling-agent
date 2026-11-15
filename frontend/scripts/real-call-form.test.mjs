@@ -44,7 +44,7 @@ async function fixture(path, { canSubmit = true, loggedIn = true, detail, accoun
     } else if (p === '/api/options') data = { grade: ['M2'], subject: ['MATH'], level: ['MID'], regions: [student.region], question_codes: { shuttle: '통학 차량' } };
     else if (p === '/api/academies') data = [{ academy_id: 'fixture-academy', name: '시험 학원', region: student.region, is_mock: false, is_test: true, can_submit: canSubmit }];
     else if (p === '/api/inquiries' && req.method() === 'POST') { submissions.push(req.postDataJSON()); data = { inquiry_id: 'fixture-inquiry', status: 'queued' }; }
-    else if (p === '/api/inquiries') data = [{ inquiry_id: 'fixture-inquiry', status: 'completed', created_at: '2026-10-28T00:00:00Z' }];
+    else if (p === '/api/inquiries') data = [{ inquiry_id: 'fixture-inquiry', status: detail?.status || 'completed', created_at: '2026-10-28T00:00:00Z' }];
     else data = { inquiry_id: 'fixture-inquiry', status: 'completed', student, academy: { name: '시험 학원' }, questions: [], attempts: [], result: { answers: [], consult_accepted: true, available_times: ['수요일 3시'] }, ...detail };
     await route.fulfill({ status: p === '/api/account' && !loggedIn ? 401 : 200, json: data });
   });
@@ -237,5 +237,171 @@ test('academy reference layout shows simulation and structured preview on deskto
     assert.equal(await preview.evaluate((element) => element.scrollWidth <= element.clientWidth), true);
     await page.keyboard.press('Escape');
     assert.equal(await preview.isVisible(), false);
+  } finally { await page.close(); }
+});
+
+for (const labeled of [true, false]) {
+  test(`inquiry detail and list display ${labeled ? 'server Korean labels' : 'raw codes when labels are unavailable'}`, async () => {
+    const questions = [
+      { question_id: 'q-shuttle', question_code: 'shuttle', ...(labeled ? { question_label_kr: '통학 차량 · 서버 표시명' } : {}) },
+      { question_id: 'q-unknown', question_code: 'future_question', question_label_kr: null },
+      { question_id: 'q-blank', question_code: 'blank_question', question_label_kr: '  ' },
+    ];
+    const attempts = [
+      { call_id: 'call-1', attempt_no: 1, status: 'answered', started_at: '2026-11-12T01:00:00Z', outcome: 'answered', ...(labeled ? { status_label_kr: '통화 중', outcome_label_kr: '연결됨' } : {}) },
+      { call_id: 'call-2', attempt_no: 2, status: 'future_status', status_label_kr: null, started_at: '2026-11-12T02:00:00Z', outcome: 'future_outcome', outcome_label_kr: '  ' },
+      { call_id: 'call-3', attempt_no: 3, status: 'accepted', status_label_kr: '발신 요청 접수', started_at: '2026-11-12T03:00:00Z', outcome: null, outcome_label_kr: null },
+    ];
+    const { page } = await fixture('/detail/fixture-inquiry', { detail: { questions, attempts } });
+    try {
+      const title = labeled ? '통학 차량 · 서버 표시명' : 'shuttle';
+      for (let i = 0; i < 2; i++) {
+        await page.getByRole('heading', { name: title, exact: true }).waitFor();
+        await page.getByRole('heading', { name: 'future_question', exact: true }).waitFor();
+        await page.getByRole('heading', { name: 'blank_question', exact: true }).waitFor();
+        const logs = page.locator('.attempts li');
+        await logs.first().waitFor();
+        assert.equal((await logs.nth(0).locator('p').innerText()).trim(), '#1 · ' + (labeled ? '통화 중' : 'answered'));
+        assert.ok((await logs.nth(0).locator('small').innerText()).endsWith(' · ' + (labeled ? '연결됨' : 'answered')));
+        assert.equal((await logs.nth(1).locator('p').innerText()).trim(), '#2 · future_status');
+        assert.ok((await logs.nth(1).locator('small').innerText()).endsWith(' · future_outcome'));
+        assert.equal((await logs.nth(2).locator('small').innerText()).includes(' · '), false);
+        if (i === 0) await page.reload();
+      }
+      await page.goto(base + '/tasks');
+      await page.locator('.tags').getByText(title, { exact: true }).waitFor();
+      await page.locator('.tags').getByText('future_question', { exact: true }).waitFor();
+      await page.locator('.tags').getByText('blank_question', { exact: true }).waitFor();
+    } finally { await page.close(); }
+  });
+}
+
+test('each question separates its AI summary and original quote without fabricating missing text', async () => {
+  const questions = ['shuttle', 'pickup', 'level_fit', 'vacancy', 'level_test', 'class_time'].map((question_code, index) => ({
+    question_id: `comparison-${index}`, question_code, question_label_kr: `비교 질문 ${index + 1}`,
+  }));
+  const summary = '침산동에서 차량을 운행합니다.\n승차 장소는 별도 안내합니다.';
+  const quote = '네, 침산동 쪽은 차가 다녀요.\n<script>alert("test")</script> ' + '긴 원문'.repeat(80);
+  const detail = {
+    questions,
+    result: {
+      summary_text: '전체 상담 요약은 질문별 답변과 별도로 표시합니다.',
+      answers: [
+        { ...questions[0], asked: true, answered: true, yes_no: true, detail: summary, source_text: quote },
+        { ...questions[1], asked: true, answered: true, yes_no: false, detail: '해당 지역 픽업은 제공하지 않습니다.' },
+        { ...questions[2], asked: true, answered: false, reason: 'uncertain', detail: '담당자 확인이 필요합니다.', source_text: '담당 선생님께 확인해야 해요.' },
+        { ...questions[3], asked: true, answered: false, reason: 'refused', source_text: '정원은 안내해 드릴 수 없어요.' },
+        { ...questions[4], asked: false, answered: false, reason: 'not_asked', detail: '  ', source_text: '  ' },
+        { ...questions[5], asked: false, answered: false, reason: 'not_asked', detail: null, source_text: null },
+      ],
+    },
+  };
+  const { page } = await fixture('/detail/fixture-inquiry', { detail });
+  try {
+    await page.getByRole('heading', { name: '비교 질문 1' }).waitFor();
+    const rows = page.locator('.answer');
+    assert.equal(await rows.count(), 6);
+    assert.equal(await rows.nth(0).locator('.answer-summary p').textContent(), summary);
+    assert.equal(await rows.nth(0).locator('.answer-source blockquote').textContent(), quote);
+    assert.equal(await rows.nth(0).locator('script').count(), 0);
+    assert.equal(await rows.nth(1).locator('.answer-summary').count(), 1);
+    assert.equal(await rows.nth(1).locator('.answer-source').count(), 0);
+    assert.equal(await rows.nth(1).getAttribute('data-answer-kind'), 'no');
+    assert.equal(await rows.nth(2).getAttribute('data-answer-kind'), 'unknown');
+    assert.equal(await rows.nth(2).locator('.answer-source blockquote').textContent(), '담당 선생님께 확인해야 해요.');
+    assert.equal(await rows.nth(3).locator('.answer-summary').count(), 0);
+    assert.equal(await rows.nth(3).locator('.answer-source').count(), 1);
+    for (const index of [4, 5]) {
+      assert.equal(await rows.nth(index).locator('.answer-summary, .answer-source').count(), 0);
+      assert.equal(await rows.nth(index).getAttribute('data-answer-kind'), 'unknown');
+    }
+    await page.getByText(detail.result.summary_text, { exact: true }).waitFor();
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+      if (width === 390) await rows.first().scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `/tmp/academy-result-comparison-${width}.png`, fullPage: width !== 390 });
+    }
+  } finally { await page.close(); }
+});
+
+const retryAttempt = (outcome, attempt_no = 1) => ({
+  call_id: `retry-call-${attempt_no}`, attempt_no, status: 'finished', outcome, started_at: '2030-01-02T01:00:00Z',
+});
+const callbackResult = { answers: [], outcome: 'answered', callback_requested: true, callback_at: '2030-01-02T06:00:00Z', available_times: ['평일 오후 5시'] };
+const retryCases = [
+  { name: 'answered callback at 3pm KST', detail: { attempts: [retryAttempt('answered')], result: callbackResult }, kind: 'callback', label: '통화 후 재연락 대기', time: true },
+  { name: 'answered but no callback metadata', detail: { attempts: [retryAttempt('answered')], result: null }, kind: 'callback', label: '통화 후 재연락 대기' },
+  { name: 'callback time on hold', detail: { attempts: [retryAttempt('answered')], result: callbackResult, review_required: true, review_reason: 'callback_time_unknown' }, kind: 'review', label: '재통화 시간 확인 중' },
+  { name: 'other review hold is not a failed connection', detail: { review_required: true, review_reason: 'manual_review', attempts: [] }, kind: 'review', label: '재연락 검토 중' },
+  ...['no_answer', 'busy', 'machine', 'rejected'].map((outcome) => ({ name: outcome, detail: { attempts: [retryAttempt(outcome)] }, kind: 'not_connected', label: '연결 재시도 대기' })),
+  { name: 'legacy data without evidence', detail: { attempts: [], result: null }, kind: 'unknown', label: '재연락 대기' },
+  { name: 'new no-answer attempt overrides old callback', detail: { attempts: [retryAttempt('no_answer', 2), retryAttempt('answered')], result: callbackResult }, kind: 'not_connected', label: '연결 재시도 대기' },
+  { name: 'new attempt without outcome does not inherit old callback', detail: { attempts: [retryAttempt(null, 2), retryAttempt('answered')], result: callbackResult }, kind: 'unknown', label: '재연락 대기' },
+  { name: 'invalid callback time', detail: { attempts: [retryAttempt('answered')], result: { ...callbackResult, callback_at: 'not-a-date' } }, kind: 'callback', label: '통화 후 재연락 대기' },
+  { name: 'timezone-less callback time', detail: { attempts: [retryAttempt('answered')], result: { ...callbackResult, callback_at: '2030-01-02T15:00:00' } }, kind: 'callback', label: '통화 후 재연락 대기' },
+];
+for (const scenario of retryCases) {
+  test(`retry waiting distinguishes ${scenario.name}`, async () => {
+    const { page } = await fixture('/detail/fixture-inquiry', { detail: { status: 'retry_wait', result: null, ...scenario.detail } });
+    try {
+      const panel = page.getByRole('region', { name: '재연락 안내' });
+      await panel.waitFor();
+      assert.equal(await panel.getAttribute('data-retry-kind'), scenario.kind);
+      await panel.getByRole('heading', { name: scenario.label, exact: true }).waitFor();
+      assert.equal(await panel.locator('.retry-requested-time').count(), scenario.time ? 1 : 0);
+      if (scenario.time) {
+        assert.ok((await panel.locator('strong').innerText()).includes('오후 3:00:00'));
+        await panel.getByText('학원 요청 시간 · 한국 시간', { exact: true }).waitFor();
+        assert.equal((await panel.innerText()).includes('오후 5시'), false, 'consultation times are not callback times');
+        await page.setViewportSize({ width: 390, height: 844 });
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+        await panel.scrollIntoViewIfNeeded();
+        await page.screenshot({ path: '/tmp/academy-retry-callback-mobile.png' });
+      }
+      if (scenario.kind === 'review') assert.ok((await panel.innerText()).includes('자동 재발신은 보류'));
+      await page.goto(base + '/tasks');
+      await page.locator('.task .badge.retry_wait').getByText(scenario.label, { exact: true }).waitFor();
+      await page.goto(base + '/');
+      await page.locator('.task .badge.retry_wait').getByText(scenario.label, { exact: true }).waitFor();
+    } finally { await page.close(); }
+  });
+}
+
+test('refresh changes retry waiting to completed without retaining a callback schedule', async () => {
+  const { page } = await fixture('/detail/fixture-inquiry', { detail: { status: 'retry_wait', attempts: [retryAttempt('answered')], result: callbackResult } });
+  try {
+    await page.getByRole('region', { name: '재연락 안내' }).waitFor();
+    await page.route('**/api/inquiries/fixture-inquiry', route => route.fulfill({ json: {
+      inquiry_id: 'fixture-inquiry', status: 'completed', student, academy: { name: '시험 학원', is_mock: false },
+      questions: [], attempts: [retryAttempt('answered')], result: callbackResult,
+    } }));
+    await page.getByRole('button', { name: '새로고침', exact: true }).click();
+    await page.getByText('재연락 요청은 기록되었지만 실통화 시험은 1회로 종료되어 자동으로 다시 발신하지 않습니다.', { exact: true }).waitFor();
+    assert.equal(await page.locator('.retry-panel').count(), 0);
+    assert.equal((await page.locator('.status-badges').innerText()).trim(), '상담 완료');
+  } finally { await page.close(); }
+});
+
+test('retry preview scenarios work with an older empty preview cache without API traffic', async () => {
+  const page = await browser.newPage();
+  const requests = [];
+  page.on('request', request => { if (new URL(request.url()).pathname.startsWith('/api/')) requests.push(request.url()); });
+  await page.addInitScript(() => sessionStorage.setItem('hakwon:isolated-mock:v1', JSON.stringify({ rows: [], keys: {} })));
+  try {
+    for (const [id, kind] of [['mock-callback-scheduled', 'callback'], ['mock-retry-no-answer', 'not_connected'], ['mock-callback-unknown', 'review']]) {
+      await page.goto(base + '/detail/' + id + '?preview=mock');
+      const panel = page.getByRole('region', { name: '재연락 안내' });
+      await panel.waitFor();
+      assert.equal(await panel.getAttribute('data-retry-kind'), kind);
+      if (kind === 'callback') {
+        await panel.locator('strong').waitFor();
+        assert.ok((await panel.locator('strong').innerText()).includes('오후 3:00:00'));
+        await page.setViewportSize({ width: 1440, height: 1000 });
+        await panel.scrollIntoViewIfNeeded();
+        await page.screenshot({ path: '/tmp/academy-retry-preview-desktop.png' });
+      }
+    }
+    assert.equal(requests.length, 0);
   } finally { await page.close(); }
 });

@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { retryView } from '../lib/retry-view';
 import { useInquiryList } from '../hooks/useInquiries';
 import { usePolling, shouldPollList } from '../hooks/usePolling';
 import { ErrorPanel, Head, Loading } from '../components/ui';
-import { active, states, type InquiryListItem } from '../lib/inquiry-model';
+import { active, states, type InquiryListItem, type InquiryQuestion } from '../lib/inquiry-model';
 
 function formatKst(value?: string) {
   return value ? new Date(value).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }) : '';
@@ -111,6 +112,7 @@ export default function TasksPage() {
         ) : selected.length ? (
           selected.map((item: InquiryListItem) => {
             const t = list.details[item.inquiry_id] || item;
+            const retry = retryView(list.details[item.inquiry_id]);
             const academy = (t as { academy?: { name?: string; region?: string } }).academy;
             const student = (t as { student?: { region?: string; grade?: string; subject?: string } }).student;
             return (
@@ -126,7 +128,7 @@ export default function TasksPage() {
                     </small>
                   </div>
                   <div className="status-badges">
-                    <span className={`badge ${item.status}`}>{states[item.status] || '상태 확인 필요'}</span>
+                    <span className={`badge ${item.status}`}>{retry?.label || states[item.status] || '상태 확인 필요'}</span>
                     {(t as { review_required?: boolean }).review_required ? (
                       <span className="badge review">확인 필요</span>
                     ) : null}
@@ -134,8 +136,8 @@ export default function TasksPage() {
                 </div>
                 <div className="task-bottom">
                   <div className="tags">
-                    {((t as { questions?: Array<{ question_code: string }> }).questions || []).map((q) => (
-                      <span key={q.question_code}>{q.question_code}</span>
+                    {((t as { questions?: InquiryQuestion[] }).questions || []).map((q) => (
+                      <span key={q.question_code}>{q.question_label_kr?.trim() || q.question_code}</span>
                     ))}
                   </div>
                   <span>{formatKst(item.created_at)} ↗</span>

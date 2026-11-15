@@ -1,6 +1,6 @@
 # 백엔드 0.4.0
 
-FastAPI·MySQL·Redis 기반의 인증, 문의 접수, 큐 처리, 음성 워커 연동과 결과 저장을 담당합니다. 이번 연동 작업에서는 백엔드 처리 코드와 DB 구조를 변경하지 않았습니다.
+FastAPI·MySQL·Redis 기반의 인증, 문의 접수, 학원 계정·정보 관리, 발신 우선순위, 음성 워커 연동과 결과 저장을 담당합니다. 현재 음성 엔진은 ClawOps이며 공통 이벤트·결과 계약으로 연동합니다.
 
 - 구현: `schema.py`, `service.py`, `auth6.py`, `run_queue.py`, `http_worker*.py`
 - [API·파트 연결 명세](../docs/api/README.md)

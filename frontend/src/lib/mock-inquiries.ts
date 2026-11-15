@@ -37,11 +37,12 @@ interface MockStore {
 
 function fixtures(): MockRow[] {
   const statuses: InquiryStatus[] = ['queued', 'calling', 'retry_wait', 'completed', 'failed'];
-  return statuses.map((status, index) => {
+  const rows: MockRow[] = statuses.map((status, index) => {
     const id = `mock-${status}`;
     const questions = Object.keys(mockOptions.question_codes).map((code, i) => ({
       question_id: `${id}-q${i}`,
       question_code: code,
+      question_label_kr: mockOptions.question_codes[code] || code,
     }));
     const answers = questions.map((q, i) => ({
       ...q,
@@ -56,6 +57,14 @@ function fixtures(): MockRow[] {
         '정원 정보는 전화로 안내하지 않습니다.',
         '통화 종료로 질문하지 못했습니다.',
         '화요일·목요일 19:00~20:30',
+      ][i],
+      source_text: [
+        '네, 침산동 정류장에서는 차량 운행하고 있어요.',
+        '말씀하신 지역은 픽업을 하지 않아요.',
+        '그건 담당 선생님께 한번 여쭤봐야 할 것 같아요.',
+        '정원은 전화로 안내해 드리기 어려워요.',
+        null,
+        '화요일하고 목요일, 저녁 일곱 시부터 여덟 시 반까지예요.',
       ][i],
     }));
     return {
@@ -73,8 +82,10 @@ function fixtures(): MockRow[] {
                 call_id: `${id}-call`,
                 attempt_no: 1,
                 status: status === 'calling' ? 'answered' : 'finished',
+                status_label_kr: status === 'calling' ? '통화 중' : '통화 종료',
                 started_at: new Date().toISOString(),
                 outcome: status === 'failed' ? 'no_answer' : null,
+                outcome_label_kr: status === 'failed' ? '부재중' : null,
               },
             ],
       result:
@@ -92,6 +103,20 @@ function fixtures(): MockRow[] {
       review_reason: status === 'retry_wait' ? 'callback_time_unknown' : null,
     };
   });
+  const base = rows.find((row) => row.status === 'retry_wait')!;
+  const requested = new Date(Date.now() + 86400000);
+  requested.setUTCHours(6, 0, 0, 0);
+  const callback: MockRow = {
+    ...base, inquiry_id: 'mock-callback-scheduled', review_required: false, review_reason: null,
+    attempts: [{ call_id: 'mock-callback-call', attempt_no: 1, status: 'finished', status_label_kr: '통화 종료', outcome: 'answered', outcome_label_kr: '연결됨', started_at: base.created_at }],
+    result: { answers: [], outcome: 'answered', callback_requested: true, callback_at: requested.toISOString(), summary_text: '학원에서 다음 날 오후 3시에 다시 연락해 달라고 요청했습니다.' },
+  };
+  const noAnswer: MockRow = {
+    ...base, inquiry_id: 'mock-retry-no-answer', review_required: false, review_reason: null,
+    attempts: [{ call_id: 'mock-no-answer-call', attempt_no: 1, status: 'finished', status_label_kr: '통화 종료', outcome: 'no_answer', outcome_label_kr: '부재중', started_at: base.created_at }],
+  };
+  const unknown: MockRow = { ...callback, inquiry_id: 'mock-callback-unknown', review_required: true, review_reason: 'callback_time_unknown', result: { ...callback.result!, callback_at: null, summary_text: '학원에서 재연락을 요청했지만 시간을 정하지 않았습니다.' } };
+  return [...rows, callback, noAnswer, unknown];
 }
 
 function load(): MockStore {
@@ -166,7 +191,7 @@ export async function mockRequest(
       created_at: new Date().toISOString(),
       student: payload.student,
       academy,
-      questions: payload.question_codes.map((code, i) => ({ question_id: `${id}-${i}`, question_code: code })),
+      questions: payload.question_codes.map((code, i) => ({ question_id: `${id}-${i}`, question_code: code, question_label_kr: mockOptions.question_codes[code] || code })),
       attempts: [],
       result: null,
     };
@@ -176,7 +201,9 @@ export async function mockRequest(
     return { inquiry_id: id, status: 'queued', duplicate: false };
   }
   if (path.startsWith('/api/inquiries/')) {
-    const row = data.rows.find((r) => r.inquiry_id === decodeURIComponent(path.split('/').pop() || ''));
+    const id = decodeURIComponent(path.split('/').pop() || '');
+    const row = data.rows.find((r) => r.inquiry_id === id)
+      || fixtures().find((r) => r.inquiry_id === id && ['mock-callback-scheduled', 'mock-retry-no-answer', 'mock-callback-unknown'].includes(id));
     if (row) return structuredClone(row);
     throw Object.assign(new Error('상담을 찾을 수 없습니다.'), { status: 404 });
   }

@@ -6,7 +6,7 @@
 
 ## v3 (10/13, 측정용)
 
-문구는 [agent_prompt_v3.txt](agent_prompt_v3.txt)에 있고, `voice/engines/setup_test_agents.py`가 두 플랫폼에 같이 넣는다. 대본과 정답지는 [test_script_v3.md](test_script_v3.md)에 있다. v2에서 바꾼 것은 다음과 같다.
+문구는 [agent_prompt_v3.txt](agent_prompt_v3.txt)에 있고, [당시 시험 도구](https://github.com/academy-calling-team/Academy-calling-agent/blob/dce78f0203a5b9b42c2273f994f3828ac5a78c41/voice/engines/setup_test_agents.py)가 두 플랫폼에 같이 넣었다. 대본과 정답지는 [test_script_v3.md](test_script_v3.md)에 있다. v2에서 바꾼 것은 다음과 같다.
 
 - **질문 3개.** 자리(vacancy), 수업 요일·시간(class_time), 이번 주 상담 가능 여부·시간(consult_accepted, available_times)만 묻는다. 결과 계약의 답 유형(예/아니오, 시간 텍스트, 고정 확인 항목)을 하나씩 남긴 최소 구성이다. 수강료·교재비(계약에 없음), 레벨테스트, 통학 차량은 뺐다.
 - **바쁠 때 ★만 묻는 규칙 삭제.** 질문이 셋이라 항상 다 묻는다.

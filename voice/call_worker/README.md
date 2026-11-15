@@ -56,6 +56,8 @@
 
 ## 설정 (`voice/.env`, 공동 서버는 워커 설정 파일)
 
+최초 설정 양식은 [voice/.env.example](../.env.example)이다. 기존 파일은 덮어쓰지 않는다. 운영 음성 엔진은 [ClawOps로 최종 결정](../../docs/음성_엔진_운영기준.md)했으며, 에이전트 준비 도구는 `setup_service_agent.py`를 사용한다.
+
 | 항목 | 뜻 |
 |---|---|
 | `INTERNAL_KEY`, `BACKEND_URL`, `WORKER_PORT`, `MOCK_SCENARIO`, `MOCK_DELAY_SEC` | 목업 워커와 같음 |
@@ -98,15 +100,15 @@ http://127.0.0.1:18780/docs 에서 `POST /internal/calls`에 `is_mock: false`, `
 
 ## 공동 서버에 켤 때 (찬원)
 
-1. 이 PR이 main에 합쳐지면 자동 배포로 워커 이미지가 이 워커로 바뀐다. 설정을 안 바꾸면 목업과 똑같다
+1. main 자동 배포는 현재 실통화 워커 이미지를 사용한다. 실제 발신 설정을 켜지 않으면 목업 요청만 처리한다
 2. 서버의 워커 설정 파일(`worker_env`)에 `REAL_CALLS_ENABLED=1`, `REAL_CALL_ALLOWED_TO`, ClawOps 값 4개를 넣는다
 3. **워커 컨테이너를 새로 만들어야 설정이 반영된다.** `docker restart`는 이전 설정을 그대로 쓴다. Actions에서 배포를 다시 돌리거나 같은 옵션으로 워커를 다시 만든다
 4. `docker logs team8-shared-worker`에 `real calls enabled for 1 allowed number(s)`가 보이면 켜진 것이다
 5. 시연이 끝나면 `REAL_CALLS_ENABLED`를 지우고 다시 만들면 목업으로 돌아간다
 
-## 아직 안 한 것
+## 결과 판정 설정과 남은 제약
 
-- 판정 규칙(`extract.judge`)은 10/19 정한 키워드 규칙이다(부정어 우선, 추측은 미확인 등, 사례는 `test_judge_rules`). 판정이 안 되면 미확인(`unknown`)으로 보내고 대답 원문은 `detail`에 남긴다. 10/13 통화 16개 전사에서 자리·수업 시간은 모두 맞았고, 상담은 2개가 받아쓰기 오류로 미확인이 됐다
+- `LLM_JUDGE_MODEL`이 비어 있으면 기존 키워드 규칙을 사용한다. 모델을 지정하면 `gemini` 계열은 `GEMINI_API_KEY`, 그 외는 `OPENAI_API_KEY`가 필요하다. 전사 인용과 원문 검증을 거쳐 질문별 답변·미확인 사유·`source_text`를 공통 결과 계약으로 보낸다. 실제 모델·통화 시험 결과와 가짜 제공업체 회귀 시험은 구분한다
 - 상담 가능 시간은 학원 대답 원문을 그대로 `available_times`에 넣는다
 - 응답 지연(`latency`)은 아직 계산하지 않아 `null`
 - 부재중 재통화는 백엔드가 새 `call_id`로 다시 요청하는 기존 규칙을 따른다. 담당 범위는 백엔드와 다시 맞춘다

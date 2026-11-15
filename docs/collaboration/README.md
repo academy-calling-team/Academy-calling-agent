@@ -1,55 +1,104 @@
 # 세 파트 공동 개발 환경
 
-## 지금 사용할 공통 주소
+운영 음성 엔진은 ClawOps다. 화면·API 시험은 기본적으로 목업 학원을 사용하며 실제 전화 시험은 음성 담당과 별도로 준비한다.
 
-- API: https://team8-api.3.35.222.227.sslip.io/shared
-- Swagger: https://team8-api.3.35.222.227.sslip.io/shared/docs
-- DB: 기존 DBeaver 연결의 team8_dev. 최신 테이블은 w5_/w6_.
+## 공통 주소
 
-프론트 PC → 공동 API → 공유 MySQL/Redis → 서버 큐 → 음성팀 목업 워커 → API 결과 저장 → 프론트 결과 표시가 실제 연결돼 있다. 큐와 워커는 서버에서 상시 실행한다. 정상 answered 목업이며 실제 전화는 걸지 않는다. /docs의 과거 프론트용 별도 환경은 보존했지만 공동 개발 기준은 /shared로 통일한다.
+- 공동 API: https://team8-api.3.35.222.227.sslip.io/shared
+- API 문서: https://team8-api.3.35.222.227.sslip.io/shared/docs
+- 프론트 개발: http://127.0.0.1:5173
+- 빌드 미리보기: http://127.0.0.1:4173
 
-## 프론트 담당과 화면 시험을 할 팀원
+현재 프론트는 React·Vite·TypeScript다. `npm run dev`로 실행하며, 빌드 미리보기는 `npm run preview`다. 과거 Next.js의 3000번 주소와 `npm start`는 사용하지 않는다. 공동 API 배포와 각 PC 프론트 갱신은 별도다.
 
-검증 환경은 Node 24와 npm이다. 이 브랜치의 코드를 받은 뒤 frontend에서 실행한다.
+## 팀원 PC의 프론트와 공동 서버 연결
+
+Git과 Node.js 24를 설치한다. 기존 작업이 있으면 새 폴더에 내려받아 첫 설치를 시험한다. Windows PowerShell 기준:
 
 ```powershell
+git clone https://github.com/academy-calling-team/Academy-calling-agent.git Academy-pc-test
+cd Academy-pc-test
+git rev-parse HEAD
+cd frontend
 npm.cmd ci
-Copy-Item .env.node.example .env.local
+if (!(Test-Path .env.local)) { Copy-Item .env.example .env.local }
 npm.cmd run dev
 ```
 
-이미 .env.local이 있으면 덮어쓰지 말고 ACADEMY_BACKEND_URL을 위 /shared 주소로, FRONTEND_ORIGIN을 http://127.0.0.1:3000으로 확인한다. 브라우저는 http://127.0.0.1:3000 에서 연다. 새 개발계정으로 회원가입/로그인→새상담→가상시험학원→학생조건/질문→접수→결과를 확인한다. 학원·학생 정보와 계정은 목업이다. DB암호·INTERNAL_KEY·AWS자격증명은 프론트 실행에 필요 없다.
+이미 내려받은 폴더에서는 `git status`로 개인 수정사항을 보존한 뒤 팀이 시험할 커밋으로 맞춘다. 서로 같은 커밋을 사용하고 `git rev-parse HEAD` 결과를 기록한다. 설정 양식은 `frontend/.env.example`이다.
 
-정식 Node 실행 확인은 npm.cmd run build 후 npm.cmd start. 표준 Next.js의 standalone 실행을 사용하며 기존 Cloudflare 플러그인은 필요 없다. 기존 화면·문의 API는 유지했고, 현재 화면에서 쓰지 않는 D1 초안/ChatGPT로그인은 Node공동환경에서 사용하지 않는다. 과거 원본과 데이터는 원래 브랜치/환경에 보존된다.
+`frontend/.env.local`에는 아래 공개 주소를 설정한다. 기존 파일은 통째로 덮어쓰지 않는다.
 
-## 백엔드·음성 담당의 개인 코드 시험
+```dotenv
+ACADEMY_BACKEND_URL=https://team8-api.3.35.222.227.sslip.io/shared
+FRONTEND_ORIGIN=http://127.0.0.1:5173
+```
 
-공동 서버 버전을 그대로 이용하려면 위 API 또는 프론트를 사용한다. PC에서 수정한 코드는 서버에 자동 적용되지 않는다.
+변경 후 서버를 재시작하고 http://127.0.0.1:5173 에 접속한다. 설치 후 `frontend/프론트_실행.cmd`를 더블클릭해도 된다. 5173번이 사용 중이면 자동으로 다른 포트로 옮기지 않으므로 기존 실행을 확인한다.
 
-서버 데이터와 분리한 개인 환경은 Docker Desktop(Compose)과 Python으로 준비할 수 있다.
+macOS/Linux에서는 `npm.cmd` 대신 `npm`을 사용한다. 최초 설정 복사는 `test -e .env.local || cp .env.example .env.local`로 기존 파일을 보존한다. DB 암호·내부 API 키·클라우드 자격증명은 프론트 실행에 필요 없다.
+
+### 팀원별 시험
+
+1. 시험용 학부모 계정 가입·로그인.
+2. 홈·내 상담 직접 진입과 새로고침 후 로딩 완료 확인.
+3. `is_mock=true`인 가상 시험 학원으로 질문 3개 접수.
+4. 같은 문의 ID의 완료 상태와 질문별 결과 조회.
+5. 로그아웃·재로그인 후 결과 유지, 다른 계정의 문의 접근 차단 확인.
+6. 학원 계정은 별도 시험 계정으로 학원 등록·재조회·수정을 확인.
+
+공동 API를 사용하는 가입·문의·학원 저장은 공동 개발 DB에 남는다. 목업 학원과 학원 계정이 등록한 실제 유형 학원을 구분한다. 새 실제 유형 학원은 현재 실통화 허용 정책에 따라 접수가 차단될 수 있다.
+
+결과는 `이름 / OS / Node 버전 / 프론트 커밋 / API 버전 / 시험 항목 / 성공·실패 / 오류 화면`으로 남긴다. 서버 버전은 `/shared/version`으로 확인한다. 한 사람의 성공을 전원 확인으로 처리하지 않는다.
+
+### 자동 검사와 빌드
 
 ```powershell
-python infra/setup-local.py
+npm.cmd run typecheck
+npx.cmd playwright install chromium
+npm.cmd test
+npm.cmd run build
+```
+
+화면 회귀 시험은 가짜 업무 API 응답을 사용하며 실제 전화나 공동 DB 쓰기를 수행하지 않는다. Windows에 Edge가 있으면 Chromium 설치 대신 `$env:PLAYWRIGHT_CHANNEL='msedge'`를 지정하고 시험할 수 있다.
+
+빌드 화면은 `npm.cmd run preview` 후 http://127.0.0.1:4173 에서 확인한다. 쓰기 시험 시 `FRONTEND_ORIGIN`도 사용하는 주소에 맞추고, 개발 서버로 돌아갈 때는 5173번으로 복구한다.
+
+## 백엔드·목업 워커까지 개인 PC에서 실행
+
+Python 3.12와 Docker Desktop(Compose)을 준비한 뒤 저장소 최상위에서 실행한다.
+
+```powershell
+py -3.12 infra/setup-local.py
 docker compose up --build -d
 docker compose ps
 ```
 
-이 명령은 별도 로컬 team8_local DB와 Redis, 워커 접수 볼륨을 사용한다. 공동 DB 설정을 복사하지 않는다. 로컬 API는 http://127.0.0.1:18770/docs, 목업 워커는 http://127.0.0.1:18780/docs. 로컬 DBeaver 포트는 13307, Redis는 16380이다. 프론트까지 개인 코드로 시험하려면 frontend/.env.local의 ACADEMY_BACKEND_URL을 http://127.0.0.1:18770으로 바꾼다. 공동 서버 시험을 할 때는 /shared 주소로 되돌린다.
+macOS/Linux에서는 `py -3.12` 대신 Python 3.12를 가리키는 `python3`를 사용한다. 설정 도구는 기존 루트 `.env`를 덮어쓰지 않고 중단한다. 기존 설정이 있으면 새 시험 폴더를 사용하거나 필요한 `TEAM8_` 항목을 검토한다.
 
-수정한 로컬코드 반영은 docker compose up --build -d. 중지는 docker compose down. down -v는 저장데이터를 지우므로 사용하지 않는다. 현재 PC에는 Docker CLI가 없어 개인Compose기동은 실제검증하지 않았으며, 정의·환경변수·포트·모듈은 정적검증했다. 공동서버의실제MySQL/Redis/워커왕복과PC의정식Node기동은별도실검증완료다.
+별도 `team8_local` DB, Redis, 목업 접수 볼륨을 사용한다. 공동 DB 설정을 복사하지 않는다.
 
-PC에서 공동서버 접근만 확인하려면 저장소 최상위 폴더(frontend가 아니라 그 위)에서 PowerShell을 열고 아래를 실행한다. 전용 합성계정·문의가 공유DB에 생기고, 토큰/비밀번호는 출력하지 않는다. 마지막에 `PASS`가 나오면 공동 API→큐→목업 워커 왕복이 된 것이다.
+| 구성 | 로컬 주소 |
+|---|---|
+| API 문서 | http://127.0.0.1:18770/docs |
+| 목업 워커 문서 | http://127.0.0.1:18780/docs |
+| MySQL | 127.0.0.1:13307 |
+| Redis | 127.0.0.1:16380 |
+
+프론트의 `ACADEMY_BACKEND_URL`을 `http://127.0.0.1:18770`으로 바꾸고 재시작해 같은 접수·조회 흐름을 확인한다. 로컬 주소에는 `/shared`를 붙이지 않는다. 공동 서버 시험으로 돌아갈 때는 `/shared`가 포함된 공통 주소를 복구한다.
+
+코드 반영은 `docker compose up --build -d`, 중지는 `docker compose down`이다. `down -v`는 저장 데이터를 지우므로 일상적인 중지에 사용하지 않는다. 이 구성은 실제 전화를 걸지 않는다. Docker 전체 기동은 실행한 PC별 결과를 따로 기록한다.
+
+## ClawOps 실제 통화와 공동 반영
+
+[운영 기준](../음성_엔진_운영기준.md)과 [실통화 워커](../../voice/call_worker/README.md)를 따른다. `voice/.env.example`은 음성 담당의 설정 양식이다. 서비스 에이전트·허용 번호·지정 계정·서버와 워커의 활성화가 준비된 시험만 진행한다. 화면 확인만 하려고 실제 발신을 켜지 않는다.
+
+코드는 작업 브랜치에서 수정·검증하고 PR로 검토한다. 최신 PR 자동 검사 통과 후 병합하고 배포 성공·`/shared/ready`·`/shared/version`의 대상 커밋을 확인한다. PC 백엔드·큐를 공동 DB에 연결해 서버 큐와 동시에 실행하지 않는다.
+
+공동 목업 API만 확인하는 도구는 저장소 최상위의 `infra/shared-smoke.ps1`이다. 실행하면 전용 합성 계정과 문의가 공동 DB에 생성되며 화면 검증을 대신하지 않는다.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File infra/shared-smoke.ps1
 ```
 
-회원가입에는 약관 동의(`terms_agreed: true`)가 필수라서 스크립트도 가입할 때만 이 값을 보낸다.
-
-## 공동 서버에 코드 반영
-
-파트담당은개인브랜치에서수정·검증하고PR로검토한다. 검토된버전만배포담당이서버에반영한다. PC의백엔드와서버큐를같은공유DB로동시에실행하지않는다. 개인시험은위로컬DB를사용한다.
-
-연동 수정본은 backend/shared-collaboration-env 브랜치에서 검토한다. main 반영과 공동 서버 배포는 별도 절차다. 최초 안내문의 재시도·실통화·실측 지연 등 최종 요구 완료로 해석하지 않는다.
-
-배포·재시작·로그·복구는 [운영 절차](서버_운영과_배포.md) 참고.
+배포·재시작·로그·복구는 [서버 운영 절차](서버_운영과_배포.md)를 참고한다.
