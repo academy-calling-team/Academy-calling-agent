@@ -25,6 +25,8 @@ inquiries = table('inquiries', Column('id', String(36), primary_key=True),
 questions = table('questions', Column('id', String(36), primary_key=True),
     Column('inquiry_id', String(36), ForeignKey(inquiries.c.id), nullable=False, index=True),
     Column('code', String(30), nullable=False), Column('position', Integer, nullable=False),
+    Column('location_kind', String(20)),
+    Column('location_name', String(100)),
     UniqueConstraint('inquiry_id', 'code', name='w5_uq_question_code'),
     UniqueConstraint('inquiry_id', 'position', name='w5_uq_question_position'))
 calls = table('calls', Column('id', String(36), primary_key=True),

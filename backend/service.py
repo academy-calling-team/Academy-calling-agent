@@ -199,8 +199,14 @@ class Service:
             c.execute(inquiries.insert().values(id=iid,inquirer_id=owner,academy_id=body.academy_id,
                 request_key=key,payload_hash=fingerprint(payload),student=payload['student'],status='queued',
                 created_at=self.now(),next_at=self.now(),priority=0,fallback_required=False))
-            for pos,code in enumerate(body.question_codes):
-                c.execute(questions.insert().values(id=uid(),inquiry_id=iid,code=code,position=pos))
+            locations = body.locations or {}
+            for pos, code in enumerate(body.question_codes):
+                loc = locations.get(code)
+                c.execute(questions.insert().values(
+                    id=uid(), inquiry_id=iid, code=code, position=pos,
+                    location_kind=loc.kind if loc else None,
+                    location_name=loc.name if loc else None,
+                ))
             return dict(inquiry_id=iid,status='queued',duplicate=False)
     def list_owned(self, token, owner_filter=None, limit=50, offset=0):
         with self.engine.connect() as c:
@@ -238,8 +244,13 @@ class Service:
             return aware(dict(inquiry_id=iid,inquirer_id=owner,status=row['status'],student=row['student'],
                 academy={'academy_id':ac['id'],'name':ac['name'],'is_mock':ac['is_mock'],
                          **self.real_test.public(ac)},
-                questions=[dict(question_id=q['id'],question_code=q['code'],
-                    question_label_kr=QUESTION_LABELS.get(q['code'],q['code'])) for q in qs],
+                questions=[dict(
+                    question_id=q['id'],
+                    question_code=q['code'],
+                    question_label_kr=QUESTION_LABELS.get(q['code'], q['code']),
+                    **({'location': {'kind': q['location_kind'], 'name': q['location_name']}}
+                       if q['location_kind'] is not None else {}),
+                ) for q in qs],
                 attempts=history,result=final,failure_reason=row['failure_reason'],
                 fallback_required=row['fallback_required'],fallback_status=fallback.status if fallback else None,
                 review_required=hold is not None,review_reason=hold['reason'] if hold else None))
@@ -414,7 +425,12 @@ class Service:
                 qs=c.execute(select(questions).where(questions.c.inquiry_id==row['id']).order_by(questions.c.position)).mappings()
                 payload=dict(call_id=cid,inquiry_id=row['id'],attempt_no=attempt,to=ac['phone'],
                     academy_name=ac['name'],student=row['student'],
-                    questions=[dict(question_id=q['id'],question_code=q['code']) for q in qs],
+                    questions=[dict(
+                        question_id=q['id'],
+                        question_code=q['code'],
+                        **({'location': {'kind': q['location_kind'], 'name': q['location_name']}}
+                           if q['location_kind'] is not None else {}),
+                    ) for q in qs],
                     fixed_checks=['consult_accepted','available_times'],disclosure_text=self.policy.disclosure_text,
                     policy=dict(max_reask=1,max_seconds=self.policy.max_seconds,is_retry=attempt>1),
                     is_mock=ac['is_mock'])

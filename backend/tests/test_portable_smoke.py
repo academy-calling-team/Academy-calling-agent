@@ -197,7 +197,7 @@ def test_registration_requires_terms_consent_field(portable):
 
 def test_schema_shape():
     assert len(metadata.tables) == 25
-    assert sum(len(t.columns) for t in metadata.tables.values()) == 149
+    assert sum(len(t.columns) for t in metadata.tables.values()) == 151
     assert sum(len(t.foreign_keys) for t in metadata.tables.values()) == 25
 
 
@@ -285,3 +285,52 @@ def test_registration_saves_terms_agreed_at(portable):
         ).scalar_one()
 
     assert row is not None
+def test_inquiry_question_locations_persist_and_dispatch(portable):
+    engine, _, client = portable
+    identity, headers = login(client)
+
+    # 1. 요청하지 않은 질문(pickup)에 대한 위치를 보내면 422 차단
+    invalid_req = dict(
+        inquirer_id=identity['inquirer_id'],
+        academy_id='demo-academy',
+        student=dict(grade='M2', subject='MATH', level='MID'),
+        question_codes=['shuttle'],
+        locations={'pickup': {'kind': '집 근처', 'name': '침산네거리'}},
+    )
+    headers['Idempotency-Key'] = str(uuid4())
+    bad_res = client.post('/api/inquiries', json=invalid_req, headers=headers)
+    assert bad_res.status_code == 422
+
+    # 2. 정상 접수 (shuttle 출발지 + pickup 목적지 포함, region 생략)
+    valid_req = dict(
+        inquirer_id=identity['inquirer_id'],
+        academy_id='demo-academy',
+        student=dict(grade='M2', subject='MATH', level='MID'),
+        question_codes=['shuttle', 'pickup', 'vacancy'],
+        locations={
+            'shuttle': {'kind': '학교', 'name': '침산초등학교'},
+            'pickup': {'kind': '집 근처', 'name': '침산네거리'},
+        },
+    )
+    headers['Idempotency-Key'] = str(uuid4())
+    created = client.post('/api/inquiries', json=valid_req, headers=headers)
+    assert created.status_code == 201, created.text
+    iid = created.json()['inquiry_id']
+
+    # 3. 상세 조회 응답에 질문별 location 포함 확인
+    detail = client.get('/api/inquiries/' + iid, headers=headers).json()
+    q_map = {q['question_code']: q for q in detail['questions']}
+    assert q_map['shuttle']['location'] == {'kind': '학교', 'name': '침산초등학교'}
+    assert q_map['pickup']['location'] == {'kind': '집 근처', 'name': '침산네거리'}
+    assert 'location' not in q_map['vacancy']
+
+    # 4. 발신 워커 페이로드(dispatch_payload)에 위치 정보 전달 확인
+    tick = client.post('/internal/mock/tick', headers={'X-Internal-Key': 'synthetic-test-key'})
+    assert tick.status_code == 200
+    cid = tick.json()['reserved'][0]
+    with engine.connect() as c:
+        payload = c.execute(select(calls.c.dispatch_payload).where(calls.c.id == cid)).scalar_one()
+    worker_q_map = {q['question_code']: q for q in payload['questions']}
+    assert worker_q_map['shuttle']['location'] == {'kind': '학교', 'name': '침산초등학교'}
+    assert worker_q_map['pickup']['location'] == {'kind': '집 근처', 'name': '침산네거리'}
+    assert 'location' not in worker_q_map['vacancy']
