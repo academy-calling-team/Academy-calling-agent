@@ -77,7 +77,9 @@ def test_uncertain_source_saved_and_visible_to_owner(reserved):
 def test_legacy_payload_hash_and_null_source_replay(reserved):
     engine, client, _, _, _, call_id, result = reserved
     old_payload = ResultInput.model_validate(result).model_dump(mode='json',
-        exclude={'answers': {'__all__': {'source_text'}}})
+        exclude={'answers': {'__all__': {'source_text', 'condition', 'reason_text', 'evidence_turns'}},
+                 'transcript': {'__all__': {'turn_no'}}, 'consult': True,
+                 'callback_reason_text': True, 'callback_source_text': True, 'end_reason': True})
     url = f'/internal/calls/{call_id}/result'
     assert client.post(url, headers=INTERNAL, json=result).status_code == 200
     with engine.connect() as c:

@@ -1178,8 +1178,162 @@
         ],
         "title": "AcademySettingsInput"
       },
+      "AnswerDetail": {
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "refused",
+                  "not_asked",
+                  "uncertain",
+                  "redirect"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "condition": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition"
+          },
+          "reason_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Text"
+          },
+          "source_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Text"
+          },
+          "evidence_turns": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer",
+                  "minimum": 0.0
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Turns"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AnswerDetail",
+        "description": "Optional explanation shared by question answers and the fixed consultation check."
+      },
       "AnswerInput": {
         "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "refused",
+                  "not_asked",
+                  "uncertain",
+                  "redirect"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "condition": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition"
+          },
+          "reason_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Text"
+          },
+          "source_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Text"
+          },
+          "evidence_turns": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer",
+                  "minimum": 0.0
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Turns"
+          },
           "question_id": {
             "type": "string",
             "maxLength": 36,
@@ -1217,40 +1371,10 @@
             ],
             "title": "Yes No"
           },
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "unknown",
-                  "refused",
-                  "not_asked",
-                  "uncertain"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          },
           "detail": {
             "type": "string",
             "maxLength": 2000,
             "title": "Detail"
-          },
-          "source_text": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000,
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Text"
           }
         },
         "additionalProperties": false,
@@ -1779,6 +1903,59 @@
               }
             ],
             "title": "Rejection Reason"
+          },
+          "consult": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnswerDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "callback_reason_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Callback Reason Text"
+          },
+          "callback_source_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Callback Source Text"
+          },
+          "end_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "completed",
+                  "academy_hung_up",
+                  "connection_lost",
+                  "agent_error"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
           }
         },
         "additionalProperties": false,
@@ -1866,6 +2043,18 @@
             "maxLength": 4000,
             "minLength": 1,
             "title": "Text"
+          },
+          "turn_no": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn No"
           }
         },
         "additionalProperties": false,

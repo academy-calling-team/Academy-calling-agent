@@ -1,5 +1,5 @@
 from datetime import datetime,date,time
-from typing import Literal
+from typing import Annotated, Literal
 from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
 
 QUESTION_LABELS = {'shuttle':'통학 차량', 'pickup':'픽업', 'level_fit':'수준에 맞는 반',
@@ -18,6 +18,13 @@ QuestionCode = Literal['shuttle','pickup','level_fit','vacancy','level_test','cl
 LocationQuestionCode = Literal['shuttle', 'pickup']
 LocationKind = Literal['집 근처', '학교', '다른 학원']
 Outcome = Literal['answered','no_answer','busy','rejected','machine','invalid_number']
+AnswerReason = Literal['unknown', 'refused', 'not_asked', 'uncertain', 'redirect']
+TurnNumber = Annotated[int, Field(ge=0, strict=True)]
+ConditionText = Annotated[str, Field(min_length=1, max_length=200)]
+ReasonText = Annotated[str, Field(min_length=1, max_length=500)]
+SourceText = Annotated[str, Field(min_length=1, max_length=2000)]
+EvidenceTurns = Annotated[list[TurnNumber], Field(max_length=10)]
+EndReason = Literal['completed', 'academy_hung_up', 'connection_lost', 'agent_error']
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
@@ -73,20 +80,44 @@ class EventInput(StrictModel):
         if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
             raise ValueError('Timezone required')
         return value
-class AnswerInput(StrictModel):
+class AnswerDetail(StrictModel):
+    """Optional explanation shared by question answers and the fixed consultation check."""
+    reason: AnswerReason | None = None
+    condition: ConditionText | None = None
+    reason_text: ReasonText | None = None
+    source_text: SourceText | None = None
+    evidence_turns: EvidenceTurns | None = None
+
+    @field_validator('condition', 'reason_text', 'source_text')
+    @classmethod
+    def nonblank_explanation(cls, value):
+        if value is not None and not value.strip():
+            raise ValueError('Explanation must not be blank')
+        return value
+
+    @field_validator('evidence_turns')
+    @classmethod
+    def unique_evidence(cls, value):
+        if value is not None and len(value) != len(set(value)):
+            raise ValueError('Duplicate evidence turn numbers')
+        return value
+
+class AnswerInput(AnswerDetail):
     question_id: str = Field(min_length=1, max_length=36)
     question_code: QuestionCode
     asked: bool
     answered: bool
     yes_no: bool | None
-    reason: Literal['unknown','refused','not_asked','uncertain'] | None = None
     detail: str = Field(max_length=2000)
-    source_text: str | None = Field(default=None, min_length=1, max_length=2000)
 
     @model_validator(mode='after')
     def coherent(self):
         if self.source_text is not None and (not self.asked or not self.source_text.strip()):
             raise ValueError('Source text requires an asked question and a nonblank excerpt')
+        if self.condition is not None and not (self.answered and self.yes_no is True):
+            raise ValueError('Condition requires answered=true and yes_no=true')
+        if self.evidence_turns and not self.asked:
+            raise ValueError('Unasked question must not reference dialogue evidence')
         if self.answered:
             if not self.asked or self.reason is not None or not self.detail.strip():
                 raise ValueError('Answered requires asked, detail and no reason')
@@ -108,6 +139,7 @@ class TranscriptTurn(StrictModel):
     speaker: Literal['agent','academy']
     at_ms: int = Field(ge=0)
     text: str = Field(min_length=1, max_length=4000)
+    turn_no: TurnNumber | None = None
 class ResultInput(StrictModel):
     result_id: str = Field(min_length=1, max_length=80, pattern=r'^[A-Za-z0-9_-]+$')
     outcome: Outcome
@@ -125,6 +157,16 @@ class ResultInput(StrictModel):
     callback_requested: bool = False
     callback_at: datetime | None = None
     rejection_reason: Literal['temporary','permanent','unknown'] | None = None
+    consult: AnswerDetail | None = None
+    callback_reason_text: ReasonText | None = None
+    callback_source_text: ReasonText | None = None
+    end_reason: EndReason | None = None
+    @field_validator('callback_reason_text', 'callback_source_text')
+    @classmethod
+    def nonblank_callback_text(cls, value):
+        if value is not None and not value.strip():
+            raise ValueError('Callback text must not be blank')
+        return value
     @field_validator('callback_at', mode='before')
     @classmethod
     def timestamp(cls, value):
@@ -139,16 +181,37 @@ class ResultInput(StrictModel):
             raise ValueError('unresolved must match missing answers exactly')
         if self.available_times and self.consult_accepted is not True:
             raise ValueError('Available times require consultation acceptance')
+        if self.consult is not None:
+            if self.consult_accepted is None:
+                if self.consult.reason is None:
+                    raise ValueError('Unconfirmed consultation requires a reason')
+            elif self.consult.reason is not None:
+                raise ValueError('Confirmed consultation must not have a missing-answer reason')
+            if self.consult.condition is not None and self.consult_accepted is not True:
+                raise ValueError('Consultation condition requires acceptance')
+            if self.consult.reason == 'not_asked' and (self.consult.source_text is not None or self.consult.evidence_turns):
+                raise ValueError('Unasked consultation must not contain dialogue evidence')
+        turn_numbers = [turn.turn_no for turn in self.transcript if turn.turn_no is not None]
+        if len(turn_numbers) != len(set(turn_numbers)):
+            raise ValueError('Duplicate transcript turn numbers')
+        known_turns = set(turn_numbers)
+        for explanation in [*self.answers, *([self.consult] if self.consult is not None else [])]:
+            if not set(explanation.evidence_turns or []).issubset(known_turns):
+                raise ValueError('Evidence must reference explicitly numbered turns in this result')
         if self.outcome != 'answered':
             if self.consult_accepted is not None or self.available_times or self.latency is not None:
                 raise ValueError('Non-human connection must not contain consultation or latency')
             if self.disclosure_played is not None or any(a.asked for a in self.answers) or self.transcript:
                 raise ValueError('Non-human connection has no dialogue or disclosure measurement')
+            if self.consult is not None or self.end_reason is not None:
+                raise ValueError('Consultation detail and end_reason require human answer')
         if self.callback_requested:
             if self.outcome != 'answered':
                 raise ValueError('Callback requires human answer')
         elif self.callback_at is not None:
             raise ValueError('callback_at requires callback_requested')
+        if not self.callback_requested and (self.callback_reason_text is not None or self.callback_source_text is not None):
+            raise ValueError('Callback explanation requires callback_requested')
         if self.rejection_reason is not None and self.outcome != 'rejected':
             raise ValueError('Rejection reason only applies to rejected')
         return self

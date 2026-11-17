@@ -1,6 +1,7 @@
 """Durable MySQL development queue with a replaceable mock voice worker."""
 import hashlib
 import json
+from copy import deepcopy
 from collections import deque
 from datetime import datetime, time, timezone, timedelta
 from dataclasses import dataclass
@@ -24,10 +25,18 @@ def fingerprint(value):
 
 def result_payload(body):
     payload = body.model_dump(mode='json')
-    for answer in payload['answers']:
-        # Keep the serialized payload and hash compatible with results stored before source_text.
-        if answer['source_text'] is None:
-            del answer['source_text']
+    # Additive fields must not change the hash of a result sent by a legacy worker.
+    for name in ('consult', 'callback_reason_text', 'callback_source_text', 'end_reason'):
+        if payload[name] is None:
+            del payload[name]
+    explanations = payload['answers'] + ([payload['consult']] if 'consult' in payload else [])
+    for explanation in explanations:
+        for name in ('condition', 'reason_text', 'source_text', 'evidence_turns'):
+            if explanation[name] is None or (name == 'evidence_turns' and explanation[name] == []):
+                del explanation[name]
+    for turn in payload['transcript']:
+        if turn['turn_no'] is None:
+            del turn['turn_no']
     return payload
 
 def utc(value): return value.astimezone(timezone.utc).replace(tzinfo=None)
@@ -510,17 +519,30 @@ class Service:
                 .order_by(corrections.c.revision.desc()).limit(1)).mappings().first()
             revision=previous['revision'] if previous else 0
             if body.base_revision!=revision: raise HTTPException(409,'Review revision conflict; reload before editing')
+            current=previous['payload'] if previous else original['payload']
+            # An older reviewer may only send fields it knows. Preserve omitted additions.
+            for name in ('consult', 'callback_reason_text', 'callback_source_text', 'end_reason'):
+                if name not in body.payload.model_fields_set and name in current:
+                    payload[name] = deepcopy(current[name])
+            if len(body.payload.transcript) == len(current['transcript']):
+                for turn, item, old in zip(body.payload.transcript, payload['transcript'], current['transcript']):
+                    if ('turn_no' not in turn.model_fields_set and 'turn_no' in old
+                            and all(item.get(k) == old.get(k) for k in ('speaker', 'at_ms', 'text'))):
+                        item['turn_no'] = old['turn_no']
             editable={'answers','unresolved','summary_text','notes'}
-            if any(payload[k]!=original['payload'][k] for k in payload.keys()-editable):
+            if any(payload.get(k)!=original['payload'].get(k) for k in (payload.keys()|original['payload'].keys())-editable):
                 raise HTTPException(422,'Operational fields cannot be corrected')
             expected={a['question_id']:a['question_code'] for a in original['payload']['answers']}
             if {a['question_id']:a['question_code'] for a in payload['answers']}!=expected:
                 raise HTTPException(422,'Question identities cannot be corrected')
-            current=previous['payload'] if previous else original['payload']
-            excerpts = {a['question_id']: a['source_text'] for a in current['answers'] if a.get('source_text')}
+            current_answers = {a['question_id']: a for a in current['answers']}
             for answer, item in zip(body.payload.answers, payload['answers']):
-                if answer.asked and 'source_text' not in answer.model_fields_set and answer.question_id in excerpts:
-                    item['source_text'] = excerpts[answer.question_id]
+                old = current_answers[answer.question_id]
+                unchanged = all(item.get(k) == old.get(k) for k in ('asked', 'answered', 'yes_no', 'reason'))
+                for name in ('source_text', 'condition', 'reason_text', 'evidence_turns'):
+                    preserve = answer.asked if name == 'source_text' else unchanged
+                    if preserve and name not in answer.model_fields_set and name in old:
+                        item[name] = deepcopy(old[name])
             if payload==current: raise HTTPException(422,'Review contains no changes')
             c.execute(corrections.insert().values(id=uid(),call_id=cid,revision=revision+1,
                 reviewer=body.reviewer,reason=body.reason,payload=payload,created_at=self.now()))
