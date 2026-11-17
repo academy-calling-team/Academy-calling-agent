@@ -1,6 +1,6 @@
 export type InquiryStatus = 'queued' | 'calling' | 'retry_wait' | 'completed' | 'failed';
 
-export type AnswerViewKind = 'unknown' | 'time' | 'no' | 'yes';
+export type AnswerViewKind = 'unknown' | 'time' | 'no' | 'yes' | 'refused';
 
 export interface Student {
   grade: string;
@@ -155,27 +155,54 @@ export interface AnswerView {
   label: string;
   reason: string;
   detail: string;
+  guidance?: string;
+}
+
+function refusedGuidance(detail: string, source?: string | null): string | undefined {
+  const routeLine = /^(?:안내받은 경로|안내 경로|확인 경로)\s*:\s*(.+)$/;
+  const channel = /홈페이지|웹사이트|공식\s*사이트|블로그|카카오톡|카톡|네이버|문자|이메일|방문|전화/;
+  const direction = /(?:확인|문의|연락|방문|전화)(?:해\s*(?:주세요|보세요|주시기 바랍니다)|하여\s*주세요|하시면\s*(?:됩니다|안내받을 수 있습니다)|하실 수 있습니다)|(?:오세요|오시면\s*안내)/;
+
+  for (const value of [detail, source]) {
+    for (const line of value?.split(/\r?\n/) ?? []) {
+      const text = line.trim();
+      const route = routeLine.exec(text)?.[1]?.trim();
+      if (route) return route;
+      if (channel.test(text) && direction.test(text)) return text;
+    }
+  }
 }
 
 export function answerView(answer?: InquiryAnswer | null): AnswerView {
+  const detail = answer?.detail || '';
   if (answer?.answered !== true) {
+    if (answer?.reason === 'refused') {
+      return {
+        kind: 'refused',
+        label: '직접 확인 필요',
+        reason: reasons.refused,
+        detail,
+        guidance: refusedGuidance(detail, answer.source_text),
+      };
+    }
     return {
       kind: 'unknown',
       label: '미확인',
       reason: (answer?.reason && reasons[answer.reason]) || '확인된 답변이 없습니다.',
-      detail: answer?.detail || '',
+      detail,
     };
   }
   if (answer.question_code === 'class_time') {
-    return { kind: 'time', label: '시간 확인', reason: '', detail: answer.detail || '' };
+    return { kind: 'time', label: '시간 확인', reason: '', detail };
   }
   if (answer.yes_no === false) {
-    return { kind: 'no', label: '불가', reason: '', detail: answer.detail || '' };
+    return { kind: 'no', label: '불가', reason: '', detail };
   }
   if (answer.yes_no === true) {
-    return { kind: 'yes', label: '가능', reason: '', detail: answer.detail || '' };
+    const firstLine = detail.split(/\r?\n/, 1)[0].trim();
+    return { kind: 'yes', label: /^조건:\s*\S/.test(firstLine) ? '조건부 가능' : '가능', reason: '', detail };
   }
-  return { kind: 'unknown', label: '미확인', reason: '답변을 추가로 확인해야 합니다.', detail: answer.detail || '' };
+  return { kind: 'unknown', label: '미확인', reason: '답변을 추가로 확인해야 합니다.', detail };
 }
 
 export function inquiryPayload(form: FormValues) {
