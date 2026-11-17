@@ -4,6 +4,8 @@
 
 [질문별 위치·시간 문맥과 DB 적용 순서](question_locations.md), [실제 공유 음성 워커 요청 Schema](call_request_json_schema.json).
 
+[음성 결과 계약 1차 확장·검증·호환·후속 분담](voice_result_additions.md), [전체 결과 요청 예시](examples/voice_result_examples.json).
+
 ## 프론트 → 백엔드
 
 | API | 역할 | 인증 |
