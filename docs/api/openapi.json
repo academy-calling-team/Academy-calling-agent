@@ -904,7 +904,7 @@
     "/api/calls/{call_id}/transcript": {
       "get": {
         "summary": "Call Transcript",
-        "description": "학원 소유자 또는 운영자용 전체 통화 전사 조회. 일반 학부모/타 학원은 403 반환.",
+        "description": "학원 소유자 또는 운영자용 저장된 통화 전사 조회. 최종 결과 미반영(applied=false) 전사도 조회하며 일반 학부모/타 학원은 403 반환.",
         "operationId": "call_transcript_api_calls__call_id__transcript_get",
         "security": [
           {

@@ -6,6 +6,8 @@
 
 [음성 결과 계약 1차 확장·검증·호환·후속 분담](voice_result_additions.md), [전체 결과 요청 예시](examples/voice_result_examples.json).
 
+[프론트 전달용 조회 응답 예시](frontend_result_response_example.md), [PR58/PR61 병합·DB 적용 순서](../collaboration/voice_result_merge_deploy.md).
+
 ## 프론트 → 백엔드
 
 | API | 역할 | 인증 |

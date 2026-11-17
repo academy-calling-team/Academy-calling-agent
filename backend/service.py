@@ -310,9 +310,11 @@ class Service:
             if not (is_admin or is_academy_owner):
                 raise HTTPException(403, 'Transcript access requires academy owner or admin')
 
-            res = c.execute(select(results).where(results.c.call_id == cid, results.c.applied == True)).mappings().first()
+            # A late result is retained for diagnosis even when it was not applied to the inquiry.
+            # Authorization above still limits full transcripts to this academy's owner/admin.
+            res = c.execute(select(results).where(results.c.call_id == cid)).mappings().first()
             if not res:
-                raise HTTPException(404, 'Applied result not found')
+                raise HTTPException(404, 'Result not found')
             review = c.execute(select(corrections).where(corrections.c.call_id == cid)
                                .order_by(corrections.c.revision.desc()).limit(1)).mappings().first()
             effective = review['payload'] if review else res['payload']
@@ -320,6 +322,7 @@ class Service:
                 call_id=cid,
                 inquiry_id=inquiry['id'],
                 academy_id=inquiry['academy_id'],
+                applied=res['applied'],
                 transcript=effective.get('transcript', []),
                 review_revision=review['revision'] if review else 0,
             ))

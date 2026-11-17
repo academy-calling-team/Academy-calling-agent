@@ -100,6 +100,7 @@ def test_transcript_access_control_by_role(reserved):
     _, academy_auth = register_academy_owner(client, engine, academy_id, 'owner_ok')
     tr = client.get(f'/api/calls/{cid}/transcript', headers=academy_auth)
     assert tr.status_code == 200, tr.text
+    assert tr.json()['applied'] is True
     assert tr.json()['transcript'][0]['text'] == '전체 전사 테스트 발화입니다.'
 
     # 다른 학원 소유자 계정은 타 학원 통화 전사 조회 차단 (403)

@@ -20,11 +20,13 @@
 
 학부모 조회 응답에는 전체 `transcript`와 `recording_url`이 포함되지 않으며, `evidence_turns`에 지정된 허용 발화만 `evidence_dialogue`로 제공된다.
 
+아래는 **시각 미정 재연락 요청이 있는 목업 문의**다. `callback_requested=true`, `callback_at=null`이면 기존 정책상 `retry_wait`와 확인 필요 상태로 반환된다. 이를 `completed`로 표시하면 재연락 대기를 처리 완료로 오해할 수 있어 수정했다. 지정 실통화 시험은 별도의 한도 정책을 따른다.
+
 ```json
 {
   "inquiry_id": "837c79c4-1ef3-458f-8d05-ba1b866206c0",
   "inquirer_id": "44fa19ec-1d9f-450d-bf63-67a31678bd38",
-  "status": "completed",
+  "status": "retry_wait",
   "created_at": "2026-11-17T10:00:00+00:00",
   "student": {
     "grade": "M2",
@@ -152,11 +154,32 @@
   "failure_reason": null,
   "fallback_required": false,
   "fallback_status": null,
-  "review_required": false,
-  "review_reason": null
+  "review_required": true,
+  "review_reason": "callback_time_unknown"
 }
 ```
 
 ## 3. 학원·운영자 전체 전사 조회 (`GET /api/calls/{call_id}/transcript`)
 
 - 해당 통화의 학원 소유자(`account_type="academy"`) 또는 운영자(`role="admin"`)만 조회 가능하며, 일반 학부모 및 타 학원 계정은 `403 Forbidden`을 반환한다.
+- 응답의 `applied`는 이 통화 결과가 문의의 최종 결과에 반영됐는지를 나타낸다. 시간 초과 등으로 `false`여도 권한자는 저장된 전사를 조사할 수 있다. 학부모의 문의 결과 조회에서는 기존 최종 결과 필터를 유지한다.
+- 결과 자체가 아직 저장되지 않았으면 `404 Result not found`다. 전사 조회는 문의 상태를 바꾸거나 재발신을 실행하지 않는다.
+
+```json
+{
+  "call_id": "example-call",
+  "inquiry_id": "example-inquiry",
+  "academy_id": "example-academy",
+  "applied": false,
+  "transcript": [
+    {"speaker": "academy", "at_ms": 1000, "text": "저장된 통화 발화 예시입니다.", "turn_no": 0}
+  ],
+  "review_revision": 0
+}
+```
+
+## 4. 정상 완료·재연락 대기 구분
+
+목업 문의의 `outcome=answered`, `callback_requested=false`, `callback_at=null`은 기존 정책상 `status=completed`, `review_required=false`, `review_reason=null`이다. 같은 결과의 시각 미정 재연락 요청은 2절과 같이 대기로 표시한다. 연결 결과·문의 상태·질문별 판정을 각각 구분하며 `end_reason`만으로 새 자동 재시도를 만들지 않는다.
+
+병합·DB 적용 순서는 [음성 결과 PR58/PR61 반영 순서](../collaboration/voice_result_merge_deploy.md)를 따른다.
