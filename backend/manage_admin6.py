@@ -6,22 +6,24 @@ from sqlalchemy import select,update
 from local_runtime import local_engine
 from service import Service
 from auth6 import AuthStore
-from contracts6 import Credentials
+from contracts6 import RegistrationCredentials
 from schema import accounts
-from settings import require_mock_mode
 from settings import require_mock_mode
 
 def main():
     require_mock_mode()
-    require_mock_mode()
-    parser=argparse.ArgumentParser();parser.add_argument('login_name');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('login_name')
+    parser.add_argument('--terms-agreed',action='store_true',help='Confirm the administrator accepted the service terms')
+    args=parser.parse_args()
+    if not args.terms_agreed:parser.error('Read and accept the service terms, then pass --terms-agreed')
     password=SecretStr(getpass.getpass('New local administrator password (not shown): '))
     repeated=getpass.getpass('Repeat password: ')
     if password.get_secret_value()!=repeated:raise SystemExit('Passwords do not match')
     engine=local_engine();service=Service(engine,allow_legacy_tokens=False);service.initialize()
     try:
         store=AuthStore(service)
-        user=store.register(Credentials(login_name=args.login_name,password=password))
+        user=store.register(RegistrationCredentials(login_name=args.login_name,password=password,
+            terms_agreed=True,account_type='parent'))
         with engine.begin() as c:
             service.lock(c)
             c.execute(update(accounts).where(accounts.c.user_id==user['inquirer_id']).values(role='admin'))

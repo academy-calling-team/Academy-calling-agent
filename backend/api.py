@@ -1,4 +1,5 @@
 import secrets
+from typing import Literal
 from fastapi import FastAPI, Header, Query, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,7 +23,7 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
             dict(loc=list(e['loc']),msg=e['msg'],type=e['type']) for e in error.errors()]})
     origins=origins or ['http://localhost:5173','http://127.0.0.1:5173']
     if '*' in origins: raise ValueError('Explicit CORS origins required')
-    app.add_middleware(CORSMiddleware,allow_origins=origins,allow_methods=['GET','POST','PUT'],
+    app.add_middleware(CORSMiddleware,allow_origins=origins,allow_methods=['GET','POST','PUT','PATCH','DELETE'],
         allow_headers=['Authorization','Content-Type','Idempotency-Key'])
     bearer=HTTPBearer(auto_error=False)
     def auth(credentials:HTTPAuthorizationCredentials|None=Depends(bearer)):
@@ -106,6 +107,50 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
             return academy_accounts.save(token, body, create=False)
         ops=Operations(service,queue_client)
         def administrator(token:str=Depends(auth)):return auth_store.admin(token)
+        from admin_management import AdminManagement, AcademyEdit, DeleteConfirmation
+        management=AdminManagement(service)
+        admin_tag=['관리자 · 학원·문의 관리']
+
+        @app.get('/ops/academies',tags=admin_tag,summary='학원 목록·전화번호·현재 수정 버전 조회',
+                 dependencies=[Depends(administrator)])
+        def admin_academies(q:str=Query('',max_length=80),limit:int=Query(50,ge=1,le=100),offset:int=Query(0,ge=0)):
+            return management.list_academies(q,limit,offset)
+
+        @app.get('/ops/academies/{academy_id}',tags=admin_tag,summary='학원 수정 전 현재 정보 조회',
+                 dependencies=[Depends(administrator)])
+        def admin_academy(academy_id:str):return management.academy(academy_id)
+
+        @app.patch('/ops/academies/{academy_id}',tags=admin_tag,summary='학원 정보 중 지정한 항목만 수정',
+                   description='조회한 version과 수정할 항목만 전송합니다. 누락한 항목은 보존합니다. '
+                               '실제 발신 허용·목업 여부·계정 권한은 변경하지 않습니다.')
+        def edit_academy(academy_id:str,body:AcademyEdit,actor:str=Depends(administrator)):
+            return management.edit_academy(academy_id,body,actor)
+
+        @app.get('/ops/academies/{academy_id}/delete-preview',tags=admin_tag,summary='학원 삭제 가능 여부·연결 건수 확인',
+                 dependencies=[Depends(administrator)])
+        def academy_delete_preview(academy_id:str):return management.preview_delete('academy',academy_id)
+
+        @app.delete('/ops/academies/{academy_id}',tags=admin_tag,summary='미리 확인한 학원 1개 삭제',
+                    description='연결된 문의가 남아 있으면 삭제하지 않습니다. 회원 계정은 유지합니다.')
+        def delete_academy(academy_id:str,body:DeleteConfirmation,actor:str=Depends(administrator)):
+            return management.delete('academy',academy_id,body,actor)
+
+        @app.get('/ops/inquiries',tags=admin_tag,summary='전체 문의 목록·학원별/학부모별 검색',
+                 dependencies=[Depends(administrator)])
+        def admin_inquiries(academy_id:str|None=None,inquirer_id:str|None=None,
+                            status:Literal['queued','calling','retry_wait','completed','failed']|None=None,
+                            limit:int=Query(50,ge=1,le=100),offset:int=Query(0,ge=0)):
+            return management.list_inquiries(academy_id,inquirer_id,status,limit,offset)
+
+        @app.get('/ops/inquiries/{inquiry_id}/delete-preview',tags=admin_tag,summary='문의 삭제 대상·답변·통화 기록 건수 확인',
+                 dependencies=[Depends(administrator)])
+        def inquiry_delete_preview(inquiry_id:str):return management.preview_delete('inquiry',inquiry_id)
+
+        @app.delete('/ops/inquiries/{inquiry_id}',tags=admin_tag,summary='미리 확인한 문의 1개와 연결 DB 기록 삭제',
+                    description='진행 중인 통화/전달 또는 녹음 참조가 있으면 거절합니다. '
+                                '삭제 미리보기의 preview_token과 대상 ID를 입력합니다. 회원 계정은 유지합니다.')
+        def delete_inquiry(inquiry_id:str,body:DeleteConfirmation,actor:str=Depends(administrator)):
+            return management.delete('inquiry',inquiry_id,body,actor)
         @app.post('/auth/register',status_code=201)
         def register(body: RegistrationCredentials):
             return auth_store.register(body)

@@ -548,7 +548,12 @@ class Service:
             except (TimeoutError,ConnectionError): ok=False
             with self.engine.begin() as c:
                 self.lock(c)
-                lease=c.execute(select(delivery_leases).where(delivery_leases.c.call_id==cid)).mappings().one()
+                lease=c.execute(select(delivery_leases).where(delivery_leases.c.call_id==cid)).mappings().first()
+                # An administrator can remove terminal work after an expired delivery lease.
+                # A delayed network return must never recreate it or stop the queue runner.
+                if lease is None:
+                    sent.append(dict(call_id=cid,accepted=ok,deleted=True))
+                    continue
                 if lease['claim_id']==claim:
                     current=c.execute(select(calls).where(calls.c.id==cid)).mappings().one()
                     if current['status'] in ['reserved','delivery_unknown']:
