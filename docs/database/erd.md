@@ -155,6 +155,9 @@ erDiagram
         VARCHAR_30 reason
         TEXT detail
         TEXT source_text
+        VARCHAR_200 condition
+        VARCHAR_500 reason_text
+        JSON evidence_turns
     }
     w5_calls ||--o{ w5_answers : "call_id"
     w5_questions ||--o{ w5_answers : "question_id"

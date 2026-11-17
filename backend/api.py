@@ -136,6 +136,10 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
         def correction(call_id:str,body:CorrectionInput,actor:str=Depends(administrator)):
             # The review author is authenticated; a submitted label cannot impersonate another actor.
             return service.correct_result(call_id,body.model_copy(update={'reviewer':actor}))
+        @app.get('/api/calls/{call_id}/transcript',
+                 description='학원 소유자 또는 운영자용 전체 통화 전사 조회. 일반 학부모/타 학원은 403 반환.')
+        def call_transcript(call_id: str, token: str = Depends(auth)):
+            return service.get_call_transcript(call_id, token)
         @app.get('/api/academies/{academy_id}/settings', dependencies=[Depends(administrator)])
         def get_academy_settings(academy_id: str):
             """운영 반 및 전화 응대 시간 조회 (임시로 admin 권한 사용 중)"""

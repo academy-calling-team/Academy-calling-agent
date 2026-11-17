@@ -10,13 +10,14 @@ from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 from sqlalchemy import select, func, update
 from sqlalchemy.exc import IntegrityError
-from schema import accounts,sessions,review_holds,review_actions,fallback_tasks
+from schema import accounts, sessions, review_holds, review_actions, fallback_tasks, academy_profiles
 from schema import (metadata, users, academies, inquiries, questions, calls, events, results, answers, control,
                     outbox, delivery_leases, corrections, academy_policies,
                     academy_classes, academy_call_hours, academy_setting_states)
 from worker_errors import WorkerRejected, WorkerProtocolError
 from real_test import RealTestPolicy, phone
 from contracts import QUESTION_LABELS, CALL_STATUS_LABELS_KR, CALL_OUTCOME_LABELS_KR
+
 
 def uid(): return str(uuid4())
 def digest(value): return hashlib.sha256(value.encode()).hexdigest()
@@ -38,6 +39,26 @@ def result_payload(body):
         if turn['turn_no'] is None:
             del turn['turn_no']
     return payload
+
+def attach_evidence_dialogue(result_view, transcript):
+    turn_map = {
+        t['turn_no']: {
+            'turn_no': t['turn_no'],
+            'speaker': t['speaker'],
+            'at_ms': t['at_ms'],
+            'text': t['text'],
+        }
+        for t in (transcript or [])
+        if t.get('turn_no') is not None
+    }
+    for answer in result_view.get('answers') or []:
+        turns = answer.get('evidence_turns')
+        if turns:
+            answer['evidence_dialogue'] = [turn_map[n] for n in turns if n in turn_map]
+    consult = result_view.get('consult')
+    if isinstance(consult, dict) and consult.get('evidence_turns'):
+        consult['evidence_dialogue'] = [turn_map[n] for n in consult['evidence_turns'] if n in turn_map]
+    return result_view
 
 def utc(value): return value.astimezone(timezone.utc).replace(tzinfo=None)
 
@@ -254,6 +275,7 @@ class Service:
                     # Raw transcripts, recording URLs and internal delivery metadata stay internal.
                     final={k:v for k,v in effective.items() if k not in
                            ('transcript','recording_url','result_id','rejection_reason')}
+                    attach_evidence_dialogue(final, effective.get('transcript'))
                     final['review_revision']=review['revision'] if review else 0
             return aware(dict(inquiry_id=iid,inquirer_id=owner,status=row['status'],created_at=row['created_at'],student=row['student'],
                 academy={'academy_id':ac['id'],'name':ac['name'],'is_mock':ac['is_mock'],
@@ -268,6 +290,39 @@ class Service:
                 attempts=history,result=final,failure_reason=row['failure_reason'],
                 fallback_required=row['fallback_required'],fallback_status=fallback.status if fallback else None,
                 review_required=hold is not None,review_reason=hold['reason'] if hold else None))
+    def get_call_transcript(self, cid, token):
+        with self.engine.connect() as c:
+            user_id = self.owner(c, token)
+            account = c.execute(select(accounts.c.role, accounts.c.account_type)
+                                .where(accounts.c.user_id == user_id)).mappings().first()
+            call = c.execute(select(calls).where(calls.c.id == cid)).mappings().first()
+            if not call:
+                raise HTTPException(404, 'Call not found')
+            inquiry = c.execute(select(inquiries).where(inquiries.c.id == call['inquiry_id'])).mappings().one()
+
+            is_admin = bool(account and account['role'] == 'admin')
+            is_academy_owner = False
+            if account and account['account_type'] == 'academy':
+                owned_academy = c.execute(select(academy_profiles.c.academy_id)
+                                          .where(academy_profiles.c.owner_id == user_id)).scalar()
+                is_academy_owner = (owned_academy == inquiry['academy_id'])
+
+            if not (is_admin or is_academy_owner):
+                raise HTTPException(403, 'Transcript access requires academy owner or admin')
+
+            res = c.execute(select(results).where(results.c.call_id == cid, results.c.applied == True)).mappings().first()
+            if not res:
+                raise HTTPException(404, 'Applied result not found')
+            review = c.execute(select(corrections).where(corrections.c.call_id == cid)
+                               .order_by(corrections.c.revision.desc()).limit(1)).mappings().first()
+            effective = review['payload'] if review else res['payload']
+            return aware(dict(
+                call_id=cid,
+                inquiry_id=inquiry['id'],
+                academy_id=inquiry['academy_id'],
+                transcript=effective.get('transcript', []),
+                review_revision=review['revision'] if review else 0,
+            ))
     def opened(self, academy):
         local = self.clock().astimezone(ZoneInfo('Asia/Seoul'))
         return within_hours(local, academy_windows(academy, ()))
@@ -529,7 +584,7 @@ class Service:
                     if ('turn_no' not in turn.model_fields_set and 'turn_no' in old
                             and all(item.get(k) == old.get(k) for k in ('speaker', 'at_ms', 'text'))):
                         item['turn_no'] = old['turn_no']
-            editable={'answers','unresolved','summary_text','notes'}
+            editable={'answers','unresolved','summary_text','notes','consult'}
             if any(payload.get(k)!=original['payload'].get(k) for k in (payload.keys()|original['payload'].keys())-editable):
                 raise HTTPException(422,'Operational fields cannot be corrected')
             expected={a['question_id']:a['question_code'] for a in original['payload']['answers']}
@@ -654,8 +709,13 @@ class Service:
             c.execute(results.insert().values(call_id=cid,result_id=body.result_id,payload_hash=fp,
                 payload=payload,received_at=self.now(),applied=applied))
             for a in body.answers:
-                c.execute(answers.insert().values(call_id=cid,question_id=a.question_id,asked=a.asked,
-                    answered=a.answered,yes_no=a.yes_no,reason=a.reason,detail=a.detail,source_text=a.source_text))
+                c.execute(answers.insert().values(
+                    call_id=cid, question_id=a.question_id, asked=a.asked,
+                    answered=a.answered, yes_no=a.yes_no, reason=a.reason,
+                    detail=a.detail, source_text=a.source_text,
+                    condition=a.condition, reason_text=a.reason_text,
+                    evidence_turns=list(a.evidence_turns) if a.evidence_turns else None,
+                ))
             return dict(duplicate=False,applied=applied)
     def expire(self):
         with self.engine.begin() as c:
