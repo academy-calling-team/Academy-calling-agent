@@ -1,0 +1,191 @@
+﻿set,case,item,truth,triage,triage_grade,signal,review_reasons,reviewed,review,final,final_grade,certainty,condition,detail,detail_checked,source_text,note
+real_1013,co_A,vacancy,yes,yes,ok,none,,,,yes,ok,definite,,두 자리 남아 있음,True,네 지금 두자 남아있 / (AI: 네 두 자 남아 있는 거죠?) / 네 맞습니다,
+real_1013,co_A,class_time,answered,answered,ok,none,,,,answered,ok,definite,,화요일·목요일 7시부터 9시까지,True,화요일터 목요일 그리고 저 7시터 9시까지 있습니다. / (AI: 화요일과 목요일 저 7시터 9시까지가 맞을까요?) / 네 맞습니다.,
+real_1013,co_A,consult,yes,yes,ok,none,,,,yes,ok,definite,,"수요일 오후 3시, 금요일 오후 4시 가능",True,"네 가능합니다. 수요일 오 3시 금요일 오 / (AI: 네, 수요일 오 3시 금요일 오 4시가 가능하신) / 네 맞습니다.",
+real_1013,co_A2,vacancy,yes,yes,ok,none,,,,yes,ok,definite,,두 자리 남아 있음,True,네 지금 두 자 남아 있습니다.,
+real_1013,co_A2,class_time,answered,answered,ok,none,,,,answered,ok,definite,,화요일·목요일 저녁 7시~9시 수업,True,화요일이랑 목요일 저 7시터 9시까지입니다 / (AI: 화요일과 목요일 저 7시터 9시까지가 맞을까요?) / 네 맞습니다.,
+real_1013,co_A2,consult,yes,yes,ok,none,,,,yes,ok,definite,,"수요일 오 3시, 금요일 오 4시 상담 가능",True,네 가능합니다. 수요일 오 3시 금요일 오 4시,
+real_1013,co_B,vacancy,yes,yes,ok,none,,,,yes,ok,definite,,한자 자리 남아 있습니다.,True,한자 남았습니다.,
+real_1013,co_B,class_time,answered,answered,ok,none,,,,answered,ok,definite,,수금 6시 반부터 8시 반까지입니다.,True,수금 6시 반터 8시 반이.,
+real_1013,co_B,consult,yes,yes,ok,none,,,,yes,ok,definite,,목요일 2시에 오시면 됩니다.,True,목요일 2시 오시면 됩니다.,
+real_1013,co_C,vacancy,yes,yes,ok,corrected,신호 corrected,Y,yes,yes,ok,definite,,중2 자리는 있습니다,True,아 아니요 두자에요,
+real_1013,co_C,class_time,answered,answered,ok,corrected,신호 corrected,Y,answered,answered,ok,definite,,중2 수학은 화·목 7시입니다,True,(AI: 그럼 중2 수학 수업 요일와 시간이 어떻게 될까요?) / 화 7시요 / (AI: 화요일과 목요일 오 7시가 맞을까요) / 네 맞습니다.,
+real_1013,co_C,consult,yes,yes,ok,none,,,,yes,ok,definite,,금요일 오전 11시 상담 가능합니다,True,금요일 오전 11시 괜찮습니다.,
+real_1013,co_D,vacancy,no,no,ok,none,,,,no,ok,definite,,현재 마감으로 대기 등록만 가능,True,지금은 마감이라 대기 등록만 됩니다.,
+real_1013,co_D,class_time,answered,answered,ok,none,,,,answered,ok,definite,,토요일 오전 10시터 1시까지,True,토요일 오전 10시터 1시까지입니다.,
+real_1013,co_D,consult,yes,yes,ok,none,,,,yes,ok,definite,,화요일 오 5시에 오라고 안내,True,"네, 화요일 오 5시에 오",
+real_1013,co_D2,vacancy,yes,yes,ok,none,,,,yes,ok,definite,,현재 두 자리 남아 있음,True,지금 두 자 남아있어요.,
+real_1013,co_D2,class_time,answered,answered,ok,none,,,,answered,ok,definite,,화·목 저녁 7시부터 9시까지,True,화요일이랑 목요일 저 7시터 9시까지에요.,
+real_1013,co_D2,consult,yes,yes,ok,none,,,,yes,ok,definite,,"수요일 오후 3시, 금요일 오후 4시 상담 가능",True,네 가능합니다. 수요일 오 3시 금요일 오 4,
+real_1013,co_E,vacancy,unknown,unknown,ok,deferred,신호 deferred,Y,unknown,unknown,ok,deferred,,원장님이 알고 있어 확인하지 못함,True,그건 원장님이 아가지고 제가 잘 모르겠어요.,
+real_1013,co_E,class_time,answered,answered,ok,none,,,,answered,ok,definite,,수요일·금요일 저녁 8시 수업,True,수요일이랑 금요일 저 8 / (AI: 수요일과 금요일 저 8시가 맞을까요) / 네 맞습니다.,
+real_1013,co_E,consult,unknown,unknown,ok,deferred,신호 deferred,Y,unknown,unknown,ok,deferred,,상도 원장님 일정이라 확인하지 못함,True,상도 원장님 일정이라 확인해야 합니다.,
+real_1013,co_H,vacancy,yes,yes,ok,none,,,,yes,ok,definite,,중2 수학반 두 자리 남아 등록 가능,True,(AI: 중2 수학반에 지금 등록할 자가 있나요?) / 네 지금 / (AI: 중2 수학반에 지금 등록할 자가 있나요?) / 두자 남아있 / (AI: 두 자 남아 있는 게 맞을까요) / 네 맞습니다.,
+real_1013,co_H,class_time,answered,answered,ok,none,,,,answered,ok,definite,,화·목 저녁 7시부터 9시까지 수업,True,(AI: 중2수학 수업 요일과 시가 어떻게 되요?) / 화요일이랑 / 목요일 저 7시터 9시까지요. / (AI: 화요일과 목요일 저 7시터 9시까지가 맞을까요?) / 네 맞습니다.,
+real_1013,co_H,consult,yes,yes,ok,none,,,,yes,ok,definite,,금요일 4시 학부 상담 가능,True,수요일 오 3시 나 / (AI: 이번 주에 학부 상담이 가능할까요? 가능하다면 요일과 시간 때는 언제인가요?) / 금요일 오 4,
+real_1013,va_A,vacancy,yes,yes,ok,none,,,,yes,ok,definite,,두 자리 남아 있어요,True,네 지금 두자 남아있어요,
+real_1013,va_A,class_time,answered,answered,ok,none,,,,answered,ok,definite,,화요일·목요일 7시부터 9시까지,True,화요일이랑 목요일 저 7시터 9시까지 있어요,
+real_1013,va_A,consult,yes,yes,ok,corrected,신호 corrected,Y,yes,yes,ok,definite,,상담 가능해요,True,"네 가능해요. 수요일 오 네 셋이나? / (AI: 수요일 오 4시 금요일 오 4시가 맞죠) / 아, 수요일 오",
+real_1013,va_A2,vacancy,yes,yes,ok,none,,,,yes,ok,definite,,현재 두 자리 남아 있습니다.,True,네 지금 두 자 남아있어요,
+real_1013,va_A2,class_time,answered,answered,ok,none,,,,answered,ok,definite,,화·목요일 저녁 7시부터 9시까지입니다.,True,화요일이랑 목요일 저 7시터 9시까지입니다.,
+real_1013,va_A2,consult,yes,yes,ok,none,,,,yes,ok,definite,,"수요일 오후 3시, 금요일 오후 4시 상담 가능합니다.",True,네 가능합니다. 수요일 오 3시 금요일 오 4시,
+real_1013,va_B,vacancy,yes,yes,ok,none,,,,yes,ok,definite,,등록할 자리 남았다고 안내,True,(AI: 주 2 수학반에 지금 등록할 자가 있는지 여도 될까요?) / 한자 남았어요.,
+real_1013,va_B,class_time,answered,answered,ok,none,,,,answered,ok,definite,,수금 6시 반부터 8시 반,True,수금 6시 반터 8시 반이.,
+real_1013,va_B,consult,yes,yes,ok,none,,,,yes,ok,definite,,목요일 2시에 방문하면 됨,True,목요일 2시에 오시면 돼요.,
+real_1013,va_C,vacancy,yes,yes,ok,corrected,신호 corrected,Y,yes,yes,ok,definite,,두 자리 남아 있음,True,(AI: 두 자 남아있는 게 맞을까요?) / 네 맞습니다.,
+real_1013,va_C,class_time,answered,answered,ok,none,,,,answered,ok,definite,,화·목요일 저녁 7시 수업,True,"(AI: 그럼 주수학 수업 요일과 시간은 어떻게 되요?) / 화 7시요. / (AI: 네, 화요일이랑 목요일 저 7시가 맞을까요?) / 네 맞습니다.",
+real_1013,va_C,consult,yes,yes,ok,none,,,,yes,ok,definite,,금요일 오전 11시 상담 가능,True,금요일 오전 11시 괜찮아요. / (AI: 금요일 오전 11시가 가능하다는 말씀이죠?) / 네 맞습니다.,
+real_1013,va_D,vacancy,no,no,ok,none,,,,no,ok,definite,,현재 마감으로 대기 등록만 가능,True,지금은 마감이라 대기 등록만 됩니다. / (AI: 지금은 마감이라 대기 등록만 가능한 거죠?) / 네,
+real_1013,va_D,class_time,answered,answered,ok,none,,,,answered,ok,definite,,토요일 오전 10시부터 1시까지,True,토요일 오전 10시터 1시까지요. / 토요일 오전 10시터 1시까지요.,
+real_1013,va_D,consult,yes,yes,ok,none,,,,yes,ok,definite,,화요일 오후 5시 상담 가능,True,네 화요일 오 5시에 오세요 / (AI: 화요일 오 5시에 가능한 거 맞으시죠?) / 네 맞습니다.,
+real_1013,va_D2,vacancy,no,no,ok,none,,,,no,ok,definite,,현재는 마서 대기 등록만 가능,True,지금은 마서 대기 등록만 돼요,
+real_1013,va_D2,class_time,answered,answered,ok,none,,,,answered,ok,definite,,토요일 오전 10시부터 1시까지,True,토요일 오전 10시터 1시까지요,
+real_1013,va_D2,consult,yes,yes,ok,none,,,,yes,ok,definite,,화요일 오 5시에 오라고 안내,True,네. 화요일 오 5시에 오,
+real_1013,va_E,vacancy,unknown,unknown,ok,deferred,신호 deferred,Y,unknown,unknown,ok,deferred,,원장님이 알고 있어 확인하지 못함,True,그건 원장님이 아가지고 제가 잘 모르겠요.,
+real_1013,va_E,class_time,answered,answered,ok,none,,,,answered,ok,definite,,수요일·금요일 저녁 8시로 확인됨,True,수요일이랑 금요일 저 8시 / (AI: 네 수요일과 금요일 저 8시가 맞을까요?) / 네 맞습니다.,
+real_1013,va_E,consult,unknown,unknown,ok,deferred,신호 deferred,Y,unknown,unknown,ok,deferred,,원장님 일정이라 확인하지 못함,True,상도 원장님 일정이라서 한번 확인해 봐야 될 것 같습니다.,
+real_1013,va_H,vacancy,yes,yes,ok,none,,,,yes,ok,definite,,중2 수학반 등록 자리 두 자 남아 있음,True,(AI: 중2 수학반에 지금 등록할 자가 있을까요?) / 네 지금 / (AI: 중2 수학반에 지금 등록할 자가 있을까요?) / 두자 남아 / (AI: 중2 수학반에 두 자가 남아있다는 말씀이죠?) / 네,
+real_1013,va_H,class_time,answered,answered,ok,none,,,,answered,ok,definite,,화·목요일 저녁 7시부터 9시까지 수업,True,목요일 저 7시터 9시까지요. / (AI: 화요일과 목요일 저 7시터 9시까지인가요?) / 네 맞습니다.,
+real_1013,va_H,consult,yes,yes,ok,none,,,,yes,ok,definite,,수요일 오후 3시 또는 금요일 오후 4시 상담 가능,True,(AI: 가능하다면 요일과 시간은 언제가 좋으신가요?) / 수요일 오 3시 / (AI: 가능하다면 요일과 시간은 언제가 좋으신가요?) / 금요일 오 4 / (AI: 수요일 오 3시 또는 금요일 오 4시에 학부 상담이 가능하신 거죠?) / 네 맞습니다.,
+real_1019,1019_local,shuttle,yes,yes,ok,none,,,,yes,ok,definite,,"침산동 운행, 수업 전후 10분 정도입니다",True,"네, 침산동 쪽으로 다녀요. / 운행은 시, 수업 시간 전후로 10분 정도입니다.",
+real_1019,1019_local,pickup,no,no,ok,none,,,,no,ok,definite,,픽업은 안 합니다,True,픽업은 안 합니다.,
+real_1019,1019_local,class_time,answered,answered,ok,none,,,,answered,ok,definite,,화·목 저녁 7시 수업입니다,True,"화, 목 저녁 7시요.",
+real_1019,1019_local,consult,yes,yes,ok,none,,,,yes,ok,definite,,수요일 3시에 오세요,True,수요일 3시에 오세요.,
+real_1019,1019_reconfirm,shuttle,yes,yes,ok,none,,,,yes,ok,definite,,"침산동 셔틀 운행, 수업 전후 20분",True,"네, 침산동 쪽으로 다니고 수업 전후로 20분 있습니다.",
+real_1019,1019_reconfirm,pickup,no,no,ok,corrected,신호 corrected · 정정 가능성,Y,no,no,ok,definite,,픽업은 운행하지 않음,True,"아니요, 픽업은 안 해요. / (AI: 아, 픽업은 안 하신다는 말씀이시죠?) / 네, 맞습니다.",
+real_1019,1019_reconfirm,class_time,answered,answered,ok,none,,,,answered,ok,definite,,화·목 저녁 7시 수업,True,"화, 목 저녁 7시요.",
+real_1019,1019_reconfirm,consult,yes,yes,ok,none,,,,yes,ok,definite,,수요일 3시 방문 상담,True,수요일 3시에 오세요.,
+real_1019,2118,shuttle,yes,yes,ok,none,,,,yes,ok,definite,,침산동 쪽으로 수업 전후 20분 간격 운행,True,"네. 침산동 쪽으로 다니고 수업 시간 전후 20분 간격으로 / (AI: 자녀분이 중학교 2학년 수학 과정이고 대구 북구 침산동 거주인데요. 먼저 통학 차량이 있는지, 있다면 운행 지역과 시간은 어떻게 되는지 여쭤봐도 될까요?) / 합니다. / (AI: 네, 침산동 쪽으로 수업 시간 전후 20분 간격으로 운행하신다는 말씀이시죠?) / 네, 맞습니다.",
+real_1019,2118,pickup,yes,yes,ok,none,,,,yes,ok,definite,,수업 후 픽업 가능합니다,True,"(AI: 그럼 수업이 끝난 뒤에 픽업도 가능할까요?) / 네, 가능합니다.",
+real_1019,2118,class_time,answered,answered,ok,none,,,,answered,ok,definite,,화·목 저녁 7시 수업입니다,True,"화, 목 저녁 7시입니다. / (AI: 네, 화요일과 목요일 저녁 7시가 맞을까요?) / 네, 맞습니다.",
+real_1019,2118,consult,yes,yes,ok,none,,,,yes,ok,definite,,수요일 3시에 상담 오세요,True,"수요일 3시에 오세요. / (AI: 네, 수요일 오후 3시가 가능하다는 말씀이시죠?) / 네, 맞습니다.",
+real_1019,2122,pickup,no,no,ok,none,,,,no,ok,definite,,픽업은 하지 않고 있습니다.,True,픽업은 하지 않고 있습니다.,
+real_1019,2122,vacancy,yes,yes,ok,none,,,,yes,ok,definite,,현재 두 자리 남아 있습니다.,True,현재 두 자리 남아 있습니다.,
+real_1019,2122,level_test,yes,yes,ok,none,,,,yes,ok,definite,,레벨 테스트가 있으며 수요일 3시에 오시면 됩니다.,True,레벨 테스트 존재하고 수요일 3시에 오시면 됩니다.,
+real_1019,2122,consult,yes,yes,ok,none,,,,yes,ok,definite,,학부모 상담은 목요일 4시에 오시면 됩니다.,True,학부모 상담 목요일 4시에 오시면 됩니다.,
+real_1019,2126,shuttle,yes,yes,ok,none,,,,yes,ok,definite,,"침산동 운행, 수업 전후 20분 이용 가능",True,"네, 침산동 쪽으로도 다니고 수업 전후 20분에 있습니다.",
+real_1019,2126,pickup,no,no,ok,none,,,,no,ok,definite,,픽업은 하지 않습니다,True,픽업은 하지 않습니다.,
+real_1019,2126,class_time,answered,answered,ok,none,,,,answered,ok,definite,,화·목 저녁 7시 수업,True,"화, 목 저녁 7시요.",
+real_1019,2126,consult,yes,yes,ok,none,,,,yes,ok,definite,,수요일 3시에 방문 상담 가능,True,수요일 3시에 오시면 됩니다.,
+synthetic,S01,pickup,no,no,ok,none,,,,no,ok,definite,,픽업은 따로 제공하지 않음,True,픽업은 따로 안 해 드리고 있어요. / (AI: 픽업은 안 하신다는 거죠?) / 네.,완곡한 부정 + 다른 요일 가능 (10/28 멘토 예시)
+synthetic,S01,consult,yes,yes,ok,partial_week,신호 partial_week,Y,yes,yes,ok,definite,,월요일 오후 네 시 상담 가능,True,"금토일은 안 될 것 같고요, 월요일 오후 네 시는 돼요.",완곡한 부정 + 다른 요일 가능 (10/28 멘토 예시)
+synthetic,S02,consult,unknown,no,overclaim,partial_week,신호 partial_week,Y,unknown,unknown,ok,definite,,금·토·일 수업 가능 여부는 확인하지 못함,True,"금토일은 안 될 것 같습니다. / (AI: 금요일부터 일요일은 어려우시다는 거죠?) / 네, 그렇습니다.",안 되는 시간만 말함
+synthetic,S03,consult,no,no,ok,none,,,,no,ok,definite,,이번 주는 어렵고 다음 주에 다시 연락 요청,True,이번 주는 좀 힘들 것 같아요. 다음 주에 다시 연락 주세요.,'것 같아요' 정중한 거절
+synthetic,S04,shuttle,yes,yes,ok,partial_week,신호 partial_week,Y,yes,yes,ok,definite,복현동·산격동만 운행하며 침산동은 제외,복현동·산격동만 운행하며 침산동은 제외,True,"네네, 차량은 있는데 침산동 쪽은 안 가요. 복현동, 산격동만 돌아요.",있지만 우리 지역은 안 감
+synthetic,S05,shuttle,no,no,ok,none,,,,no,ok,definite,,차량은 있으나 중학생은 이용할 수 없음,True,차량이 있긴 한데 초등부만 태우고 중학생은 안 태워요.,있지만 중학생은 안 태움 (학생 기준 no)
+synthetic,S06,vacancy,unknown,yes,overclaim,hedge,신호 hedge,Y,unknown,unknown,ok,guess,,자리 여부는 원장님께 확인하지 못함,True,아마 한두 자리 있을 거예요. 정확한 건 원장님이 아세요.,추측 (아마)
+synthetic,S07,vacancy,no,no,ok,none,,,,no,ok,definite,,현재 자리는 없으며 대기 등록 시 연락드립니다.,True,지금은 대기 걸어 두시면 자리 나는 대로 연락드려요.,대기 등록만 가능
+synthetic,S08,level_fit,yes,yes,ok,none,,,,yes,ok,definite,,중2 중급반은 있으나 현재 마감,True,"네, 중2 중급반 있어요. 근데 지금은 꽉 찼어요.",반은 있지만 꽉 참 (level_fit은 yes)
+synthetic,S09,pickup,yes,yes,ok,none,,,,yes,ok,definite,,집 앞까지 픽업해 드려요.,True,안 해 드리는 건 아니에요. 집 앞까지 해 드려요.,이중 부정
+synthetic,S10,level_test,yes,yes,ok,none,,,,yes,ok,definite,,등록 전 레벨테스트를 한 번 봅니다.,True,없지는 않아요. 등록 전에 한 번 봐요.,없지는 않아요
+synthetic,S11,pickup,yes,yes,ok,corrected,신호 corrected,Y,yes,yes,ok,definite,,픽업 가능하다고 안내함,True,"아니요, 픽업 해요. 걱정 마세요.",말버릇 '아니요'
+synthetic,S12,vacancy,no,no,ok,corrected,신호 corrected,Y,no,no,ok,definite,,현재 자리가 다 차서 없습니다,True,"네, 있어요… 아, 잠시만요. 지난주에 다 찼네요. 지금은 없어요.",스스로 정정 (있다→없다)
+synthetic,S13,class_time,unknown,redirect,ok,none,,,,redirect,ok,definite,,반별 수업시간은 방문 상담 시 안내,True,그건 반마다 달라서 상담 오시면 알려 드려요.,반마다 달라서 상담 때 안내
+synthetic,S14,class_time,refused,unknown,ok,none,,,,unknown,ok,definite,,수업 시간은 전화로 확인하지 못함,True,죄송한데 그런 건 전화로는 말씀드리기 어려워요.,전화로는 말 못 함
+synthetic,S15,class_time,answered,answered,ok,none,,,,answered,ok,definite,,화목 저녁 7시 반 또는 토요일 오전 10시 중 선택,True,"화목 저녁 일곱 시 반이랑 토요일 오전 열 시, 두 타임 중에 고르시면 돼요.",두 타임 시간
+synthetic,S16,pickup,not_asked,not_asked,ok,none,,,,not_asked,ok,definite,,픽업은 묻지 않음,,,질문하지 않음
+synthetic,S16,shuttle,yes,yes,ok,none,,,,yes,ok,definite,,수업 전후로 셔틀이 있어요,True,"네, 있어요. 수업 전후로 돌아요.",질문하지 않음
+synthetic,S17,shuttle,unknown,unknown,ok,off_topic,신호 off_topic,Y,unknown,unknown,ok,deferred,,담당자가 아니라 확인하지 못함,True,"아, 그건 제가 담당이 아니라서요.",엉뚱한 대답(학원비)
+synthetic,S18,pickup,yes,yes,ok,none,,,,yes,ok,definite,,미리 말씀하시면 픽업해 드릴 수 있음,True,원하시면 해 드릴 수 있어요. 미리 말씀만 해 주세요.,원하면 해 줌
+synthetic,S19,consult,yes,yes,ok,none,,,,yes,ok,definite,,평일 저녁이면 언제든 방문 가능하다고 안내함,True,"네, 평일 저녁이면 언제든 오세요.",언제든 오세요
+synthetic,S20,consult,unknown,unknown,ok,deferred,신호 deferred,Y,unknown,unknown,ok,deferred,,원장님 상담 내용 확인 후 연락드리기로 함,True,상담은 원장님이 하셔서 제가 확인해 보고 연락드릴게요.,원장님 일정 확인
+synthetic,S21,vacancy,no,no,ok,none,,,,no,ok,definite,,올해는 마감되어 자리가 없습니다.,True,"자리요? 없어요, 없어. 올해는 마감이에요.",자리 없음 강조
+synthetic,S22,level_test,no,no,ok,corrected,신호 corrected,Y,no,no,ok,definite,,작년부터 레벨 테스트 없이 바로 반 배정,True,"아, 아니다. 작년부터 안 해요. 바로 반 배정해요.",되짚기에서 학원이 정정 (예→아니오)
+synthetic,S23,pickup,no,no,ok,none,,,,no,ok,definite,,픽업은 하지 않는다고 안내함,True,"아, 픽업은 안 해요.",되묻기 후 대답
+synthetic,S24,shuttle,no,no,ok,corrected,신호 corrected · 정정 가능성,Y,no,no,ok,definite,,"통학 차량은 운행하지 않으며, 근처 거주 시 걸어오라고 안내함",True,"차량은 없고요, 근처 사시면 걸어오세요. / (AI: 통학 차량이 있다는 말씀이시죠?) / 아니, 없다고요.",AI 되짚기가 틀렸는데 학원이 정정하지 않고 넘어감
+synthetic,S25,pickup,unknown,yes,overclaim,conditional,신호 conditional,Y,unknown,unknown,ok,deferred,인원이 모이면,인원이 모이면 진행하나 현재 상황은 확인하지 못함,True,인원이 모이면 하는데 지금은 상황 봐야 돼요.,조건부 가능
+synthetic,S26,vacancy,no,no,ok,none,,,,no,ok,definite,,이번 달은 등록이 어려움,True,이번 달은 등록이 어려워요.,어려워요 = 아니오
+heldout,H01,shuttle,yes,yes,ok,none,,,,yes,ok,definite,,셔틀버스 운행하며 3호차까지 있습니다.,True,"네, 있습니다. 3호차까지 운행해요.",평이
+heldout,H02,pickup,no,no,ok,none,,,,no,ok,definite,,학원에서는 수업 후 픽업을 하지 않습니다.,True,(AI: 수업 후 픽업을 해 주시나요?) / 그건 안 합니다.,평이
+heldout,H03,vacancy,yes,yes,ok,none,,,,yes,ok,definite,,현재 세 명 더 받을 수 있음,True,"네, 세 명 더 받을 수 있어요.",평이
+heldout,H04,vacancy,no,no,ok,none,,,,no,ok,definite,,이번 학기 정원이 다 찼습니다.,True,이번 학기 정원이 다 찼습니다.,평이
+heldout,H05,level_test,yes,yes,ok,none,,,,yes,ok,definite,,입학 전 레벨테스트를 토요일 오전에 봅니다.,True,"네, 입학 전에 봅니다. 토요일 오전에요.",평이
+heldout,H06,level_fit,yes,yes,ok,none,,,,yes,ok,definite,,중급은 기본반으로 안내받음,True,심화반이랑 기본반이 있는데 중급이면 기본반 들어오시면 돼요.,평이
+heldout,H07,class_time,answered,answered,ok,none,,,,answered,ok,definite,,월수금 네 시부터 여섯 시까지입니다.,True,월수금 네 시부터 여섯 시까지입니다.,평이
+heldout,H08,class_time,unknown,unknown,ok,none,,,,unknown,ok,definite,,수업 시간은 확인하지 못함,,,시간표 미정
+heldout,H09,consult,yes,yes,ok,none,,,,yes,ok,definite,,목요일 오전 열 시에 오세요.,True,"네, 목요일 오전 열 시에 오세요.",평이
+heldout,H10,consult,no,no,ok,none,,,,no,ok,definite,,이번 주는 원장님 출장으로 상담이 어렵습니다.,True,이번 주는 원장님 출장이라 상담을 못 합니다.,상담 불가
+heldout,H11,shuttle,no,no,ok,none,,,,no,ok,definite,,차량은 작년에 처분해 운행하지 않습니다.,True,차는 작년에 처분했어요.,과거에 없앰
+heldout,H12,pickup,no,no,ok,none,,,,no,ok,definite,,부모님이 직접 데리러 오셔야 합니다.,True,부모님이 직접 데리러 오셔야 돼요.,부정어 없는 거절
+heldout,H13,vacancy,yes,yes,ok,conditional,신호 conditional,Y,yes,yes,ok,definite,입학 시험 통과,빈자리는 있으나 입학 시험 통과가 필요합니다.,True,"빈자리는 있는데요, 입학 시험 통과하셔야 들어올 수 있어요.",조건이 붙은 빈자리
+heldout,H14,level_test,no,no,ok,none,,,,no,ok,definite,,별도 시험 없이 첫 수업 때 선생님이 확인,True,따로 시험은 안 보고 첫 수업 때 선생님이 봐 주세요.,안 보고 다른 방식
+heldout,H15,shuttle,unknown,unknown,ok,deferred,신호 deferred,Y,redirect,redirect,ok,definite,,사무장님께 셔틀 운행 여부를 문의해 주세요.,True,제가 새로 와서 잘 몰라요. 사무장님 오시면 여쭤 보세요.,담당 아님
+heldout,H16,pickup,yes,yes,ok,none,,,,yes,ok,definite,,선생님이 아이를 집까지 데려다줍니다.,True,아이 혼자 보내는 일은 없어요. 선생님이 집까지 데려다줍니다.,'없어요'가 들어간 긍정
+heldout,H17,vacancy,unknown,unknown,ok,hedge,신호 hedge,Y,unknown,unknown,ok,guess,,곧 한 자리 빌 수 있으나 아직 확인하지 못함,True,곧 한 자리 빌 수도 있는데 아직 모르겠어요.,불확실
+heldout,H18,consult,yes,yes,ok,partial_week,신호 partial_week,Y,yes,yes,ok,definite,토요일 오전에만 가능,토요일 오전 상담만 가능합니다.,True,평일은 힘들고 토요일 오전만 됩니다.,"평일 불가, 토요일 가능"
+heldout,H19,consult,unknown,unknown,ok,partial_week,신호 partial_week · 상담 일부 요일만,Y,unknown,unknown,ok,definite,,월화수 수강 가능 여부는 확인하지 못함,True,월화수는 다 차서 안 되겠는데요.,안 되는 요일만 말함
+heldout,H20,vacancy,yes,yes,ok,corrected,신호 corrected,Y,yes,yes,ok,definite,,현재 한 자리 남아 있다고 안내함,True,"아 잠깐만요, 한 자리 나갔네요. 한 자리예요.",되짚기 정정(자리 수만 바뀜)
+heldout,H21,class_time,answered,answered,ok,corrected,신호 corrected,Y,answered,answered,ok,definite,,화목 수업은 여덟 시입니다.,True,"(AI: 수업 요일과 시간은 어떻게 되나요?) / 화목 일곱 시요. / (AI: 화요일 목요일 일곱 시 맞죠?) / 아뇨, 여덟 시요.",되짚기 시간 정정
+heldout,H22,shuttle,refused,unknown,ok,none,,,,unknown,ok,definite,,셔틀 운행 여부를 확인하지 못함,,,거절
+heldout,H23,level_test,not_asked,not_asked,ok,none,,,,not_asked,ok,definite,,레벨테스트는 묻지 않음,,,묻지 않음
+heldout,H23,pickup,yes,yes,ok,none,,,,yes,ok,definite,,수업 후 픽업을 해 드림,True,"(AI: 수업 후 픽업을 해 주시나요?) / 네, 해 드려요.",묻지 않음
+heldout,H24,pickup,yes,yes,ok,none,,,,yes,ok,definite,,수업 후 픽업 가능,True,(AI: 수업 후 픽업을 해 주시나요?) / 네.,'네' 단독
+agent,G01,shuttle,yes,yes,ok,none,,,,yes,ok,definite,,셔틀 운행하며 침산동 쪽도 다님,True,"네, 셔틀 운행합니다. 침산동 쪽도 다녀요.",평범한 셔틀 있음
+agent,G02,shuttle,no,no,ok,none,,,,no,ok,definite,,차량은 따로 운행하지 않음,True,저희는 차량은 따로 운행 안 해요.,평범한 셔틀 없음
+agent,G03,shuttle,unknown,unknown,ok,deferred,신호 deferred,Y,unknown,unknown,ok,deferred,,차량 운행 여부는 원장님께 확인 후 연락 예정,True,차량이요? 그건 제가 잘 몰라서 원장님께 여쭤보고 다시 연락드릴게요.,확인 필요라며 미룸
+agent,G04,shuttle,yes,yes,ok,none,,,,yes,ok,definite,,노란 봉고차가 운행됩니다.,True,"아 차 있죠 있죠, 노란 봉고 하나 돌아요.",사투리 섞인 긍정
+agent,G05,shuttle,no,no,ok,none,,,,no,ok,definite,,셔틀은 작년부터 운행하지 않습니다.,True,예전엔 했는데 작년부터 안 합니다. 지금은 없어요.,과거엔 했으나 지금은 없음
+agent,G06,shuttle,unknown,unknown,ok,none,,,,unknown,ok,definite,,차량 운행 여부를 확인하지 못함,True,"저 오늘 처음 나와서요, 차량은 있는지 없는지 모르겠네요.",신입이라 모른다고 함
+agent,G07,shuttle,refused,redirect,ok,none,,,,redirect,ok,definite,,차량 관련은 방문 상담으로 확인하세요.,True,차량 관련은 전화로는 안내 안 드려요. 방문하셔서 상담받으세요.,전화로는 안내 거절
+agent,G08,shuttle,no,no,ok,corrected,신호 corrected,Y,no,no,ok,definite,,셔틀은 운영하지 않는다고 안내함,True,"아 잠깐만요, 아니다 그건 옆 건물 학원이고 저희는 없어요.",처음 있다고 했다가 정정해서 없음
+agent,G09,pickup,yes,yes,ok,none,,,,yes,ok,definite,,수업이 끝나는 시간에 맞춰 집 앞까지 차량 하원,True,"네, 끝나는 시간에 맞춰서 차로 집 앞까지 내려 드려요.",평범한 픽업 가능
+agent,G10,pickup,no,no,ok,none,,,,no,ok,definite,,"하원 픽업은 없으며, 학부모님이 오시거나 학생이 알아서 갑니다.",True,하원 픽업은 따로 없어요. 학부모님이 오시거나 학생이 알아서 가요.,평범한 픽업 불가
+agent,G11,pickup,unknown,unknown,ok,deferred,신호 deferred,Y,unknown,unknown,ok,deferred,,선생님마다 달라 확인 후 안내 예정,True,그건 선생님마다 달라서... 확인해 보고 말씀드릴게요.,선생님마다 달라 확인 필요
+agent,G12,shuttle,yes,yes,ok,none,,,,yes,ok,definite,,등원 차량이 있어요.,True,등원 차량은 있어요.,등원 차량은 있으나 하원 픽업은 없음
+agent,G12,pickup,no,no,ok,none,,,,no,ok,definite,,하원 차량은 안 돼요.,True,"아니요, 그건 안 돼요. 하원은 각자 가셔야 돼요.",등원 차량은 있으나 하원 픽업은 없음
+agent,G13,pickup,yes,yes,ok,none,,,,yes,ok,definite,,마지막 수업 후 아파트 앞까지 하원 차량으로 모셔다 드림,True,"하원 때요? 그럼요, 마지막 수업 끝나면 저희가 아파트 앞까지 모셔다 드려요.",되묻고 긍정
+agent,G14,pickup,not_asked,not_asked,ok,none,,,,not_asked,ok,definite,,픽업 여부는 묻지 않음,,,"픽업은 묻지 않음, 자리만 질문"
+agent,G14,vacancy,yes,yes,ok,none,,,,yes,ok,definite,,자리 있어요,True,"네, 자리 있어요. 두 자리 남았어요.","픽업은 묻지 않음, 자리만 질문"
+agent,G15,pickup,refused,unknown,ok,none,,,,unknown,ok,definite,,픽업 여부는 전화로 확인하지 못함,True,픽업 여부는 학원 정책이라 전화로는 말씀드리기 어려워요.,정책이라 전화 안내 불가
+agent,G16,pickup,unknown,unknown,ok,off_topic,신호 off_topic,Y,unknown,unknown,ok,definite,,침산동 대로변에 있어 찾기 쉬우나 픽업은 확인하지 못함,True,네 저희 학원은 침산동 대로변에 있어서 찾기 쉬우세요.,질문과 관계없는 대답
+agent,G17,level_fit,yes,yes,ok,none,,,,yes,ok,definite,,중2 중급반이 있다고 안내함,True,네 중2 중급반 있습니다.,평범한 반 있음
+agent,G18,level_fit,no,no,ok,none,,,,no,ok,definite,,중2 중급반은 없고 상급반과 기초반만 운영합니다.,True,중2 중급은 지금 반이 없어요. 상급반이랑 기초반만 있어요.,중급반만 없음
+agent,G19,level_fit,unknown,unknown,ok,hedge,신호 hedge,Y,unknown,unknown,ok,definite,,아이 성적과 레벨 확인 전에는 알기 어려움,True,레벨을 봐야 알 것 같아요. 아이 성적 모르면 말씀드리기 어려워요.,성적을 봐야 안다
+agent,G20,level_fit,yes,yes,ok,none,,,,yes,ok,definite,,중2 수준에 맞는 화목반이 있습니다.,True,"중2요? 있죠 있죠, 화목반이 딱 그 수준이에요.",구어체로 긍정
+agent,G21,level_fit,no,no,ok,none,,,,no,ok,definite,,초등 전문 학원으로 중등은 받지 않음,True,저희는 초등 전문이라 중등은 안 받아요.,초등 전문이라 중등 안 받음
+agent,G22,level_fit,yes,yes,ok,none,,,,yes,ok,definite,,중2 수학 중급반이 있습니다.,True,"아 잠깐만요 (옆 사람에게) 그거 거기 둬요. 네 죄송해요, 중2 수학 중급 있습니다.",끼어들기 후 긍정
+agent,G23,level_fit,not_asked,not_asked,ok,none,,,,not_asked,ok,definite,,확인하지 못함,,,반 적합성은 묻지 않음
+agent,G23,shuttle,no,no,ok,none,,,,no,ok,definite,,통학 차량은 없어요.,True,(AI: 통학 차량이 있나요?) / 차량은 없어요.,반 적합성은 묻지 않음
+agent,G24,level_fit,unknown,redirect,ok,none,,,,redirect,ok,definite,,학원 방문 상담을 통해 확인하라고 안내함,True,일단 한번 오셔서 얘기하시죠. 전화로 이러쿵저러쿵하긴 그렇고요.,일단 오라며 회피
+agent,G25,vacancy,yes,yes,ok,none,,,,yes,ok,definite,,현재 자리 몇 개 남아 있음,True,"네, 자리 몇 개 남아 있어요.",평범한 자리 있음
+agent,G26,vacancy,no,no,ok,none,,,,no,ok,definite,,현재 정원이 꽉 차 대기 등록 필요,True,지금 정원이 꽉 차서요. 대기 걸어 놓으셔야 돼요.,정원 마감
+agent,G27,vacancy,unknown,unknown,ok,deferred,신호 deferred,Y,unknown,unknown,ok,deferred,,반별 자리는 확인 후 연락드리기로 함,True,자리는 반마다 달라서 지금 바로는 못 알려 드려요. 확인하고 연락드릴게요.,반마다 달라 확인 필요
+agent,G28,vacancy,yes,yes,ok,hedge,신호 hedge,Y,yes,yes,ok,definite,,아슬아슬하게 한 자리 있어요. 빨리 오세요.,True,한 자리요? 아슬아슬하게 한 자리 있어요. 빨리 오세요.,한 자리 남음
+agent,G29,vacancy,no,no,ok,none,,,,no,ok,definite,,자리 있었으나 방금 등록해 현재는 없음,True,자리 있었는데 방금 전에 한 명 등록해서 이제 없네요.,방금 마감됨
+agent,G30,vacancy,refused,unknown,ok,none,,,,unknown,ok,definite,,정원 현황은 전화로 확인하지 못함,True,정원 현황은 전화로는 공개 안 해요.,정원 현황 비공개
+agent,G31,vacancy,unknown,unknown,ok,none,,,,unknown,ok,definite,,다음 달 반 개편 후 확인 가능할 것 같음,True,"다음 달에 반 개편이 있어서요, 그때 가 봐야 알 것 같아요.",반 개편 이후에야 알 수 있음
+agent,G32,vacancy,yes,yes,ok,none,,,,yes,ok,definite,,현재 자리 있다고 안내함,True,"음, 자리요? 네네, 있어요 있어요.",군말 섞인 긍정
+agent,G33,level_test,yes,yes,ok,none,,,,yes,ok,definite,,등록 전 레벨 테스트를 먼저 보며 30분 정도 소요,True,네 등록 전에 레벨 테스트 먼저 봐요. 30분 정도 걸려요.,평범한 레벨 테스트 있음
+agent,G34,level_test,no,no,ok,none,,,,no,ok,definite,,레벨 테스트 없이 바로 수업 참여,True,레벨 테스트는 따로 없어요. 바로 수업 들어오시면 돼요.,레벨 테스트 없음
+agent,G35,level_test,unknown,unknown,ok,none,,,,unknown,ok,definite,,레벨 테스트는 원장님께 확인하지 못함,True,테스트요? 그건 원장님이 하시는 거라 저는 잘...,"담당 아님, 모름"
+agent,G36,level_test,yes,yes,ok,none,,,,yes,ok,definite,,배치고사 응시 가능하며 무료로 진행합니다.,True,"배치고사 말씀이시죠? 네 해요, 무료예요.",다른 용어(배치고사)로 긍정
+agent,G37,level_test,no,no,ok,none,,,,no,ok,definite,,현재는 레벨테스트를 보지 않고 상담으로 대신함,True,예전엔 봤는데 요즘은 안 봅니다. 상담으로 대신해요.,예전엔 있었으나 지금은 없음
+agent,G38,level_test,refused,unknown,ok,none,,,,unknown,ok,definite,,테스트 관련 내용은 전화로 확인하지 못함,True,테스트 관련 내용은 전화로는 안내 못 드려요.,테스트 안내 거절
+agent,G39,level_test,not_asked,not_asked,ok,none,,,,not_asked,ok,definite,,문의하지 않음,,,레벨 테스트는 묻지 않고 시간만 질문
+agent,G39,class_time,answered,answered,ok,none,,,,answered,ok,definite,,월수금 다섯 시 수업,True,월수금 다섯 시요.,레벨 테스트는 묻지 않고 시간만 질문
+agent,G40,class_time,answered,answered,ok,none,,,,answered,ok,definite,,중2 수학은 화목 6시부터 8시까지,True,중2 수학은 화목 6시부터 8시까지예요.,평범한 요일 시간 답
+agent,G41,class_time,answered,answered,ok,none,,,,answered,ok,definite,,"월수 5시, 금요일 7시 수업",True,"월수는 5시, 금요일은 7시예요.",요일별로 시간이 다름
+agent,G42,class_time,unknown,unknown,ok,none,,,,unknown,ok,definite,,수업 시간은 확인하지 못함,,,시간표 미정
+agent,G43,class_time,refused,unknown,ok,none,,,,unknown,ok,definite,,시간표는 전화로 확인하지 못함,True,시간표는 전화로는 안 알려 드려요.,시간표 안내 거절
+agent,G44,class_time,answered,answered,ok,hedge,신호 hedge,Y,unknown,unknown,underclaim,guess,,수업 시간은 확인하지 못함,True,"음… 화, 목요? 네 화목에 해요. 저녁 여섯 시 반쯤에.",군말과 머뭇거림 속 구체 답
+agent,G45,class_time,unknown,unknown,ok,none,,,,unknown,ok,definite,,수업 시간은 확인하지 못함,,,정해진 게 없음
+agent,G46,class_time,answered,answered,ok,none,,,,answered,ok,definite,,화·목 저녁 7시 수업,True,"화요일이랑... 아 잠깐만요, 네 화요일 목요일 일곱 시요.",끼어들며 말을 고쳐 답함
+agent,G47,consult,yes,yes,ok,none,,,,yes,ok,definite,,수요일 오후 4시 상담 가능합니다.,True,네 가능해요. 수요일 오후 4시 어떠세요?,이번 주 상담 가능
+agent,G48,consult,no,no,ok,none,,,,no,ok,definite,,이번 주는 원장님 출장으로 상담이 어려워 다음 주 방문 요청,True,이번 주는 원장님 출장이라 상담이 어려워요. 다음 주에 오세요.,이번 주 상담 불가
+agent,G49,consult,unknown,unknown,ok,deferred,신호 deferred,Y,unknown,unknown,ok,deferred,,원장님 일정 확인 후 문자 안내 예정,True,"원장님 일정을 확인해 봐야 해서요, 나중에 문자 드릴게요.",일정 확인 후 연락
+agent,G50,consult,not_asked,not_asked,ok,none,,,,not_asked,ok,definite,,상담 내용은 확인하지 못함,,,상담은 묻지 않음
+agent,G51,consult,refused,redirect,ok,none,,,,redirect,ok,definite,,상담 가능 여부는 홈페이지로 신청해 확인하세요.,True,상담 가능 여부는 전화로 말씀 못 드려요. 홈페이지로 신청하세요.,상담 가능 여부 안내 거절
+agent,G52,consult,yes,yes,ok,none,,,,yes,ok,definite,,목요일 5시 상담 가능합니다.,True,이번 주요? 아 금요일 말고는 다 돼요. 목요일 5시 괜찮으세요?,요일 제외하고 가능
+agent,G53,consult,no,no,ok,none,,,,no,ok,definite,,이번 주 상담 일정이 다 차 다음 주 월요일부터 가능,True,이번 주는 상담 일정 다 찼어요. 다음 주 월요일부터 받아요.,일정이 다 참
+agent,G54,consult,unknown,unknown,ok,off_topic,신호 off_topic,Y,unknown,unknown,ok,deferred,,상담 내용은 확인하지 못했으며 접수만 해 둠,True,상담이요? 학부모님 성함이 어떻게 되시죠? 일단 접수만 해 둘게요.,되묻기만 하고 답 없음
+agent,G55,consult,yes,yes,ok,none,,,,yes,ok,definite,,수요일 수업 가능하다고 안내함,True,"아니요 가능해요, 수요일 괜찮아요.",부정형 질문에 가능하다고 답
+agent,G56,shuttle,no,no,ok,none,,,,no,ok,definite,,차량 운행 및 픽업을 하지 않음,True,차량도 없고 픽업도 안 해요.,차량과 픽업 모두 없음
+agent,G56,pickup,no,no,ok,none,,,,no,ok,definite,,차량 운행 및 픽업을 하지 않음,True,차량도 없고 픽업도 안 해요.,차량과 픽업 모두 없음
+agent,G57,vacancy,yes,yes,ok,none,,,,yes,ok,definite,,자리 있음,True,자리는 있는데 등록 전에 레벨 테스트부터 보셔야 돼요.,자리 있고 레벨 테스트 필수
+agent,G57,level_test,yes,yes,ok,none,,,,yes,ok,definite,,등록 전 레벨 테스트 필요,True,자리는 있는데 등록 전에 레벨 테스트부터 보셔야 돼요.,자리 있고 레벨 테스트 필수
+agent,G58,level_fit,yes,yes,ok,none,,,,yes,ok,definite,,중2 수학 중급반이 있다고 안내함,True,(AI: 중2 수학 중급반이 있나요?) / 네 있어요.,반 있음과 시간 동시 답
+agent,G58,class_time,answered,answered,ok,none,,,,answered,ok,definite,,수요일·금요일 저녁 7시라고 안내함,True,수요일 금요일 저녁 7시요.,반 있음과 시간 동시 답
+agent,G59,shuttle,unknown,unknown,ok,none,,,,unknown,ok,definite,,셔틀 운행 여부는 확인하지 못함,,,차량은 모르고 자리는 없음
+agent,G59,vacancy,no,no,ok,none,,,,no,ok,definite,,현재 자리는 다 찼다고 함,True,자리는 지금 다 찼어요.,차량은 모르고 자리는 없음
+agent,G60,level_fit,unknown,unknown,ok,none,,,,unknown,ok,definite,,레벨 테스트 후 반을 정해 현재 반은 확인하지 못함,True,레벨 테스트 보고 반을 정해요. 그래서 지금 어느 반이라고는 말씀 못 드려요.,"반은 테스트 후 결정이라 모름, 테스트는 있음"
+agent,G60,level_test,yes,yes,ok,none,,,,yes,ok,definite,,레벨 테스트 후 반을 정함,True,레벨 테스트 보고 반을 정해요. 그래서 지금 어느 반이라고는 말씀 못 드려요.,"반은 테스트 후 결정이라 모름, 테스트는 있음"
