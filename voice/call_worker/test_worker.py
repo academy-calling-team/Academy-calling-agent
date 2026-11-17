@@ -220,7 +220,8 @@ def test_answered_call_sends_events_then_result(parts):
 
     sent = clawops.created[0]
     assert sent["To"] == TEAM_PHONE and sent["AgentId"] == "agent" and sent["MachineDetection"] == "Enable"
-    assert "통학 차량" in sent["CallContext"]["Instruction"]
+    assert "등원 차량" in sent["CallContext"]["Instruction"]
+    assert "셔틀" not in sent["CallContext"]["Instruction"] and "픽업" not in sent["CallContext"]["Instruction"]
     assert clawops.transcript_requests == 1  # 받아쓰기가 꺼져 있으면 이 통화만 요청
     assert backend.events() == ["initiated", "ringing", "answered", "completed"]
 
@@ -430,7 +431,9 @@ def test_judge_rules(code, reply, expected):
 
 def test_instruction_lists_only_requested_questions():
     instruction, variables = build_instruction(real_request())
-    assert "픽업" in instruction and "레벨 테스트" not in instruction
+    # 셔틀·픽업 대신 방향을 넣은 등원·하원 차량으로 묻는다(11/16)
+    assert "하원 차량" in instruction and "등원 차량" in instruction and "레벨 테스트" not in instruction
+    assert "픽업" not in instruction and "셔틀" not in instruction
     # 백엔드 코드(M2, MATH, MID)가 아니라 AI가 읽을 수 있는 말로 넘긴다
     assert "중학교 2학년, 과목 수학, 수준 중간, 대구 북구 침산동 거주" in instruction
     assert "M2" not in instruction and "MATH" not in instruction
