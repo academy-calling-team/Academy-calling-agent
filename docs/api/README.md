@@ -1,5 +1,7 @@
 # API와 파트 연결 · 개발본 0.4.0
 
+[관리자 API에서 학원 정보 수정·학원/문의 삭제](admin_management.md): 관리자 인증, 삭제 미리보기·확인, DB 권한 준비와 사용 순서.
+
 전체 필드·제약은 [백엔드 OpenAPI](openapi.json), [결과 JSON Schema](result_json_schema.json)를 따른다. [워커 OpenAPI](worker_openapi.json)는 백엔드 시험 워커의 접수·조회 경로를 설명하며, 요청 상세 구조는 아래와 음성팀 모델을 함께 대조해야 한다.
 
 [질문별 위치·시간 문맥과 DB 적용 순서](question_locations.md), [실제 공유 음성 워커 요청 Schema](call_request_json_schema.json).

@@ -47,7 +47,7 @@ class RedisQueue:
                 handled.append(dict(message_id=mid,disposition='invalid_ignored')); continue
             self.service.deliver(worker,[cid])
             with self.service.engine.connect() as c:
-                status=c.execute(select(calls.c.status).where(calls.c.id==cid)).scalar_one()
+                status=c.execute(select(calls.c.status).where(calls.c.id==cid)).scalar_one_or_none()
             # The worker has persisted acceptance, or the call progressed/terminated.
             # Unknown deliveries stay pending until reclaim or deadline, using the same call_id.
             ack=status not in ['reserved','delivery_unknown']

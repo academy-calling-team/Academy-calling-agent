@@ -496,6 +496,489 @@
         ]
       }
     },
+    "/ops/academies": {
+      "get": {
+        "tags": [
+          "관리자 · 학원·문의 관리"
+        ],
+        "summary": "학원 목록·전화번호·현재 수정 버전 조회",
+        "operationId": "admin_academies_ops_academies_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 80,
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ops/academies/{academy_id}": {
+      "get": {
+        "tags": [
+          "관리자 · 학원·문의 관리"
+        ],
+        "summary": "학원 수정 전 현재 정보 조회",
+        "operationId": "admin_academy_ops_academies__academy_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "academy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Academy Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "관리자 · 학원·문의 관리"
+        ],
+        "summary": "학원 정보 중 지정한 항목만 수정",
+        "description": "조회한 version과 수정할 항목만 전송합니다. 누락한 항목은 보존합니다. 실제 발신 허용·목업 여부·계정 권한은 변경하지 않습니다.",
+        "operationId": "edit_academy_ops_academies__academy_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "academy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Academy Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcademyEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "관리자 · 학원·문의 관리"
+        ],
+        "summary": "미리 확인한 학원 1개 삭제",
+        "description": "연결된 문의가 남아 있으면 삭제하지 않습니다. 회원 계정은 유지합니다.",
+        "operationId": "delete_academy_ops_academies__academy_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "academy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Academy Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteConfirmation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ops/academies/{academy_id}/delete-preview": {
+      "get": {
+        "tags": [
+          "관리자 · 학원·문의 관리"
+        ],
+        "summary": "학원 삭제 가능 여부·연결 건수 확인",
+        "operationId": "academy_delete_preview_ops_academies__academy_id__delete_preview_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "academy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Academy Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ops/inquiries": {
+      "get": {
+        "tags": [
+          "관리자 · 학원·문의 관리"
+        ],
+        "summary": "전체 문의 목록·학원별/학부모별 검색",
+        "operationId": "admin_inquiries_ops_inquiries_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "academy_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Academy Id"
+            }
+          },
+          {
+            "name": "inquirer_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Inquirer Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "queued",
+                    "calling",
+                    "retry_wait",
+                    "completed",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ops/inquiries/{inquiry_id}/delete-preview": {
+      "get": {
+        "tags": [
+          "관리자 · 학원·문의 관리"
+        ],
+        "summary": "문의 삭제 대상·답변·통화 기록 건수 확인",
+        "operationId": "inquiry_delete_preview_ops_inquiries__inquiry_id__delete_preview_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "inquiry_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Inquiry Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ops/inquiries/{inquiry_id}": {
+      "delete": {
+        "tags": [
+          "관리자 · 학원·문의 관리"
+        ],
+        "summary": "미리 확인한 문의 1개와 연결 DB 기록 삭제",
+        "description": "진행 중인 통화/전달 또는 녹음 참조가 있으면 거절합니다. 삭제 미리보기의 preview_token과 대상 ID를 입력합니다. 회원 계정은 유지합니다.",
+        "operationId": "delete_inquiry_ops_inquiries__inquiry_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "inquiry_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Inquiry Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteConfirmation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/register": {
       "post": {
         "summary": "Register",
@@ -1084,6 +1567,118 @@
         ],
         "title": "AcademyClassInput"
       },
+      "AcademyEdit": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Version",
+            "description": "조회 응답의 version. 기존 설정 기록이 없으면 0."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 25
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "classes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AcademyClassInput"
+                },
+                "type": "array",
+                "maxItems": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classes"
+          },
+          "call_hours": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CallHourInput"
+                },
+                "type": "array",
+                "maxItems": 50,
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Call Hours"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "AcademyEdit",
+        "examples": [
+          {
+            "name": "시연 학원",
+            "phone": "010-0000-0001",
+            "version": 0
+          },
+          {
+            "call_hours": [
+              {
+                "day_of_week": 0,
+                "end_time": "18:00",
+                "start_time": "14:00"
+              }
+            ],
+            "version": 1
+          }
+        ]
+      },
       "AcademyProfileInput": {
         "properties": {
           "classes": {
@@ -1553,6 +2148,30 @@
           "password"
         ],
         "title": "Credentials"
+      },
+      "DeleteConfirmation": {
+        "properties": {
+          "confirm_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Confirm Id",
+            "description": "삭제할 대상의 정확한 ID"
+          },
+          "preview_token": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Preview Token",
+            "description": "삭제 미리보기에서 받은 preview_token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "confirm_id",
+          "preview_token"
+        ],
+        "title": "DeleteConfirmation"
       },
       "EventInput": {
         "properties": {
