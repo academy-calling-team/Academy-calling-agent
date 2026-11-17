@@ -256,3 +256,9 @@ fieldset{border:0;padding:0;margin:0;min-width:0}.refresh-row{display:flex;justi
 .question-location input { display: block; width: 100%; min-width: 0; margin-top: 9px; padding: 12px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--ink); }
 .question-location input:disabled { background: var(--bg); }
 .question-location input:focus-visible { outline: 2px solid var(--blue); }
+
+.answer.refused { background: #fffcf4; border-color: #eee3c9; }
+.answer.refused .answer-symbol { background: #f6eed7; color: #9c7c32; }
+.answer-guidance { margin-top: 12px; padding: 12px 14px; border: 1px solid #eee3c9; border-radius: 9px; background: #fff7e6; }
+.answer-guidance h4 { font-size: 11px; margin: 0; color: #76551e; }
+.answer-guidance p { overflow-wrap: anywhere; color: #634b29; }
