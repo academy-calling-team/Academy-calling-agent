@@ -19,6 +19,8 @@ import {
 } from '../lib/inquiry-model';
 import { clearPending, readPending, writePending } from '../lib/pending';
 
+const lessonQuestionCodes = ['level_fit', 'vacancy', 'class_time'];
+
 export default function NewInquiryPage() {
   const { user, mockMode, ready } = useAuth();
   const catalog = useCatalog(ready);
@@ -72,6 +74,12 @@ export default function NewInquiryPage() {
     [catalog.academies, formValues.academy_id],
   );
   const isRealTest = selectedAcademy?.is_mock === false;
+  const questionLabels = catalog.options?.question_codes ?? {};
+  const hasLessonGroup = lessonQuestionCodes.every((code) => Object.hasOwn(questionLabels, code));
+  const selectedLessonCount = hasLessonGroup
+    ? lessonQuestionCodes.filter((code) => formValues.question_codes.includes(code)).length
+    : 0;
+  const selectedItemCount = formValues.question_codes.length - selectedLessonCount + Number(selectedLessonCount > 0);
 
   function update(patch: Partial<FormValues>) {
     setFormValues((prev) => ({ ...prev, ...patch }));
@@ -151,6 +159,18 @@ export default function NewInquiryPage() {
       if (selected && (code === 'shuttle' || code === 'pickup')) delete locations[code];
       return { ...prev, locations, question_codes: selected
         ? prev.question_codes.filter((c) => c !== code) : [...prev.question_codes, code] };
+    });
+  }
+
+  function toggleLessonGroup() {
+    setFormValues((prev) => {
+      const allSelected = lessonQuestionCodes.every((code) => prev.question_codes.includes(code));
+      return {
+        ...prev,
+        question_codes: allSelected
+          ? prev.question_codes.filter((code) => !lessonQuestionCodes.includes(code))
+          : [...prev.question_codes, ...lessonQuestionCodes.filter((code) => !prev.question_codes.includes(code))],
+      };
     });
   }
 
@@ -273,18 +293,43 @@ export default function NewInquiryPage() {
               <h2>03 문의 항목</h2>
               <p>한 가지 이상 선택하세요.</p>
               <div className="choices">
-                {Object.entries(options.question_codes).map(([code, label]) => (
-                  <label className="choice" key={code}>
-                    <input
-                      type="checkbox"
-                      name="codes"
-                      value={code}
-                      checked={formValues.question_codes.includes(code)}
-                      onChange={() => toggleQuestion(code)}
-                    />
-                    <span>{label}</span>
-                  </label>
-                ))}
+                {Object.entries(options.question_codes).map(([code, label]) => {
+                  if (hasLessonGroup && lessonQuestionCodes.includes(code)) {
+                    if (code !== lessonQuestionCodes[0]) return null;
+                    return (
+                      <label className="choice" key="lesson-inquiry">
+                        <input
+                          type="checkbox"
+                          name="lesson_inquiry"
+                          checked={selectedLessonCount === lessonQuestionCodes.length}
+                          ref={(input) => {
+                            if (input) input.indeterminate = selectedLessonCount > 0 && selectedLessonCount < lessonQuestionCodes.length;
+                          }}
+                          onChange={toggleLessonGroup}
+                        />
+                        <span>
+                          수업 문의
+                          <small>{lessonQuestionCodes.map((question) => questionLabels[question]).join(' · ')}</small>
+                          {selectedLessonCount > 0 && selectedLessonCount < lessonQuestionCodes.length ? (
+                            <small>이전 요청의 일부 항목이 선택되어 있습니다.</small>
+                          ) : null}
+                        </span>
+                      </label>
+                    );
+                  }
+                  return (
+                    <label className="choice" key={code}>
+                      <input
+                        type="checkbox"
+                        name="codes"
+                        value={code}
+                        checked={formValues.question_codes.includes(code)}
+                        onChange={() => toggleQuestion(code)}
+                      />
+                      <span>{label}</span>
+                    </label>
+                  );
+                })}
               </div>
               {(['shuttle', 'pickup'] as const).filter((code) => formValues.question_codes.includes(code)).map((code) => {
                 const location = formValues.locations?.[code];
@@ -314,7 +359,7 @@ export default function NewInquiryPage() {
             <dd id="school-summary">{selectedAcademy?.name || '학원을 선택하세요'}</dd>
             <dt>선택한 항목</dt>
             <dd id="count-summary">
-              {formValues.question_codes.length ? `${formValues.question_codes.length}개` : '질문을 선택하세요'}
+              {selectedItemCount ? `${selectedItemCount}개` : '질문을 선택하세요'}
             </dd>
             <dt>상담 방식</dt>
             <dd>AI 전화 상담</dd>

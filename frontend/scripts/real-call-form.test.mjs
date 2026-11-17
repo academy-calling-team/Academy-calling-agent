@@ -21,7 +21,7 @@ before(async () => {
 after(async () => { await browser?.close(); server?.kill(); });
 
 const student = { grade: 'M2', subject: 'MATH', level: 'MID', region: '대구 북구 침산동' };
-async function fixture(path, { canSubmit = true, loggedIn = true, detail, accountType = 'parent' } = {}) {
+async function fixture(path, { canSubmit = true, loggedIn = true, detail, accountType = 'parent', questionCodes = { shuttle: '통학 차량' } } = {}) {
   const page = await browser.newPage();
   const submissions = [];
   let academy = null;
@@ -41,7 +41,7 @@ async function fixture(path, { canSubmit = true, loggedIn = true, detail, accoun
       }
       await route.fulfill({ status: academy ? (req.method() === 'POST' ? 201 : 200) : 404, json: academy || {} });
       return;
-    } else if (p === '/api/options') data = { grade: ['M2'], subject: ['MATH'], level: ['MID'], regions: [student.region], question_codes: { shuttle: '통학 차량' } };
+    } else if (p === '/api/options') data = { grade: ['M2'], subject: ['MATH'], level: ['MID'], regions: [student.region], question_codes: questionCodes };
     else if (p === '/api/academies') data = [{ academy_id: 'fixture-academy', name: '시험 학원', region: student.region, is_mock: false, is_test: true, can_submit: canSubmit }];
     else if (p === '/api/inquiries' && req.method() === 'POST') { submissions.push(req.postDataJSON()); data = { inquiry_id: 'fixture-inquiry', status: 'queued' }; }
     else if (p === '/api/inquiries') data = [{ inquiry_id: 'fixture-inquiry', status: detail?.status || 'completed', created_at: '2026-10-28T00:00:00Z' }];
@@ -121,6 +121,47 @@ async function fillInquiry(page) {
   for (const k of ['grade', 'subject', 'level', 'region']) await page.locator(`[name=${k}]`).selectOption(student[k]);
   await page.locator('[name=codes]').check();
 }
+
+const lessonQuestions = { level_fit: '수준에 맞는 반', vacancy: '남은 자리', class_time: '수업 요일·시간' };
+const groupedCatalog = { shuttle: '통학 차량', ...lessonQuestions };
+
+test('one lesson choice submits all three question codes and counts as one item', async () => {
+  const { page, submissions } = await fixture('/new', { questionCodes: groupedCatalog });
+  try {
+    await fillInquiry(page);
+    const lesson = page.getByRole('checkbox', { name: /수업 문의/ });
+    const count = page.locator('#count-summary');
+    await lesson.check();
+    assert.equal(await count.textContent(), '2개');
+    await lesson.uncheck();
+    assert.equal(await count.textContent(), '1개');
+    await page.locator('[name=codes][value=shuttle]').uncheck();
+    await lesson.check();
+    assert.equal(await count.textContent(), '1개');
+    await page.locator('[name=real_test_confirm]').check();
+    await page.getByRole('button', { name: '상담 접수' }).click();
+    await page.waitForURL('**/detail/fixture-inquiry');
+    assert.deepEqual(submissions[0].question_codes, Object.keys(lessonQuestions));
+  } finally { await page.close(); }
+});
+
+test('a partial saved lesson selection does not gain questions on reload', async () => {
+  const { page, submissions } = await fixture('/new', { questionCodes: groupedCatalog });
+  try {
+    const payload = { academy_id: 'fixture-academy', student, question_codes: ['vacancy'] };
+    await page.evaluate((payload) => sessionStorage.setItem('hakwon:pending-inquiry', JSON.stringify({
+      owner: 'fixture', mode: 'backend', fingerprint: JSON.stringify(payload), key: 'lesson-pending',
+    })), payload);
+    await page.reload();
+    await page.getByRole('checkbox', { name: /수업 문의/ }).waitFor();
+    assert.equal(await page.locator('[name=lesson_inquiry]').evaluate((input) => input.indeterminate), true);
+    await page.locator('[name=real_test_confirm]').check();
+    await page.getByRole('button', { name: '상담 접수' }).click();
+    await page.waitForURL('**/detail/fixture-inquiry');
+    assert.deepEqual(submissions[0].question_codes, ['vacancy']);
+  } finally { await page.close(); }
+});
+
 test('registration requires explicit consent and login then loads owned inquiries', async () => {
   const { page, submissions } = await fixture('/register', { loggedIn: false });
   try {
@@ -337,6 +378,8 @@ test('each question separates its AI summary and original quote without fabricat
     assert.equal(await rows.nth(2).locator('.answer-source blockquote').textContent(), '담당 선생님께 확인해야 해요.');
     assert.equal(await rows.nth(3).locator('.answer-summary').count(), 0);
     assert.equal(await rows.nth(3).locator('.answer-source').count(), 1);
+    assert.equal(await rows.nth(3).locator('.badge').textContent(), '직접 확인 필요');
+    assert.equal(await rows.nth(3).getByRole('region', { name: '안내받은 경로' }).count(), 0);
     for (const index of [4, 5]) {
       assert.equal(await rows.nth(index).locator('.answer-summary, .answer-source').count(), 0);
       assert.equal(await rows.nth(index).getAttribute('data-answer-kind'), 'unknown');
@@ -348,6 +391,31 @@ test('each question separates its AI summary and original quote without fabricat
       if (width === 390) await rows.first().scrollIntoViewIfNeeded();
       await page.screenshot({ path: `/tmp/academy-result-comparison-${width}.png`, fullPage: width !== 390 });
     }
+  } finally { await page.close(); }
+});
+
+test('detail shows conditional yes and the provided channel for refused answers', async () => {
+  const questions = ['shuttle', 'pickup', 'level_fit', 'vacancy', 'level_test'].map((question_code, index) => ({
+    question_id: `decision-${index}`, question_code,
+  }));
+  const condition = '조건: 지정 정류장 이용\r\n사전 신청이 필요합니다.';
+  const answers = [
+    { ...questions[0], asked: true, answered: true, yes_no: true, detail: condition },
+    { ...questions[1], asked: true, answered: true, yes_no: true, detail: '픽업이 가능합니다.\n조건: 둘째 줄은 판정에 반영하지 않습니다.' },
+    { ...questions[2], asked: true, answered: false, yes_no: null, reason: 'refused', detail: '전화로는 안내할 수 없습니다.\n안내받은 경로: 학원 홈페이지', source_text: '홈페이지를 확인해 주세요.' },
+    { ...questions[3], asked: true, answered: false, yes_no: null, reason: 'refused', detail: '정원은 전화로 안내하지 않습니다.', source_text: '카카오톡으로 문의해 주세요.' },
+    { ...questions[4], asked: true, answered: false, yes_no: null, reason: 'refused', detail: '홈페이지에서도 확인하실 수 없습니다.' },
+  ];
+  const { page } = await fixture('/detail/fixture-inquiry', { detail: { questions, result: { answers } } });
+  try {
+    const rows = page.locator('.answer');
+    await rows.last().waitFor();
+    assert.deepEqual(await rows.locator('.badge').allTextContents(), ['조건부 가능', '가능', '직접 확인 필요', '직접 확인 필요', '직접 확인 필요']);
+    assert.equal(await rows.nth(0).locator('.answer-summary p').textContent(), condition);
+    assert.equal(await rows.nth(2).locator('.answer-guidance p').textContent(), '학원 홈페이지');
+    assert.equal(await rows.nth(3).locator('.answer-guidance p').textContent(), '카카오톡으로 문의해 주세요.');
+    assert.equal(await rows.nth(3).locator('blockquote').textContent(), answers[3].source_text);
+    assert.equal(await rows.nth(4).locator('.answer-guidance').count(), 0);
   } finally { await page.close(); }
 });
 

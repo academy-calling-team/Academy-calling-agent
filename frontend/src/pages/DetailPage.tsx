@@ -25,9 +25,10 @@ function Answers({ detail }: { detail: InquiryDetail }) {
           (a) => a.question_id === q.question_id || a.question_code === q.question_code,
         );
         const view = answerView(answer);
+        const needsReview = view.kind === 'unknown' || view.kind === 'refused';
         return (
           <div className={`answer ${view.kind}`} data-answer-kind={view.kind} key={q.question_id}>
-            <span className="answer-symbol">{view.kind === 'unknown' ? '?' : view.kind === 'no' ? '−' : '✓'}</span>
+            <span className="answer-symbol">{needsReview ? '?' : view.kind === 'no' ? '−' : '✓'}</span>
             <div className="answer-content">
               <h3>{q.question_label_kr?.trim() || q.question_code}</h3>
               {q.location ? <p className="question-location-summary">{q.question_code === 'shuttle' ? locationLabels.shuttle : locationLabels.pickup}: {q.location.kind} · {q.location.name}</p> : null}
@@ -38,6 +39,12 @@ function Answers({ detail }: { detail: InquiryDetail }) {
                 </section>
               ) : null}
               {view.reason ? <p className="answer-reason">미확인 사유: {view.reason}</p> : null}
+              {view.guidance ? (
+                <section className="answer-guidance" aria-label="안내받은 경로">
+                  <h4>안내받은 경로</h4>
+                  <p>{view.guidance}</p>
+                </section>
+              ) : null}
               {answer?.source_text?.trim() ? (
                 <section className="answer-source" aria-label="학원 발화 원문">
                   <h4>학원 발화 원문</h4>
@@ -45,7 +52,7 @@ function Answers({ detail }: { detail: InquiryDetail }) {
                 </section>
               ) : null}
             </div>
-            <span className={`badge ${view.kind === 'unknown' ? 'review' : view.kind === 'no' ? 'failed' : ''}`}>
+            <span className={`badge ${needsReview ? 'review' : view.kind === 'no' ? 'failed' : ''}`}>
               {view.label}
             </span>
           </div>
