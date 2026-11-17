@@ -202,6 +202,9 @@
 | reason | VARCHAR(30) | 아니오 |   |  |
 | detail | TEXT | 예 |   |  |
 | source_text | TEXT | 아니오 |   |  |
+| condition | VARCHAR(200) | 아니오 |   |  |
+| reason_text | VARCHAR(500) | 아니오 |   |  |
+| evidence_turns | JSON | 아니오 |   |  |
 
 ## w5_delivery_leases
 

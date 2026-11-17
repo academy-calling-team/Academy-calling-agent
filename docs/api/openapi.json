@@ -901,6 +901,49 @@
         }
       }
     },
+    "/api/calls/{call_id}/transcript": {
+      "get": {
+        "summary": "Call Transcript",
+        "description": "학원 소유자 또는 운영자용 저장된 통화 전사 조회. 최종 결과 미반영(applied=false) 전사도 조회하며 일반 학부모/타 학원은 403 반환.",
+        "operationId": "call_transcript_api_calls__call_id__transcript_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "call_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Call Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/academies/{academy_id}/settings": {
       "get": {
         "summary": "Get Academy Settings",
