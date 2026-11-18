@@ -15,7 +15,7 @@ import numpy as np
 L = Path(sys.argv[1])
 sys.path.insert(0, str(L / 'scripts'))
 import sherpa_onnx  # noqa: E402
-from paths import EMB, OUT, REC  # noqa: E402
+from paths import EMB, OUT, rec_file  # noqa: E402
 
 args = sys.argv[3:]
 if '--latency' in args:
@@ -106,7 +106,7 @@ def emb(x, sr, s, e):
 cent = {'AI': {}, '사람': {}}
 spread = {'AI': [], '사람': []}
 for n in names:
-    x, sr = load(REC / f'{n}_16k.wav')
+    x, sr = load(rec_file(f'{n}_16k.wav'))
     rows = json.load(open(OUT / f'{n}_rows.json', encoding='utf-8'))
     for who in ('AI', '사람'):
         vs = [v for r in rows if r['who'] == who and r['end'] - r['start'] >= 1.0

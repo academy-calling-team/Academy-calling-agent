@@ -22,7 +22,7 @@ import numpy as np
 import sherpa_onnx
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from paths import EMB, OUT, REC, whisper_recognizer  # noqa: E402
+from paths import EMB, OUT, rec_file, whisper_recognizer  # noqa: E402
 
 
 def load(path):
@@ -76,7 +76,7 @@ def main():
 
     calls = {}
     for name in ('call1', 'call2'):
-        x, sr = load(str(REC / f'{name}_16k.wav'))
+        x, sr = load(str(rec_file(f'{name}_16k.wav')))
         d = json.load(open(OUT / f'{name}.json', encoding='utf-8'))
         segs = snap(d['vad'], x, sr)
         calls[name] = {'x': x, 'sr': sr, 'segs': segs, 'dia': d['diarization']}

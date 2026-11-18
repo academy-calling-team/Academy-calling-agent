@@ -16,7 +16,7 @@ from sklearn.cluster import AgglomerativeClustering
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from analyze import embed, load, snap  # noqa: E402
-from paths import EMB, OUT, REC, whisper_recognizer  # noqa: E402
+from paths import EMB, OUT, rec_file, whisper_recognizer  # noqa: E402
 
 
 def main():
@@ -26,7 +26,7 @@ def main():
     rec = whisper_recognizer()
 
     # human centroid from call 1 (diarization speaker 0 = human there)
-    x1, sr1 = load(str(REC / 'call1_16k.wav'))
+    x1, sr1 = load(str(rec_file('call1_16k.wav')))
     d1 = json.load(open(OUT / 'call1.json', encoding='utf-8'))
     hum = []
     for s, e in snap(d1['vad'], x1, sr1):

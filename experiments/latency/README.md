@@ -87,6 +87,49 @@
 - **뺀 값.** 휴대폰 `1102_co_D`의 0.35초, 1.58초, 1.62초는 같은 자리의 서버 값과 맞지 않아 뺐다(`human_1102_phone.csv`의 `use`=0).
 - **표본.** 한 사람이 하루 저녁 건 대본 통화이고 프롬프트 v3 값이다. 서비스 프롬프트의 지연은 재지 않았다.
 
+## 프롬프트 길이·말하는 모델 시험 (11/11)
+
+10주차 회의(11/4) 과제였던 '프롬프트를 줄이거나 모델을 바꾸면 지연이 줄어드는가'를 ClawOps에서 시험했다. 세 에이전트를 만들고, 대본 A~E·H마다 한 번씩 같은 밤에 섞어서 18통을 걸었다(`scripts/variants_1111.py`, `data/calls_1111.csv`).
+
+| 묶음 | 바꾼 것 | 설정 |
+|---|---|---|
+| L 기준 | 없음 | 지금 시험 에이전트. 프롬프트 v3(2,451바이트), live · gpt-live-1 + gpt-5.6-luna · 추론 none · marin |
+| S 짧게 | 프롬프트만 | `voice/prompts/agent_prompt_v3_short.txt`(1,087바이트, v3의 44%). 점수 매기는 행동 규칙은 남기고 설명과 예외 처리를 줄임 |
+| M 모델 | 말하는 모델만 | realtime_voice · gpt-realtime-2.1-mini · marin. vad·session은 넣지 않아 ClawOps 기본값 |
+
+- **순서.** 대본마다 세 묶음의 순서를 바꿔 각 묶음이 첫째·둘째·셋째에 두 번씩 오게 했다. 실제 순서는 무작위로 정해 `data/calls_1111_order.json`에만 뒀다.
+- **가린 측정.** 김규림이 묶음을 모른 채 휴대폰 녹음을 뷰어(−60dB)로 직접 쟀다. 통화 화면과 측정용 녹음에는 무작위 측정 번호(01~18)만 보였고, 대응표(`data/calls_1111_key.csv`)는 측정이 끝난 뒤 열었다. 통화 중 메모도 번호로만 남겼다(`data/calls_1111_notes.txt`).
+- **자료.** `data/human_result/human_1111_phone.csv`(응답 126개, 대본 B 1통은 다시 걸어 버림). 통계는 `scripts/human_stats_1111.py`.
+
+휴대폰 직접 측정, 대본 A~E(묶음마다 5통):
+
+| 묶음 | 응답 수 | 평균 (초) | 중앙값 (초) | p95 (초) | 최대 (초) | L 대비 중앙값 차이 (통화 단위 95% 구간) |
+|---|---|---|---|---|---|---|
+| L 기준 | 41 | 2.21 | 2.12 | 2.93 | 3.20 | — |
+| S 짧은 프롬프트 | 34 | 2.17 | 2.16 | 2.81 | 2.90 | +0.04 (−0.09~+0.15), 통화별 중앙값 Mann-Whitney p=0.25 |
+| M realtime-2.1-mini | 30 | 2.88 | 2.80 | 3.60 | 3.89 | +0.68 (+0.44~+1.07), p=0.01 |
+
+- **프롬프트 길이.** 절반 넘게 줄여도 중앙값 차이는 구간 기준 ±0.15초 안이었다. 0.1초를 넘게 빨라지지는 않는다.
+- **모델.** mini는 5통 모두 L보다 느렸다(통화별 중앙값 2.57~3.21초, L은 1.98~2.19초). "잠시만요"로 먼저 말을 시작한 통화도 있어, 실제 답까지는 더 걸렸다.
+- **기준선.** L 중앙값 2.12초는 11/2 같은 에이전트의 휴대폰 측정(2.03초)과 비슷했다.
+
+통화 중 메모로 본 행동(묶음을 모르는 상태에서 적음, 묶음마다 6통):
+
+| 항목 | L | S | M |
+|---|---|---|---|
+| 되짚기를 빠뜨린 통화 | 2 | 5 | 3 |
+| 요약·이해에서 요일·시간이 바뀐 통화 | 0 | 1 | 3 |
+| 대본 C 정정 기회 | AI가 되짚지 않아 끼어들어 정정 | AI가 되짚지 않아 끼어들어 정정 | 되짚지 않아 정정하지 못함 |
+| 대본 H 쉼에 끼어듦 | 없음 | 없음 | 있음 |
+| "들어가세요"에 인사 없이 끊은 통화 | 0 | 0 | 4 |
+
+- "네, 들어가세요" 뒤 AI가 스스로 끊었다는 메모는 S 1통, M 1통이고 위 표에는 넣지 않았다. S 1통은 끝내겠다고 말하고 끊지 않았다. 대본 B의 버린 통화에 적은 메모 1줄은 세지 않았다.
+
+- **결론.** 프롬프트를 줄여도 빨라지지 않았고 되짚기를 덜 지켰다. mini는 느리고 정확도와 말투도 나빠졌다. 지금 구성(gpt-live-1, 지금 길이의 프롬프트)을 유지한다.
+- **M 설정 주의.** vad·session을 비워 둔 기본값이 ClawOps 음성 감지를 켜는 구성이라면 그만큼 지연이 붙었을 수 있다. 모델만의 차이로 단정하지 않는다.
+- **앞부분 보충.** 09번(E·L)과 10번(B·M) 통화는 학원 첫인사와 AI 첫인사 사이에 0.1~0.2초 짧은 소리가 있어 뷰어가 첫 간격을 잡지 못했다. 14번과 같은 기준으로 직접 다시 쟀다.
+- **한계.** 한 사람이 한 저녁에 건 대본 통화 15통(+H 3통)이다. M은 목소리로 짐작할 수 있어 완전히 가린 측정은 아니다. 행동 표는 통화 중 메모 기준이라 전사 대조로 확인하지 않았다.
+
 ## 측정 방법
 
 - 응답 지연 = AI 첫 소리 시작 − 사람 말 끝. 사람 → AI로 바뀌는 지점마다 잰다.
@@ -99,7 +142,7 @@
 1. Python 3.10 이상과 ffmpeg(새 녹음을 변환할 때만)를 준비한다.
 2. `pip install -r requirements.txt`
 3. `python scripts/download_models.py`로 모델을 받는다. 약 610MB를 받아 1.1GB로 풀고, 10/7 측정에 쓴 파일과 SHA-256으로 대조한다. 기본 위치는 `models/`(커밋하지 않음)이고, 다른 곳에 두려면 환경 변수 `MODELS_DIR`을 지정한다.
-4. 녹음을 `data/recordings/`에 넣는다. 녹음은 저장소에 올리지 않는다(`.gitignore`). 10/7 녹음은 김규림 Google Drive에 있으니 필요하면 요청한다.
+4. 녹음을 `data/recordings/<날짜>/`에 넣는다(예: `data/recordings/1102/1102_co_A.wav`, 날짜 없는 10/7 녹음은 `1007/`). 스크립트는 `scripts/paths.py`의 `rec_file`로 이름 앞 네 자리를 보고 폴더를 찾는다. 녹음은 저장소에 올리지 않는다(`.gitignore`). 10/7 녹음은 김규림 Google Drive에 있으니 필요하면 요청한다.
 
 ## 녹음
 
@@ -147,18 +190,18 @@ python scripts/measure.py transcript data/calls_1013.csv 1013_va_C   # 정답지
 **ClawOps 통화 1·2 (측정 표의 18개 응답)**
 
 ```
-python scripts/turns.py data/recordings/call1_16k.wav call1
-python scripts/turns.py data/recordings/call2_16k.wav call2
+python scripts/turns.py data/recordings/1007/call1_16k.wav call1
+python scripts/turns.py data/recordings/1007/call2_16k.wav call2
 python scripts/analyze.py        # 화자 판정 + Whisper 전사, 몇 분 걸린다
 python scripts/stats.py          # -> stats.json
 ```
 
-**새 ClawOps 통화 한 건** (예: `call3.wav`를 `data/recordings/`에 넣은 뒤)
+**새 ClawOps 통화 한 건** (예: `call3.wav`를 `data/recordings/1007/`에 넣은 뒤. 날짜 없는 이름은 1007 폴더에서 찾는다)
 
 ```
-python scripts/to16k.py data/recordings/call3.wav
-python scripts/turns.py data/recordings/call3_16k.wav call3
-python scripts/one_call.py data/recordings/call3_16k.wav call3
+python scripts/to16k.py data/recordings/1007/call3.wav
+python scripts/turns.py data/recordings/1007/call3_16k.wav call3
+python scripts/one_call.py data/recordings/1007/call3_16k.wav call3
 python scripts/gaps.py call3_rows.json
 ```
 
@@ -167,9 +210,9 @@ python scripts/gaps.py call3_rows.json
 **화자 분리가 되는 녹음 (Vapi 웹 통화)**
 
 ```
-python scripts/to16k.py data/recordings/vapi.m4a
-python scripts/turns.py data/recordings/vapi_16k.wav vapi
-python scripts/transcribe_turns.py data/recordings/vapi_16k.wav vapi
+python scripts/to16k.py data/recordings/1007/vapi.m4a
+python scripts/turns.py data/recordings/1007/vapi_16k.wav vapi
+python scripts/transcribe_turns.py data/recordings/1007/vapi_16k.wav vapi
 python scripts/gaps.py vapi_asr.json --ai-spk 1     # 전사를 보고 AI 쪽 번호를 고른다 (vapi_low는 0)
 ```
 
