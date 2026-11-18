@@ -32,6 +32,7 @@ from sender import Sender  # noqa: E402
 from clawops import ClawOps, ClawOpsConfig  # noqa: E402
 from llm_judge import LLMJudge  # noqa: E402
 from real_call import ProviderCalls, RealCalls, deliver_result  # noqa: E402
+from tiered_judge import VERSION as TIERED_VERSION, TieredConfig, TieredJudge  # noqa: E402
 
 log = logging.getLogger("call_worker")
 REAL = "real"  # 접수 기록의 scenario 칸에 실제 통화임을 표시
@@ -100,13 +101,32 @@ def resume_pending(store: ReceiptStore, sender: Sender, real: RealCalls | None,
             store.mark_rejected(call_id, "재시작 전 발신 여부 불명, 다시 걸지 않음. ClawOps 통화 목록 확인 필요")
 
 
-def load_judge() -> LLMJudge | None:
+def load_judge() -> LLMJudge | TieredJudge | None:
     """LLM_JUDGE_MODEL이 있으면 LLM 판정을 켠다. gemini-로 시작하면 GEMINI_API_KEY, 아니면 OPENAI_API_KEY.
+    LLM_JUDGE_MODEL=tiered이면 계층 판정(tiered_judge.py)을 켜고 OPENAI_API_KEY와 GEMINI_API_KEY가 필요하다.
+    단계별 모델은 TIERED_TRIAGE_MODEL, TIERED_CROSS_MODEL(빈 값이면 섞기 안 함), TIERED_REVIEW_MODEL, TIERED_SUMMARY_MODEL로 바꿀 수 있다.
     무료 키는 합성·역할극 통화에만 쓴다(실제 학원 통화는 유료 키). 없으면 전사 규칙 판정만 쓴다."""
     model = os.getenv("LLM_JUDGE_MODEL", "").strip()
     if not model:
         log.info("LLM judge disabled (LLM_JUDGE_MODEL not set): keyword judge only")
         return None
+    if model == "tiered":
+        keys = {n: os.getenv(n, "").strip().strip('"') for n in ("OPENAI_API_KEY", "GEMINI_API_KEY")}
+        default = TieredConfig()
+        config = TieredConfig(
+            triage=os.getenv("TIERED_TRIAGE_MODEL", default.triage).strip() or default.triage,
+            cross=os.getenv("TIERED_CROSS_MODEL", default.cross or "").strip() or None,
+            review=os.getenv("TIERED_REVIEW_MODEL", default.review).strip() or default.review,
+            summary=os.getenv("TIERED_SUMMARY_MODEL", default.summary).strip() or default.summary,
+            timeout=float(os.getenv("LLM_JUDGE_TIMEOUT_SEC", "60")))
+        used = [config.triage, config.review, config.summary] + ([config.cross] if config.cross else [])
+        needed = {"GEMINI_API_KEY" if m.startswith("gemini") else "OPENAI_API_KEY" for m in used}
+        missing = sorted(n for n in needed if not keys[n])
+        if missing:
+            raise SystemExit(f"LLM_JUDGE_MODEL=tiered인데 {', '.join(missing)}가 없음")
+        log.info("LLM judge enabled: tiered %s (triage %s, cross %s, review %s, summary %s)",
+                 TIERED_VERSION, config.triage, config.cross, config.review, config.summary)
+        return TieredJudge(keys, config)
     key_name = "GEMINI_API_KEY" if model.startswith("gemini") else "OPENAI_API_KEY"
     key = os.getenv(key_name, "").strip().strip('"')
     if not key:

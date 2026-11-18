@@ -677,3 +677,153 @@ def test_load_judge_from_env(monkeypatch):
         load_judge()
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     assert load_judge().model == "gemini-3.5-flash-lite"
+
+
+# ---- 계층 판정 연결 (11/18) ------------------------------------------------
+# 실제 LLM은 부르지 않는다. TieredJudge의 call을 가짜로 바꿔 단계별 출력 → 라우팅 → 계약·화면 형식을 확인한다.
+import tiered_judge  # noqa: E402
+from tiered_judge import TieredConfig, TieredJudge  # noqa: E402
+
+TQ = [{"question_id": "q1", "question_code": "shuttle"}, {"question_id": "q2", "question_code": "pickup"},
+      {"question_id": "q3", "question_code": "class_time"}, {"question_id": "q4", "question_code": "vacancy"}]
+
+
+def tri(status, turns_=(), quote="", signal="none", condition="", **extra):
+    return {"status": status, "signal": signal, "evidence_turns": list(turns_), "evidence_quote": quote, "condition": condition, **extra}
+
+
+def triage_out(**changes):
+    answers = {"shuttle": tri("yes", [4], "침산동 쪽으로 다녀요", condition="수업 시간 전후로만 운행"),
+               "pickup": tri("no", [8], "픽업은 안 합니다"),
+               "class_time": tri("answered", [10], "화, 목 저녁 7시요"),
+               "vacancy": tri("not_asked")}
+    answers.update(changes)
+    return {"answers": answers, "consult": tri("yes", [12], "수요일 3시에 오세요", available_times=["수요일 3시"], unavailable_times=[])}
+
+
+class FakeStages:
+    """단계(스키마 이름)와 모델로 가짜 출력을 고른다. 부른 기록을 남긴다."""
+    def __init__(self, main, cross=None, review=None, fail=()):
+        self.main, self.cross, self.review, self.fail, self.seen = main, cross, review or {}, set(fail), []
+
+    def __call__(self, system, message, schema, model, keys, timeout):
+        stage = schema["name"]
+        if stage == "triage" and model.startswith("gemini"):
+            stage = "cross"
+        self.seen.append((stage, model, message))
+        if stage in self.fail:
+            raise RuntimeError(f"{stage} down")
+        usage = {"prompt_tokens": 100, "completion_tokens": 10, "thoughts_tokens": 0, "billed_output_tokens": 10}
+        if stage == "triage":
+            return self.main, usage, model
+        if stage == "cross":
+            return self.cross or self.main, usage, model
+        if stage == "review":
+            code = message.split("질문: ", 1)[1].split(" —", 1)[0]
+            return self.review[code], usage, model
+        codes = [line[2:].split(":", 1)[0] for line in message.splitlines() if line.startswith("- ")]
+        return {c: {"shuttle": "침산동 쪽 운행", "pickup": "수업 후 픽업 안 함", "class_time": "화·목 저녁 7시",
+                    "vacancy": "묻지 못함", "consult": "수요일 3시 상담 가능"}.get(c, "확인") for c in codes}, usage, model
+
+    def stages(self):
+        return [s for s, _, _ in self.seen]
+
+
+def tiered(stages, **kw):
+    return TieredJudge({"OPENAI_API_KEY": "k", "GEMINI_API_KEY": "g"}, TieredConfig(), sleep=lambda s: None, call=stages, **kw)
+
+
+def review_out(status, turns_=(), quote="", condition="", reason_text="", certainty="definite"):
+    return {"status": status, "certainty": certainty, "condition": condition, "reason_text": reason_text,
+            "evidence_turns": list(turns_), "evidence_quote": quote}
+
+
+def test_tiered_result_passes_contract_and_uses_frontend_wording():
+    # 섞기 상대가 pickup을 unknown으로 봐서 불일치 → 2차가 redirect로 판정
+    stages = FakeStages(triage_out(), cross=triage_out(pickup=tri("unknown")),
+                        review={"pickup": review_out("redirect", [8], "픽업은 안 합니다", reason_text="홈페이지 공지 확인")})
+    request = real_request(questions=TQ)
+    result = build_result("c_tiered", request, {"status": "completed", "duration": 103}, None, REAL_1019, tiered(stages),
+                          reference_at="2026-11-18T06:00:00+00:00")
+    ResultInput.model_validate(result)
+    check_schema(result)
+    rows = {a["question_code"]: a for a in result["answers"]}
+    assert rows["shuttle"]["answered"] and rows["shuttle"]["yes_no"] is True
+    assert rows["shuttle"]["detail"].startswith("조건: 수업 시간 전후로만 운행\n")  # 프론트 '조건부 가능'
+    assert rows["shuttle"]["condition"] == "수업 시간 전후로만 운행"
+    assert rows["pickup"]["reason"] == "refused" and rows["pickup"]["detail"].startswith("안내받은 경로: ")  # 프론트 '직접 확인 필요'
+    assert rows["class_time"]["answered"] and rows["class_time"]["yes_no"] is None
+    assert rows["vacancy"]["asked"] is False and rows["vacancy"]["reason"] == "not_asked"
+    assert result["consult_accepted"] is True and result["available_times"] == ["수요일 3시"]
+    assert stages.stages().count("review") == 1 and set(stages.stages()) == {"triage", "cross", "review", "summary"}
+    triage_message = next(m for s, _, m in stages.seen if s == "triage")
+    assert "이번 주 남은 날: 11/19(목), 11/20(금)" in triage_message  # 11/18(수) 15시 통화
+    assert "학생" in triage_message
+
+
+def test_tiered_not_asked_disagreement_is_not_reviewed():
+    # 섞기 상대가 묻지 않은 vacancy를 다른 답에서 추론해 no로 채워도 2차로 넘기지 않는다
+    stages = FakeStages(triage_out(), cross=triage_out(vacancy=tri("no", [8], "픽업은 안 합니다")))
+    result = build_result("c_na", real_request(questions=TQ), {"status": "completed"}, None, REAL_1019, tiered(stages))
+    ResultInput.model_validate(result)
+    assert "review" not in stages.stages()
+    assert {a["question_code"]: a["reason"] for a in result["answers"]}["vacancy"] == "not_asked"
+
+
+def test_tiered_consult_yes_without_times_goes_to_review():
+    main = triage_out()
+    main["consult"] = tri("yes", [12], "수요일 3시에 오세요", available_times=[], unavailable_times=[])
+    stages = FakeStages(main, review={"consult": review_out("no", [12], "수요일 3시에 오세요", reason_text="상담 불가")})
+    result = build_result("c_consult", real_request(questions=TQ), {"status": "completed"}, None, REAL_1019, tiered(stages))
+    ResultInput.model_validate(result)
+    assert stages.stages().count("review") == 1 and result["consult_accepted"] is False
+
+
+def test_tiered_cross_and_review_failures_degrade_safely():
+    # 섞기 상대가 죽어도 계속하고, 2차가 죽은 항목은 미확인으로 보낸다(틀린 예/아니오보다 미확인)
+    main = triage_out(pickup=tri("no", [8], "픽업은 안 합니다", signal="hedge"))
+    stages = FakeStages(main, fail={"cross", "review"})
+    result = build_result("c_degrade", real_request(questions=TQ), {"status": "completed"}, None, REAL_1019, tiered(stages))
+    ResultInput.model_validate(result)
+    pickup = {a["question_code"]: a for a in result["answers"]}["pickup"]
+    assert pickup["answered"] is False and pickup["reason"] == "unknown"
+    assert {a["question_code"]: a["answered"] for a in result["answers"]}["shuttle"] is True
+
+
+def test_tiered_main_triage_failure_retries_then_sends_all_unknown():
+    stages = FakeStages(triage_out(), fail={"triage"})
+    judge = tiered(stages, attempt_waits=(0, 0))
+    result = build_result("c_fail", real_request(questions=TQ), {"status": "completed"}, None, REAL_1019, judge)
+    ResultInput.model_validate(result)
+    assert stages.stages().count("triage") == 2
+    assert all(not a["answered"] and a["reason"] == "unknown" for a in result["answers"])
+
+
+def test_tiered_openai_call_sends_no_temperature(monkeypatch):
+    sent = []
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"model": "gpt-5.6-luna", "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+                    "choices": [{"message": {"content": "{}"}}]}
+
+    monkeypatch.setattr(tiered_judge.httpx, "post", lambda url, json, headers, timeout: sent.append(json) or Response())
+    tiered_judge.call_model("s", "m", {"name": "x", "strict": True, "schema": {}}, "gpt-5.6-luna", {"OPENAI_API_KEY": "k"})
+    assert "temperature" not in sent[0]  # gpt-5.6은 temperature를 보내면 400
+
+
+def test_load_tiered_judge_from_env(monkeypatch):
+    from worker import load_judge
+    monkeypatch.setenv("LLM_JUDGE_MODEL", "tiered")
+    monkeypatch.setenv("OPENAI_API_KEY", "o")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with pytest.raises(SystemExit):
+        load_judge()  # 섞기 상대가 gemini라 GEMINI_API_KEY도 필요
+    monkeypatch.setenv("TIERED_CROSS_MODEL", "")
+    assert load_judge().config.cross is None  # 섞기를 끄면 OpenAI 키만으로 동작
+    monkeypatch.delenv("TIERED_CROSS_MODEL")
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    judge = load_judge()
+    assert isinstance(judge, TieredJudge) and judge.config.review == "gpt-5.6-terra"

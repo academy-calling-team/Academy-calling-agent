@@ -109,6 +109,15 @@ http://127.0.0.1:18780/docs 에서 `POST /internal/calls`에 `is_mock: false`, `
 ## 결과 판정 설정과 남은 제약
 
 - `LLM_JUDGE_MODEL`이 비어 있으면 기존 키워드 규칙을 사용한다. 모델을 지정하면 `gemini` 계열은 `GEMINI_API_KEY`, 그 외는 `OPENAI_API_KEY`가 필요하다. 전사 인용과 원문 검증을 거쳐 질문별 답변·미확인 사유·`source_text`를 공통 결과 계약으로 보낸다. 실제 모델·통화 시험 결과와 가짜 제공업체 회귀 시험은 구분한다
+  - 단일 판정(`llm_judge.py`)은 OpenAI 호출에 `temperature=0`을 보내므로 gpt-5.6 계열에는 쓸 수 없다(400). 단일 판정은 `gemini-3.5-flash-lite`로 쓴다
+- `LLM_JUDGE_MODEL=tiered`이면 계층 판정(`tiered_judge.py`, tiered-v2-spec)을 쓴다. `OPENAI_API_KEY`와 `GEMINI_API_KEY`가 둘 다 필요하다
+  - 1차 gpt-5.6-luna와 gemini-3.5-flash-lite를 병렬로 부르고, 값이 다르거나(한쪽이 not_asked면 제외) 신호·코드 검사에 걸린 항목만 gpt-5.6-terra가 다시 판정한다. 요약은 luna
+  - 단계별 모델은 `TIERED_TRIAGE_MODEL`, `TIERED_CROSS_MODEL`(빈 값이면 섞기 끔), `TIERED_REVIEW_MODEL`, `TIERED_SUMMARY_MODEL`로 바꾼다. 호출 시간 제한은 `LLM_JUDGE_TIMEOUT_SEC`(기본 60)
+  - 규칙은 '판정 값 목록 개정안'(11/10) 3·5·6번에서 가져왔다. 상담 기간은 '이번 주 남은 날(통화 다음 날~금)'이라, 수요일 통화에서 "수요일에 오세요"는 기간 밖으로 미확인이 된다
+  - 지금 계약·화면에 맞춰 redirect는 `reason=refused`와 detail의 `안내받은 경로: …`로, 조건은 detail 첫 줄 `조건: …`과 `condition` 필드로 보낸다(개정안 10번). 프론트가 각각 '직접 확인 필요', '조건부 가능'으로 보여 준다
+  - 1차(luna)가 실패하면 판정 전체를 다시 부르고, 섞기 상대·2차·요약이 실패하면 그 단계만 건너뛴다(2차 실패 항목은 미확인). 로그에 단계 수·2차 항목·비용 추정이 남는다
+  - 평가: 사람 작성 105사례에서 주 정확도 94.2%, 비싼 오류 3회 모두 0, 사례당 약 $0.0039 (11/18, 시험 세트는 저장소에 올리지 않음)
+- 공동 서버 `worker.env`에 판정 설정을 넣을 때: `LLM_JUDGE_MODEL=tiered`, `OPENAI_API_KEY`, `GEMINI_API_KEY`. 넣은 뒤 컨테이너를 다시 만들고 `docker logs team8-shared-worker`에 `LLM judge enabled: tiered`가 보이는지 확인한다
 - 상담 가능 시간은 학원 대답 원문을 그대로 `available_times`에 넣는다
 - 응답 지연(`latency`)은 아직 계산하지 않아 `null`
 - 부재중 재통화는 백엔드가 새 `call_id`로 다시 요청하는 기존 규칙을 따른다. 담당 범위는 백엔드와 다시 맞춘다

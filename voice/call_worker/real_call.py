@@ -288,6 +288,8 @@ def build_result(call_id: str, request: dict, call: dict, summary: dict | None, 
         context = dict(request.get('time_context') or {})
         if reference_at:
             context.update(call_started_at=reference_at, timezone='Asia/Seoul')
+        if getattr(judge, 'uses_student', False) and request.get('student'):
+            context['student'] = describe_student(request['student'])  # 계층 판정만: 개정안 2번(학생 조건은 판정기가 직접 따짐)
         answers, consult, times, notes = judge_answers(request["questions"], turns, judge, context or None)
         disclosure = disclosure_played(turns)
     else:
