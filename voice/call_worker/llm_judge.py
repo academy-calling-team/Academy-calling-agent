@@ -27,7 +27,7 @@ import httpx
 
 log = logging.getLogger("call_worker")
 
-PROMPT_VERSION = "judge-v3.2-context"
+PROMPT_VERSION = "judge-v3.3-direction"
 GROUNDED_MIN = 0.7
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 GEMINI_PACE_SEC = 8              # 평가용: 무료 등급 분당 제한에 맞춘 호출 간격
@@ -39,8 +39,9 @@ JUDGE_ATTEMPT_WAITS = (0, 10, 30, 60)
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 QUESTION_TEXT = {
-    "shuttle": "통학 차량이 있는지(있다면 운행 지역·시간)",
-    "pickup": "수업 후 픽업을 해 주는지",
+    # 방향을 정한다(11/16): shuttle은 등원(집 근처 → 학원), pickup은 하원(학원 → 집 근처). 반대 방향만 된다는 답은 no
+    "shuttle": "등원 차량이 학생을 집 근처에서 태워 학원으로 데려오는지(있다면 운행 지역·시간). 하원만 된다는 답은 no",
+    "pickup": "하원 차량이 수업 후 학원에서 학생을 집 근처까지 데려다주는지(있다면 운행 시간). 등원만 된다는 답은 no",
     "level_fit": "학생 학년·과목·수준에 맞는 반이 있는지(자리 여부는 별개)",
     "vacancy": "지금 등록할 자리가 남아 있는지",
     "level_test": "레벨 테스트가 있는지(있다면 언제)",
