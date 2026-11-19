@@ -42,7 +42,7 @@ async function fixture(path, { canSubmit = true, loggedIn = true, detail, accoun
       await route.fulfill({ status: academy ? (req.method() === 'POST' ? 201 : 200) : 404, json: academy || {} });
       return;
     } else if (p === '/api/options') data = { grade: ['M2'], subject: ['MATH'], level: ['MID'], regions: [student.region], question_codes: questionCodes };
-    else if (p === '/api/academies') data = [{ academy_id: 'fixture-academy', name: '시험 학원', region: student.region, is_mock: false, is_test: true, can_submit: canSubmit }];
+    else if (p === '/api/academies') data = [{ academy_id: 'fixture-academy', name: '시험 학원', region: student.region, is_mock: false, is_test: false, can_submit: canSubmit }];
     else if (p === '/api/inquiries' && req.method() === 'POST') { submissions.push(req.postDataJSON()); data = { inquiry_id: 'fixture-inquiry', status: 'queued' }; }
     else if (p === '/api/inquiries') data = [{ inquiry_id: 'fixture-inquiry', status: detail?.status || 'completed', created_at: '2026-10-28T00:00:00Z' }];
     else data = { inquiry_id: 'fixture-inquiry', status: 'completed', student, academy: { name: '시험 학원' }, questions: [], attempts: [], result: { answers: [], consult_accepted: true, available_times: ['수요일 3시'] }, ...detail };
@@ -68,10 +68,16 @@ test('academy account registers through the API, reloads and edits with a versio
     await page.getByRole('heading', { name: '우리 학원 정보 관리' }).waitFor();
     assert.equal(await page.getByLabel('학원명 *', { exact: true }).inputValue(), '연동 시험 학원');
     await page.getByLabel('상세 주소', { exact: true }).fill('수정 주소');
+    await page.getByRole('checkbox', { name: '매일 24시간 응대 (한국 시간)' }).check();
     await page.getByRole('button', { name: '변경 사항 저장', exact: true }).click();
     await page.waitForFunction(() => document.body.innerText.includes('학원 정보가 저장되었습니다.'));
     assert.equal(submissions[1].version, 1);
     assert.equal(submissions[1].address, '수정 주소');
+    assert.equal(submissions[1].always_open, true);
+    assert.deepEqual(submissions[1].call_hours, []);
+    await page.reload();
+    await page.getByRole('heading', { name: '우리 학원 정보 관리' }).waitFor();
+    assert.equal(await page.getByRole('checkbox', { name: '매일 24시간 응대 (한국 시간)' }).isChecked(), true);
     assert.equal(new URL(page.url()).search, '');
   } finally { await page.close(); }
 });

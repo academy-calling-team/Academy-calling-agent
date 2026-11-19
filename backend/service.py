@@ -175,6 +175,14 @@ class Service:
     def attempt_limit(self,c,academy_id):
         mock=c.execute(select(academies.c.is_mock).where(academies.c.id==academy_id)).scalar_one()
         return self.policy.max_attempts if mock else 1
+
+    def permits_real_call(self, c, academy, owner):
+        if not self.real_test.permits(academy, owner):
+            return False
+        account = c.execute(select(accounts.c.enabled, accounts.c.account_type)
+                            .where(accounts.c.user_id == owner)).first()
+        return bool(account and account.enabled and account.account_type == 'parent')
+
     def authorize_real_dispatch(self,payload):
         # Resolve the academy and owner from persisted state, never caller claims.
         with self.engine.connect() as c:
@@ -182,8 +190,7 @@ class Service:
             if not call or call['status'] not in ['reserved','delivery_unknown']:return False
             row=c.execute(select(inquiries).where(inquiries.c.id==call['inquiry_id'])).mappings().one()
             ac=c.execute(select(academies).where(academies.c.id==row['academy_id'])).mappings().one()
-            account=c.execute(select(accounts.c.enabled).where(accounts.c.user_id==row['inquirer_id'])).scalar()
-            return bool(account and self.real_test.permits(ac,row['inquirer_id'])
+            return bool(self.permits_real_call(c,ac,row['inquirer_id'])
                 and call['attempt_no']==1 and payload.get('is_mock') is False
                 and phone(payload.get('to'))==phone(ac['phone'])
                 and fingerprint(payload)==fingerprint(call['dispatch_payload']))
@@ -226,8 +233,11 @@ class Service:
             ac=c.execute(select(academies).where(academies.c.id==body.academy_id)).mappings().first()
             if ac is None:
                 raise HTTPException(404,'Academy not found')
-            if not ac['is_mock'] and not self.real_test.permits(ac,owner):
-                raise HTTPException(409,'실통화 시험은 서버 설정과 지정 시험 계정 확인 후 접수할 수 있습니다.')
+            if not ac['is_mock'] and not self.permits_real_call(c,ac,owner):
+                notice = self.real_test.public(ac)['notice']
+                if self.real_test.allows_academy(ac):
+                    notice = '이 학원의 실제 전화 문의는 허용된 학부모 계정으로 접수할 수 있습니다.'
+                raise HTTPException(409,notice)
             iid=uid()
             c.execute(inquiries.insert().values(id=iid,inquirer_id=owner,academy_id=body.academy_id,
                 request_key=key,payload_hash=fingerprint(payload),student=payload['student'],status='queued',
@@ -386,7 +396,7 @@ class Service:
                 academies.c.id == academy_id)).mappings().one()
             permitted = []
             for row in candidates:
-                if not academy['is_mock'] and not self.real_test.permits(academy, row['inquirer_id']):
+                if not academy['is_mock'] and not self.permits_real_call(c, academy, row['inquirer_id']):
                     self.fail(c, row['id'], 'real_test_disabled')
                 else:
                     permitted.append(row)
@@ -495,7 +505,8 @@ class Service:
                 attempt = row['attempt_count'] + 1
                 cid=uid()
                 qs=c.execute(select(questions).where(questions.c.inquiry_id==row['id']).order_by(questions.c.position)).mappings()
-                payload=dict(call_id=cid,inquiry_id=row['id'],attempt_no=attempt,to=ac['phone'],
+                destination = ac['phone'] if ac['is_mock'] else phone(ac['phone'])
+                payload=dict(call_id=cid,inquiry_id=row['id'],attempt_no=attempt,to=destination,
                     academy_name=ac['name'],student=row['student'],
                     time_context=dict(inquiry_created_at=aware(row['created_at']),
                                       dispatch_requested_at=aware(now),timezone='Asia/Seoul'),

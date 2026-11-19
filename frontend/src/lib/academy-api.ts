@@ -11,6 +11,9 @@ interface AcademyResponse {
   call_hours: { day_of_week: number; start_time: string; end_time: string }[];
   version: number;
   updated_at: string;
+  always_open?: boolean;
+  can_submit?: boolean;
+  notice?: string;
 }
 
 function profileFromResponse(data: AcademyResponse): AcademyProfile {
@@ -29,13 +32,17 @@ export async function getAcademy(): Promise<AcademyProfile> {
 
 export async function putAcademy(profile: AcademyProfile, create: boolean): Promise<AcademyProfile> {
   const { name, phone, region, address, classes, version } = profile;
-  const call_hours = profile.windows.flatMap((window) => window.days.map((day_of_week) => ({
+  const call_hours = profile.always_open ? [] : profile.windows.flatMap((window) => window.days.map((day_of_week) => ({
     day_of_week, start_time: window.start, end_time: window.end,
   })));
   const data = await api<AcademyResponse>('/api/my-academy', {
     method: create ? 'POST' : 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, phone, region, address, classes, call_hours, ...(create ? {} : { version }) }),
+    body: JSON.stringify({
+      name, phone, region, address, classes, call_hours,
+      ...(profile.always_open ? { always_open: true } : {}),
+      ...(create ? {} : { version }),
+    }),
   });
   return profileFromResponse(data);
 }
