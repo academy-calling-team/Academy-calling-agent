@@ -3,7 +3,7 @@ import re
 from datetime import time
 
 from fastapi import HTTPException
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, StrictBool, field_validator, model_validator
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
@@ -17,6 +17,7 @@ class AcademyProfileInput(AcademySettingsInput):
     phone: str = Field(min_length=7, max_length=25)
     region: str
     address: str = Field(default='', max_length=160)
+    always_open: StrictBool = False
 
     @field_validator('name', 'phone', 'address')
     @classmethod
@@ -46,6 +47,10 @@ class AcademyProfileInput(AcademySettingsInput):
 
     @model_validator(mode='after')
     def call_windows(self):
+        if self.always_open:
+            if self.call_hours:
+                raise ValueError('Always open cannot be combined with custom call hours')
+            return self
         if not self.call_hours:
             raise ValueError('Call hours required')
         windows = {}
@@ -62,6 +67,10 @@ class AcademyProfileInput(AcademySettingsInput):
 
 class AcademyProfileUpdate(AcademyProfileInput):
     version: int = Field(ge=1)
+
+
+def all_week_hours():
+    return [dict(weekday=day, start_minute=0, end_minute=1440) for day in range(7)]
 
 
 class AcademyAccounts:
@@ -87,7 +96,8 @@ class AcademyAccounts:
         settings = self.service.read_academy_settings(connection, row['id'])
         return aware(dict(academy_id=row['id'], name=row['name'], phone=row['phone'],
                           region=row['region'], address=row['address'], version=row['version'],
-                          updated_at=row['last_modified_at'], **settings))
+                          updated_at=row['last_modified_at'], always_open=not settings['call_hours'] and row['hours']==all_week_hours(),
+                          **settings, **self.service.real_test.public(row)))
 
     def get(self, token):
         with self.service.engine.connect() as connection:
@@ -106,7 +116,7 @@ class AcademyAccounts:
                 # New profiles use the existing real-call eligibility checks.
                 connection.execute(academies.insert().values(
                     id=academy_id, name=body.name, phone=body.phone, region=body.region,
-                    is_mock=False, hours=[dict(weekday=day, start_minute=0, end_minute=1440) for day in range(7)]))
+                    is_mock=False, hours=all_week_hours()))
                 try:
                     connection.execute(academy_profiles.insert().values(
                         academy_id=academy_id, owner_id=owner, address=body.address))
@@ -120,7 +130,8 @@ class AcademyAccounts:
                 if body.version != version:
                     raise HTTPException(409, 'Academy was modified; reload before saving')
                 connection.execute(update(academies).where(academies.c.id == academy_id).values(
-                    name=body.name, phone=body.phone, region=body.region))
+                    name=body.name, phone=body.phone, region=body.region,
+                    **({'hours': all_week_hours()} if body.always_open else {})))
                 connection.execute(update(academy_profiles).where(
                     academy_profiles.c.academy_id == academy_id).values(address=body.address))
             self.service.write_academy_settings(connection, academy_id, body)

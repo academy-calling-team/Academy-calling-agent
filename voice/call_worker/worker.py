@@ -39,12 +39,16 @@ REAL = "real"  # 접수 기록의 scenario 칸에 실제 통화임을 표시
 
 
 def normalize(number: str) -> str:
-    return re.sub(r"\D", "", number)
+    number = re.sub(r"[\s()-]", "", number)
+    if re.fullmatch(r"010[0-9]{8}", number):
+        return "+82" + number[1:]
+    return number if re.fullmatch(r"\+8210[0-9]{8}", number) else ""
 
 
 def create_app(internal_key: str, store: ReceiptStore, sender: Sender | None = None,
                scenario_mode: str = "answered", real: RealCalls | None = None,
                allowed_to: frozenset[str] = frozenset()) -> FastAPI:
+    allowed_to = frozenset(filter(None, map(normalize, allowed_to)))
     app = FastAPI(title="8조 음성 워커", version="0.4.0")
 
     def require_key(x_internal_key: str | None = Header(None)) -> None:
@@ -58,7 +62,8 @@ def create_app(internal_key: str, store: ReceiptStore, sender: Sender | None = N
         else:
             if real is None:
                 raise HTTPException(422, "Real calls are disabled on this worker")
-            if normalize(request.to or "") not in allowed_to:
+            destination = normalize(request.to or "")
+            if not destination or destination not in allowed_to:
                 raise HTTPException(422, "Destination is not on the real-call allow list")
             scenario = REAL
         state = store.accept(request.call_id, request.payload(), scenario)
@@ -142,9 +147,10 @@ def load_real(store_path: Path, sender: Sender) -> tuple[RealCalls | None, Provi
     # 에이전트는 시험용(CLAWOPS_AGENT_ID, 프롬프트 v3)이 아니라 범용 프롬프트의 서비스 에이전트를 쓴다
     names = ("CLAWOPS_API_KEY", "CLAWOPS_ACCOUNT_ID", "CLAWOPS_SERVICE_AGENT_ID", "CLAWOPS_FROM_NUMBER")
     missing = [n for n in names if not os.getenv(n)]
-    allowed = frozenset(normalize(n) for n in os.getenv("REAL_CALL_ALLOWED_TO", "").split(",") if normalize(n))
-    if missing or not allowed:
+    numbers = [normalize(n) for n in os.getenv("REAL_CALL_ALLOWED_TO", "").split(",")]
+    if missing or not all(numbers):
         raise SystemExit(f"실제 발신 설정 부족: {', '.join(missing) or 'REAL_CALL_ALLOWED_TO'}")
+    allowed = frozenset(numbers)
     config = ClawOpsConfig(*(os.environ[n] for n in names))
     provider_calls = ProviderCalls(store_path)
     # sender._post: 목업과 같은 재시도·거절 규칙으로 이벤트와 결과를 보낸다

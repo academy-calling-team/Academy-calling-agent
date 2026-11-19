@@ -11,6 +11,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import time
@@ -83,8 +84,15 @@ def hidden(label):
     if not value or '\n' in value or '\r' in value:raise ValueError('A single nonempty value is required')
     return value
 
+def mobile(number):
+    number=re.sub(r'[\s()-]','',number)
+    if re.fullmatch(r'010[0-9]{8}',number):number='+82'+number[1:]
+    if not re.fullmatch(r'\+8210[0-9]{8}',number):
+        raise ValueError('Use Korean 010 mobile numbers')
+    return number
+
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('action',choices=['status','prepare','configure','enable','disable'])
+    parser=argparse.ArgumentParser();parser.add_argument('action',choices=['status','prepare','configure','configure-allowlist','enable','disable'])
     action=parser.parse_args().action
     if os.geteuid()!=0:raise ValueError('Run with sudo on the EC2 host')
     os.umask(0o077)
@@ -93,44 +101,58 @@ def main():
         api_path=BASE/'runtime/api.env';worker_path=BASE/'runtime/worker.env'
         api=read_env(api_path);worker=read_env(worker_path)
         state=db('status')
+        allowlist_mode=api.get('REAL_CALL_MODE')=='allowlist'
         if action=='status':
             print(json.dumps(dict(**state,api_enabled=api.get('REAL_CALLS_ENABLED')=='1',
                 worker_enabled=worker.get('REAL_CALLS_ENABLED')=='1',
                 settings_prepared=all(worker.get(k) for k in SETTING_KEYS),
+                mode=api.get('REAL_CALL_MODE','legacy'),
+                allowed_number_count=len(api['REAL_CALL_ALLOWED_TO'].split(',')) if api.get('REAL_CALL_ALLOWED_TO') else 0,
+                allowlists_match=api.get('REAL_CALL_ALLOWED_TO')==worker.get('REAL_CALL_ALLOWED_TO'),
                 test_account_prepared=bool(api.get('REAL_TEST_INQUIRER_ID')))));return
         if action=='prepare':print(json.dumps(db('prepare')));return
         # Do not interrupt in-flight calls or silently revive queued work after enabling.
-        if state['active_calls'] or (action in ['configure','enable'] and state['pending_real_inquiries']):
+        if state['active_calls'] or (action in ['configure','configure-allowlist','enable'] and state['pending_real_inquiries']):
             raise ValueError('Wait for active calls/pending real inquiries before changing call settings')
-        if action=='configure':
+        if action in ['configure','configure-allowlist']:
             if api.get('REAL_CALLS_ENABLED')=='1' or worker.get('REAL_CALLS_ENABLED')=='1':
                 raise ValueError('Disable real calls before configuring')
-            login=hidden('Existing frontend test login name')
-            owner=db('owner',login_name=login)['owner']
-            number=hidden('Receiver mobile number (+8210...)')
-            settings={k:hidden(k) for k in SETTING_KEYS}
-            # A single canonical destination is used at all three gates.
-            import re
-            number=re.sub(r'[\s()-]','',number)
-            if re.fullmatch('010[0-9]{8}',number):number='+82'+number[1:]
-            if not re.fullmatch(r'\+8210[0-9]{8}',number):raise ValueError('One Korean mobile number required')
-            db('configure',phone=number)
-            api.update(REAL_TEST_INQUIRER_ID=owner,REAL_CALL_ALLOWED_TO=number)
-            worker.update(settings,REAL_CALL_ALLOWED_TO=number)
+            if action=='configure-allowlist':
+                docker('exec',NAMES[0],'python','-c','from real_test import allowed_phones')
+                values=hidden('Approved receiver mobile numbers, comma separated')
+                numbers=','.join(sorted({mobile(number) for number in values.split(',')}))
+                api.update(REAL_CALL_MODE='allowlist',REAL_CALL_ALLOWED_TO=numbers)
+                api.pop('REAL_TEST_INQUIRER_ID',None)
+                for key in SETTING_KEYS:
+                    if not worker.get(key):
+                        worker[key]=hidden(key)
+                worker['REAL_CALL_ALLOWED_TO']=numbers
+            else:
+                login=hidden('Existing frontend test login name')
+                owner=db('owner',login_name=login)['owner']
+                number=mobile(hidden('Receiver mobile number (+8210...)'))
+                settings={key:hidden(key) for key in SETTING_KEYS}
+                db('configure',phone=number)
+                api.pop('REAL_CALL_MODE',None)
+                api.update(REAL_TEST_INQUIRER_ID=owner,REAL_CALL_ALLOWED_TO=number)
+                worker.update(settings,REAL_CALL_ALLOWED_TO=number)
             api.pop('REAL_CALLS_ENABLED',None);worker.pop('REAL_CALLS_ENABLED',None)
         elif action=='enable':
-            if not sys.stdin.isatty() or input('Receiver is ready NOW; type ENABLE: ')!='ENABLE':
-                raise ValueError('Receiver readiness confirmation required')
-            if not (state['phone_configured'] and api.get('REAL_TEST_INQUIRER_ID') and
+            if not ((allowlist_mode or (state['phone_configured'] and api.get('REAL_TEST_INQUIRER_ID'))) and
                     api.get('REAL_CALL_ALLOWED_TO')==worker.get('REAL_CALL_ALLOWED_TO') and
                     api.get('REAL_CALL_ALLOWED_TO') and all(worker.get(k) for k in SETTING_KEYS)):
                 raise ValueError('Complete configure first')
+            if not sys.stdin.isatty() or input('Approved receivers consented; type ENABLE: ')!='ENABLE':
+                raise ValueError('Receiver confirmation required')
             api['REAL_CALLS_ENABLED']='1';worker['REAL_CALLS_ENABLED']='1'
         else:
             for values in [api,worker]:
-                for key in ['REAL_CALLS_ENABLED','REAL_CALL_ALLOWED_TO','REAL_TEST_INQUIRER_ID']:
-                    values.pop(key,None)
-            db('clear')
+                values.pop('REAL_CALLS_ENABLED',None)
+                if not allowlist_mode:
+                    for key in ['REAL_CALL_ALLOWED_TO','REAL_TEST_INQUIRER_ID']:
+                        values.pop(key,None)
+            if not allowlist_mode:
+                db('clear')
         write_env(api_path,api);write_env(worker_path,worker)
         try:recreate()
         except BaseException:

@@ -85,6 +85,56 @@ def test_ownership_and_privilege_boundaries(academy_env):
     assert client.post('/auth/register', json={**credentials, 'terms_agreed': True}).json()['account_type'] == 'parent'
 
 
+def test_allowlisted_real_academy_accepts_different_parents_and_covers_midnight(portable):
+    from datetime import datetime, timezone
+    from zoneinfo import ZoneInfo
+    from real_test import RealTestPolicy
+    from schema import academy_call_hours
+    from service import academy_windows, within_hours
+
+    engine, service, client = portable
+    service.real_test = RealTestPolicy(enabled=True, mode='allowlist', allowed_to='010-0000-0001,+821000000003')
+    owner = account(client, 'live_academy')
+    profile = {**PROFILE, 'phone': '01000000001', 'call_hours': [], 'always_open': True}
+    response = client.post('/api/my-academy', headers=owner, json=profile)
+    assert response.status_code == 201, response.text
+    academy = response.json()
+    assert academy['always_open'] and academy['can_submit'] and not academy['is_test']
+    aid = academy['academy_id']
+    with engine.connect() as c:
+        row = c.execute(select(academies).where(academies.c.id == aid)).mappings().one()
+        hours = c.execute(select(academy_call_hours).where(academy_call_hours.c.academy_id == aid)).mappings().all()
+        windows = academy_windows(row, hours)
+    for day in range(5, 12):
+        for hour, minute, second in [(0, 0, 0), (23, 59, 59)]:
+            now = datetime(2026, 10, day, hour, minute, second, tzinfo=ZoneInfo('Asia/Seoul'))
+            assert within_hours(now, windows)
+    service.clock = lambda: datetime(2026, 10, 4, 15, tzinfo=timezone.utc)
+    for index in range(2):
+        parent = account(client, 'live_parent', 'parent')
+        identity = client.get('/auth/me', headers=parent).json()
+        inquiry = dict(inquirer_id=identity['inquirer_id'], academy_id=aid, question_codes=['vacancy'],
+                       student=dict(grade='M2', subject='MATH', level='MID', region=PROFILE['region']))
+        assert client.post('/api/inquiries', json=inquiry, headers={**parent, 'Idempotency-Key': str(index)}).status_code == 201
+    ids = service.reserve()
+    assert ids
+    from schema import calls
+    with engine.connect() as c:
+        dispatch = c.execute(select(calls.c.dispatch_payload).where(calls.c.id == ids[0])).scalar_one()
+    assert dispatch['to'] == '+821000000001' and service.authorize_real_dispatch(dispatch)
+    unrelated = account(client, 'academy_not_allowed')
+    blocked = client.post('/api/my-academy', headers=unrelated, json={**profile, 'phone': '010-0000-0002'})
+    assert blocked.status_code == 201 and blocked.json()['can_submit'] is False
+    assert '발신 불가' in blocked.json()['notice']
+    inquiry['academy_id'] = blocked.json()['academy_id']
+    assert client.post('/api/inquiries', json=inquiry, headers={**parent, 'Idempotency-Key': 'blocked'}).status_code == 409
+    assert client.get('/api/my-academy', headers=owner).json()['always_open'] is True
+    # Even a different allowed number cannot be substituted into an already-reserved call.
+    edited = client.put('/api/my-academy', headers=owner, json={**profile, 'phone': '010-0000-0003', 'version': 1})
+    assert edited.status_code == 200 and edited.json()['can_submit']
+    assert not service.authorize_real_dispatch(dispatch)
+
+
 @pytest.mark.parametrize('patch', [
     {'name': ' '}, {'phone': 'abc'}, {'region': '없는 지역'}, {'call_hours': []},
     {'classes': PROFILE['classes'] * 2},

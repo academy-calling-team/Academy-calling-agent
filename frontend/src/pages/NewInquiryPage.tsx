@@ -224,17 +224,13 @@ export default function NewInquiryPage() {
                   name="academy_id"
                   required
                   value={formValues.academy_id}
-                  onChange={(e) => update({ academy_id: e.target.value })}
+                  onChange={(e) => update({ academy_id: e.target.value, real_test_confirm: false })}
                 >
                   <option value="">선택해 주세요</option>
                   {catalog.academies.map((a) => (
                     <option key={a.academy_id} value={a.academy_id}>
                       {a.name} · {a.region}
-                      {a.is_test
-                        ? a.can_submit
-                          ? ' · 실제 전화 1회'
-                          : ' · 시험 준비 중'
-                        : ' · 목업'}
+                      {a.is_mock ? ' · 목업' : a.can_submit ? ' · 실제 전화 1회' : ' · 발신 불가'}
                     </option>
                   ))}
                 </select>
@@ -367,7 +363,7 @@ export default function NewInquiryPage() {
           {isRealTest ? (
             <section id="real-test-notice">
               <p id="real-test-message" className="notice">
-                {selectedAcademy?.notice || '실제 전화 시험 대상입니다.'}
+                {selectedAcademy?.notice || '실제 전화 1회가 접수됩니다.'}
               </p>
               <label className="consent">
                 <input
@@ -390,7 +386,7 @@ export default function NewInquiryPage() {
           <p className="summary-note">
             {mockMode
               ? '격리된 미리보기 데이터로만 접수됩니다. 실제 요청은 전송되지 않습니다.'
-              : '접수 후 학원 운영 시간에 맞춰 처리합니다. 일반 학원은 목업으로 처리하며, 실통화 시험용 학원은 준비 확인 후 실제 전화 1회만 발신합니다.'}
+              : '접수 후 학원 응대 시간에 맞춰 처리합니다. 실제 전화가 가능한 학원에는 문의당 1회 발신합니다.'}
           </p>
         </aside>
       </form>

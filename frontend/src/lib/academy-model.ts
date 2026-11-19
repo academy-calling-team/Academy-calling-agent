@@ -16,6 +16,9 @@ export interface AcademyProfile {
   address: string;
   classes: Preference[];
   windows: CallWindow[];
+  always_open?: boolean;
+  can_submit?: boolean;
+  notice?: string;
   updated_at?: string;
   version?: number;
   academy_id?: string;
@@ -29,6 +32,7 @@ export function validateProfile(profile: AcademyProfile): string {
   if (!/^[+\d()\s-]{7,25}$/.test(profile.phone) || profile.phone.replace(/\D/g, '').length < 7) return '전화번호를 확인해 주세요.';
   if (!profile.region) return '지역을 선택해 주세요.';
   if (profile.classes.length > 50 || new Set(profile.classes.map((p) => JSON.stringify(p))).size !== profile.classes.length) return '중복된 선호 대상을 삭제해 주세요. 최대 50개까지 설정할 수 있습니다.';
+  if (profile.always_open) return '';
   if (!profile.windows.length) return '전화 응대 가능 시간을 추가해 주세요.';
   const ranges: { day: number; start: string; end: string }[] = [];
   for (const window of profile.windows) {

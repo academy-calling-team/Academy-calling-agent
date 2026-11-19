@@ -1718,6 +1718,11 @@
             "maxLength": 160,
             "title": "Address",
             "default": ""
+          },
+          "always_open": {
+            "type": "boolean",
+            "title": "Always Open",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -1770,6 +1775,11 @@
             "maxLength": 160,
             "title": "Address",
             "default": ""
+          },
+          "always_open": {
+            "type": "boolean",
+            "title": "Always Open",
+            "default": false
           },
           "version": {
             "type": "integer",
