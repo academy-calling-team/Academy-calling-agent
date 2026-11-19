@@ -91,6 +91,20 @@ def mobile(number):
         raise ValueError('Use Korean 010 mobile numbers')
     return number
 
+def confirmed_receivers(*, multiple):
+    if not sys.stdin.isatty():
+        raise ValueError('수신 번호 입력은 대화형 터미널에서 실행해 주세요.')
+    prompt = '허용할 010 수신 번호를 쉼표로 구분해 입력: ' if multiple else '허용할 010 수신 번호 입력: '
+    entered = input(prompt)
+    numbers = sorted({mobile(number) for number in (entered.split(',') if multiple else [entered])})
+    print('저장할 수신 번호')
+    for number in numbers:
+        domestic = '0' + number[3:]
+        print(f'  {domestic[:3]}-{domestic[3:7]}-{domestic[7:]}')
+    if input('맞으면 CONFIRM 입력, 수정하려면 Enter: ').strip() != 'CONFIRM':
+        raise ValueError('번호 저장을 취소했습니다. 명령을 다시 실행해 주세요.')
+    return ','.join(numbers)
+
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('action',choices=['status','prepare','configure','configure-allowlist','enable','disable'])
     action=parser.parse_args().action
@@ -119,8 +133,7 @@ def main():
                 raise ValueError('Disable real calls before configuring')
             if action=='configure-allowlist':
                 docker('exec',NAMES[0],'python','-c','from real_test import allowed_phones')
-                values=hidden('Approved receiver mobile numbers, comma separated')
-                numbers=','.join(sorted({mobile(number) for number in values.split(',')}))
+                numbers=confirmed_receivers(multiple=True)
                 api.update(REAL_CALL_MODE='allowlist',REAL_CALL_ALLOWED_TO=numbers)
                 api.pop('REAL_TEST_INQUIRER_ID',None)
                 for key in SETTING_KEYS:
@@ -130,7 +143,7 @@ def main():
             else:
                 login=hidden('Existing frontend test login name')
                 owner=db('owner',login_name=login)['owner']
-                number=mobile(hidden('Receiver mobile number (+8210...)'))
+                number=confirmed_receivers(multiple=False)
                 settings={key:hidden(key) for key in SETTING_KEYS}
                 db('configure',phone=number)
                 api.pop('REAL_CALL_MODE',None)
