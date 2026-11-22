@@ -171,6 +171,21 @@ def source_text(item: dict, turns) -> str:
     return " / ".join(parts)
 
 
+EVIDENCE_MAX = 10  # backend/contracts.py EvidenceTurns의 최대 개수
+
+
+def evidence_turns(item: dict, turns) -> list[int]:
+    """화면의 '근거 발화'로 보낼 전사 번호. 결과의 transcript turn_no는 turns의 순번이다.
+    source_text와 같은 발화를 고른다: 근거로 지목한 학원 발화, 학원이 확인만 했으면 그 앞의 AI 되짚기."""
+    picked = set()
+    for i in _evidence(item, turns):
+        j = _prev_agent(i, turns)
+        if len(_norm(turns[i].text)) <= CONFIRM_MAX and j is not None:
+            picked.add(j)
+        picked.add(i)
+    return sorted(picked)[:EVIDENCE_MAX]
+
+
 def fact_source(item: dict, turns) -> str:
     """요약 사실 검사의 기준 글. 근거 학원 발화와 그 바로 앞 AI 발화(되짚기·질문)를 합친다.
     규칙 3에 따라 학원이 확인한 되짚기는 근거가 되고, 받아쓰기가 끊긴 학원 발화('수요일 오')를 되짚기가 보완한다."""
@@ -324,6 +339,8 @@ def to_contract(questions: list[dict], turns, raw: dict) -> tuple[list[dict], di
                "yes_no": {"yes": True, "no": False}.get(st), "reason": None, "detail": detail[:500] or "대답을 알아듣지 못함",
                "status": st, "certainty": certainty, "leaning": leaning, "source_text": src[:2000] if src.strip() and st != "not_asked" else None,
                "detail_checked": checked}
+        if has_evidence and st != "not_asked":
+            row["evidence_turns"] = evidence_turns(a, turns)
         if not row["answered"]:
             row["reason"] = "uncertain" if uncertain else {"refused": "refused", "not_asked": "not_asked"}.get(st, "unknown")
         answers.append(row)
@@ -340,12 +357,14 @@ def to_contract(questions: list[dict], turns, raw: dict) -> tuple[list[dict], di
     checked = False if False in checks else (None if None in checks else True)
     consult = {"status": st, "consult_accepted": {"yes": True, "no": False}.get(st),
                "available_times": _supported_times(times, unavailable, c, turns), "unavailable_times": unavailable,
-               "certainty": certainty, "leaning": leaning, "source_text": src[:500], "detail_checked": checked}
+               "certainty": certainty, "leaning": leaning, "source_text": src[:500], "detail_checked": checked,
+               "evidence_turns": evidence_turns(c, turns) if st != "not_asked" else []}
     return answers, consult
 
 
 # backend/contracts.py AnswerInput의 필드 (StrictModel extra='forbid'라 그 밖의 키를 보내면 거부됨)
-ANSWER_FIELDS = ("question_id", "question_code", "asked", "answered", "yes_no", "reason", "detail", "source_text")
+ANSWER_FIELDS = ("question_id", "question_code", "asked", "answered", "yes_no", "reason", "detail", "source_text",
+                 "evidence_turns")
 
 
 def contract_answers(rows: list[dict]) -> list[dict]:

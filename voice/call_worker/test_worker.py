@@ -483,6 +483,74 @@ def test_llm_judge_result_passes_backend_contract(monkeypatch):
     assert result["notes"] == ""
 
 
+# ---------------------------------------------------------------- 종료 원인(end_reason)·재통화 요청
+from extract import Turn as _Turn, find_callback  # noqa: E402
+from real_call import end_reason_of  # noqa: E402
+
+_CLOSED = [_Turn("agent", 0, "질문입니다"), _Turn("academy", 1000, "네"),
+           _Turn("agent", 2000, "맞으시면 이대로 학부모님께 전해 드리겠습니다. 좋은 하루 보내세요.")]
+_CUT = [_Turn("agent", 0, "등원 차량이 있을까요?"), _Turn("academy", 1000, "아 잠깐만요")]
+
+
+@pytest.mark.parametrize("call, turns, expected", [
+    ({"hangupSource": "callee", "hangupCause": "normal_clearing"}, _CLOSED, "completed"),  # 마무리 인사 뒤 학원이 끊음
+    ({"hangupSource": "caller", "hangupCause": "normal_clearing"}, _CUT, "completed"),     # 상담원이 끊음
+    ({"hangupSource": "callee", "hangupCause": "normal_clearing"}, _CUT, "academy_hung_up"),
+    ({"hangupSource": "carrier", "hangupCause": "recovery_on_timer_expire"}, _CUT, "connection_lost"),
+    ({"hangupSource": "app", "hangupCause": "media_timeout"}, _CUT, "agent_error"),
+    ({}, _CUT, "completed"),  # 종료 정보가 없으면 정상 종료로 봄
+])
+def test_end_reason_of(call, turns, expected):
+    assert end_reason_of(call, turns) == expected
+
+
+@pytest.mark.parametrize("text, found", [
+    ("이번 주는 좀 힘들 것 같아요. 다음 주에 다시 연락 주세요.", "학원이 다시 연락해 달라고 함"),
+    ("원장님 오시면 다시 전화 주세요", "학원이 다시 연락해 달라고 함"),
+    ("지금은 통화가 어려워서요", "학원이 지금은 통화가 어렵다고 함"),
+    ("지금 수업 중이라서요", "학원이 지금은 통화가 어렵다고 함"),
+    ("나중에 다시 주세요", "학원이 다시 연락해 달라고 함"),
+    ("잠시 뒤에 다시 걸어주시겠어요?", "학원이 다시 연락해 달라고 함"),
+    ("원장님은 오후 3시에 오세요. 그때 다시 거세요.", "학원이 다시 연락해 달라고 함"),
+    ("알아보고 다시 연락드릴게요", None),  # 학원이 직접 연락하겠다는 말은 재통화 요청이 아님
+    ("나중에 다시 알려드릴게요", None),
+    ("전화 주시면 알려 드릴게요", None),
+])
+def test_find_callback(text, found):
+    got = find_callback([_Turn("agent", 0, "질문"), _Turn("academy", 1000, text)])
+    assert (got[0] if got else None) == found
+    if got:
+        assert got[1] == text
+
+
+def test_callback_request_is_sent_without_time_and_passes_contract(monkeypatch):
+    # 학원이 다시 걸어 달라고 했고 확인 못 한 질문이 남았으면 재통화 요청을 보낸다. 시각은 비워 사람이 확인한다
+    segments = copy.deepcopy(REAL_1019)
+    segments[8]["text"] = "그건 원장님 오시면 다시 전화 주세요"
+    raw = copy.deepcopy(LLM_1019)
+    raw["answers"]["pickup"] = item("unknown", [8], "원장님 오시면 다시 전화 주세요", "원장 확인 필요")
+    monkeypatch.setattr(llm_judge, "call_llm", lambda *a, **k: {"result": raw})
+    result = build_result("c_cb", real_request(questions=Q1019), {"status": "completed", "hangupSource": "callee",
+                          "hangupCause": "normal_clearing"}, None, segments, no_wait_judge())
+    ResultInput.model_validate(result)
+    assert result["callback_requested"] is True and result["callback_at"] is None
+    assert result["callback_reason_text"] == "학원이 다시 연락해 달라고 함"
+    assert result["callback_source_text"] == "그건 원장님 오시면 다시 전화 주세요"
+    assert result["end_reason"] in ("completed", "academy_hung_up")
+
+
+def test_no_callback_when_everything_is_confirmed(monkeypatch):
+    segments = copy.deepcopy(REAL_1019)
+    segments[2]["text"] = "네, 가능합니다. 나중에 또 전화 주세요"  # 모두 확인됐으면 다시 걸 이유가 없음
+    raw = copy.deepcopy(LLM_1019)
+    raw["answers"]["pickup"] = item("no", [8], "픽업은 안 합니다", "수업 후 픽업 안 함")
+    monkeypatch.setattr(llm_judge, "call_llm", lambda *a, **k: {"result": raw})
+    result = build_result("c_nocb", real_request(questions=Q1019), {"status": "completed"}, None, segments, no_wait_judge())
+    ResultInput.model_validate(result)
+    assert result["unresolved"] == [] and result["consult_accepted"] is True
+    assert result["callback_requested"] is False and result["callback_reason_text"] is None
+
+
 @pytest.mark.parametrize("status, quote, expected_reason", [
     ("unknown", "원장님께 여쭤봐야 해요", "uncertain"),
     ("unknown", "전사에 없는 답변", "unknown"),
@@ -830,6 +898,58 @@ def test_load_tiered_judge_from_env(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "g")
     judge = load_judge()
     assert isinstance(judge, TieredJudge) and judge.config.review == "gpt-5.6-terra"
+
+
+# ---------------------------------------------------------------- 근거 발화 (transcript turn_no + evidence_turns)
+from extract import Turn  # noqa: E402
+from llm_judge import evidence_turns  # noqa: E402
+from real_call import consult_explanation, number_transcript  # noqa: E402
+
+
+def test_evidence_turns_add_agent_recap_for_short_confirmation():
+    # 학원이 "네 맞습니다"처럼 확인만 했으면 무엇을 확인했는지 보이게 앞의 AI 되짚기도 근거 발화에 넣는다 (source_text와 같은 규칙)
+    turns = [Turn("agent", 0, "화요일과 목요일 저녁 7시가 맞을까요?"), Turn("academy", 3000, "네 맞습니다"),
+             Turn("academy", 5000, "수업은 화요일, 목요일 저녁 일곱 시예요.")]
+    assert evidence_turns({"evidence_turns": [1]}, turns) == [0, 1]
+    assert evidence_turns({"evidence_turns": [2]}, turns) == [2]
+    assert evidence_turns({"evidence_turns": [0, 9]}, turns) == []  # AI 발화·없는 번호는 근거가 아님
+
+
+def test_llm_judge_sends_numbered_transcript_and_evidence(monkeypatch):
+    monkeypatch.setattr(llm_judge, "call_llm", lambda *a, **k: {"result": LLM_1019})
+    result = build_result("c_ev", real_request(questions=Q1019), {"status": "completed", "duration": 103}, None,
+                          REAL_1019, LLMJudge("gemini-test", "k"))
+    ResultInput.model_validate(result)  # 계약: 근거 번호는 이 결과의 transcript turn_no에 있어야 함
+    assert [t["turn_no"] for t in result["transcript"]] == list(range(len(result["transcript"])))
+    got = {a["question_code"]: a for a in result["answers"]}
+    assert got["shuttle"]["evidence_turns"] == [4] and got["class_time"]["evidence_turns"] == [10]
+    assert result["consult"] == {"source_text": "수요일 3시에 오세요.", "evidence_turns": [12]}  # 확정이라 사유 없음
+
+
+def test_tiered_judge_sends_evidence_and_no_evidence_for_unasked():
+    stages = FakeStages(triage_out())
+    result = build_result("c_tev", real_request(questions=TQ), {"status": "completed"}, None, REAL_1019, tiered(stages))
+    ResultInput.model_validate(result)
+    rows = {a["question_code"]: a for a in result["answers"]}
+    assert rows["shuttle"]["evidence_turns"] == [4] and rows["pickup"]["evidence_turns"] == [8]
+    assert "evidence_turns" not in rows["vacancy"]  # 묻지 않은 질문에는 근거 발화를 보내지 않음
+    assert result["consult"]["evidence_turns"] == [12] and "reason" not in result["consult"]
+
+
+def test_consult_explanation_reason_and_unasked():
+    assert consult_explanation({"status": "redirect", "consult_accepted": None, "source_text": "방문하시면 정해요",
+                                "evidence_turns": [3]}) == {"reason": "refused", "source_text": "방문하시면 정해요", "evidence_turns": [3]}
+    assert consult_explanation({"status": "unknown", "consult_accepted": None, "source_text": "", "evidence_turns": []}) == {"reason": "unknown"}
+    assert consult_explanation({"status": "not_asked", "consult_accepted": None, "source_text": "x", "evidence_turns": [1]}) == {"reason": "not_asked"}
+    assert consult_explanation({"status": "yes", "consult_accepted": True, "source_text": "", "evidence_turns": []}) is None
+
+
+def test_evidence_outside_sent_transcript_is_dropped():
+    turns = [Turn("agent", 0, "질문"), Turn("academy", 1000, "답")]
+    keep, drop = {"evidence_turns": [1, 5]}, {"evidence_turns": [5]}
+    transcript = number_transcript(turns, [keep, drop])
+    assert [t["turn_no"] for t in transcript] == [0, 1]
+    assert keep["evidence_turns"] == [1] and "evidence_turns" not in drop
 
 
 # ---------------------------------------------------------------- 11/19 판정 규칙 (tiered-v2.1-spec)
