@@ -272,7 +272,7 @@ test('academy preview registers, saves, reloads, validates overlap and isolates 
   } finally { await page.close(); }
 });
 
-test('academy reference layout shows simulation and structured preview on desktop and mobile', async () => {
+test('academy reference layout removes simulation and keeps structured preview on desktop and mobile', async () => {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   try {
     await page.goto(base + '/academy/manage?preview=mock');
@@ -282,8 +282,8 @@ test('academy reference layout shows simulation and structured preview on deskto
     });
     await page.reload();
     assert.equal(await page.locator('details.academy-card').count(), 0);
-    assert.equal(await page.getByLabel('과목 일치 점수').isVisible(), true);
-    assert.equal(await page.locator('.academy-simulation tbody tr').count(), 4);
+    assert.equal(await page.getByLabel('과목 일치 점수').count(), 0);
+    assert.equal(await page.locator('.academy-simulation').count(), 0);
     await page.screenshot({ path: '/tmp/academy-desktop.png', fullPage: true });
     await page.getByRole('button', { name: '입력 내용 미리보기 →' }).click();
     const preview = page.getByRole('dialog', { name: '입력한 학원 정보' });
@@ -504,4 +504,64 @@ test('retry preview scenarios work with an older empty preview cache without API
     }
     assert.equal(requests.length, 0);
   } finally { await page.close(); }
+});
+
+test('academy save locks the form until its response arrives', async () => {
+  const { page } = await fixture('/academy/register', { accountType: 'academy' });
+  let release;
+  const pending = new Promise(resolve => { release = resolve; });
+  try {
+    await page.getByLabel('학원명 *', { exact: true }).fill('저장 시험 학원');
+    await page.getByLabel('문의받을 전화번호 *', { exact: true }).fill('053-123-4567');
+    await page.getByLabel('지역 *', { exact: true }).selectOption(student.region);
+    await page.getByRole('button', { name: '시간 1 월요일', exact: true }).click();
+    await page.route('**/api/my-academy', async route => {
+      if (route.request().method() === 'GET') return route.fallback();
+      await pending;
+      await route.fulfill({ status: 201, json: { ...route.request().postDataJSON(), academy_id: 'fixture-academy', version: 1 } });
+    });
+    const request = page.waitForRequest(r => r.url().endsWith('/api/my-academy') && r.method() === 'POST');
+    await page.getByRole('button', { name: '학원 등록', exact: true }).click();
+    await request;
+    for (const control of await page.locator('form input, form select, form button').all()) {
+      assert.equal(await control.isDisabled(), true);
+    }
+    release();
+    await page.waitForURL('**/academy/manage');
+    assert.equal(await page.getByLabel('학원명 *', { exact: true }).inputValue(), '저장 시험 학원');
+    assert.equal(await page.getByRole('button', { name: '변경 취소', exact: true }).isEnabled(), true);
+  } finally { release(); await page.close(); }
+});
+
+test('consultation list displays Korean student labels shared with detail', async () => {
+  const { page } = await fixture('/tasks');
+  try {
+    await page.getByText('대구 북구 침산동 · 중학교 2학년 · 수학 · 중급', { exact: true }).waitFor();
+  } finally { await page.close(); }
+});
+
+test('leaving detail during a pending poll prevents later polling', async () => {
+  const { page } = await fixture('/detail/fixture-inquiry', { detail: { status: 'calling' } });
+  let release;
+  const pending = new Promise(resolve => { release = resolve; });
+  let calls = 0;
+  try {
+    await page.getByRole('heading', { name: '시험 학원', exact: true }).waitFor();
+    await page.clock.install();
+    await page.route('**/api/inquiries/fixture-inquiry', async route => {
+      calls++;
+      await pending;
+      await route.fulfill({ json: { inquiry_id: 'fixture-inquiry', status: 'calling', student, academy: { name: '시험 학원' }, questions: [] } });
+    });
+    const poll = page.waitForRequest('**/api/inquiries/fixture-inquiry');
+    await page.clock.runFor(5000);
+    await poll;
+    await page.locator('a[href="/new"]').first().click();
+    await page.waitForURL('**/new');
+    const response = page.waitForResponse('**/api/inquiries/fixture-inquiry');
+    release();
+    await response;
+    await page.clock.runFor(16000);
+    assert.equal(calls, 1);
+  } finally { release(); await page.close(); }
 });
