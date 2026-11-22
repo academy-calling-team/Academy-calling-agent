@@ -273,3 +273,22 @@ def consult_result(turns: list[Turn], questions: list[dict] | None = None) -> tu
     if not answered:
         return None, []
     return yes_no, ([said[:200]] if yes_no and said else [])
+
+
+# 학원이 우리 쪽에 다시 걸어 달라고 한 말 (학원이 직접 연락하겠다는 '연락드릴게요'는 학원 몫이라 넣지 않는다)
+CALLBACK_LATER = re.compile(r"(다시|나중에|이따가?|그때|잠시\s?뒤에?|내일|다음\s?주에?)\s?(다시\s?)?(한\s?번\s?)?"
+                            r"((전화|연락)\s?(주|해\s?주|부탁)|걸어|거세요|주세요|주시겠)")
+CALLBACK_BUSY = re.compile(r"지금은?\s?(통화|전화)(가|하기|받기)?\s?(어려|어렵|힘들|힘드|곤란)|지금\s?(바빠|바쁘|수업\s?중|운전\s?중)")
+
+
+def find_callback(turns: list[Turn]) -> tuple[str, str] | None:
+    """학원이 재통화를 요청한 첫 발화 → (사유, 학원 원문). 없으면 None.
+    시각은 해석하지 않는다(백엔드가 callback_at 시각에 자동으로 다시 걸기 때문에, 사람이 확인하도록 비워 둔다)."""
+    for t in turns:
+        if t.speaker != "academy":
+            continue
+        if CALLBACK_BUSY.search(t.text):
+            return "학원이 지금은 통화가 어렵다고 함", t.text[:500]
+        if CALLBACK_LATER.search(t.text):
+            return "학원이 다시 연락해 달라고 함", t.text[:500]
+    return None

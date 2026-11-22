@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from clawops import ClawOps, ClawOpsError
-from extract import CONSULT, QUESTIONS, build_answers, consult_result, disclosure_played, to_turns
+from extract import CONSULT, QUESTIONS, build_answers, consult_result, disclosure_played, find_callback, to_turns
 
 log = logging.getLogger("call_worker")
 
@@ -257,6 +257,25 @@ def outcome_of(call: dict) -> tuple[str, str | None]:
     return "rejected", "temporary" if call.get("hangupSource") in ("app", "system", "carrier") else "unknown"
 
 
+CLOSING = ("좋은 하루", "전해 드리", "전해드리", "다시 연락드리", "다시 전화드리", "감사합니다")  # 상담원 마무리 인사(서비스 프롬프트 6번)
+
+
+def end_reason_of(call: dict, turns) -> str:
+    """연결된 통화의 종료 원인. 기록용이며 백엔드는 이 값만 보고 다시 걸지 않는다(voice_result_additions.md).
+    - 정상 종료(normal_clearing)가 아니면: ClawOps·앱 쪽 끊김은 agent_error, 그 밖은 connection_lost
+    - 학원이 끊었는데 상담원의 마지막 말이 마무리 인사가 아니면 academy_hung_up
+    - 나머지는 completed"""
+    cause = str(call.get("hangupCause") or "normal_clearing").lower()
+    source = call.get("hangupSource")
+    if cause != "normal_clearing":
+        return "agent_error" if source in ("app", "system") else "connection_lost"
+    if source == "callee":
+        last_agent = next((t.text for t in reversed(turns) if t.speaker == "agent"), "")
+        if not any(word in last_agent for word in CLOSING):
+            return "academy_hung_up"
+    return "completed"
+
+
 CONSULT_REASON = {"redirect": "refused", "refused": "refused", "not_asked": "not_asked"}  # 답변 행과 같은 화면 규칙
 
 
@@ -335,6 +354,8 @@ def build_result(call_id: str, request: dict, call: dict, summary: dict | None, 
         notes = (notes + '\n' + reference_note).strip()[:1000]
     core = (summary or {}).get("coreSummary")
     confirmed = len(answers) - len(unresolved)
+    # 재통화 요청은 남은 확인이 있을 때만 보낸다. 시각은 비워 두어 백엔드가 자동으로 다시 걸지 않고 사람이 확인하게 한다
+    callback = find_callback(turns) if connected and (unresolved or consult is not True) else None
     return {
         "result_id": f"result_{call_id}",
         "outcome": outcome,
@@ -351,8 +372,11 @@ def build_result(call_id: str, request: dict, call: dict, summary: dict | None, 
         "duration_sec": int(call.get("duration") or 0) if connected else 0,
         "transcript": transcript,
         "recording_url": None,
-        "callback_requested": False,
+        "callback_requested": callback is not None,
         "callback_at": None,
         "rejection_reason": rejection if outcome == "rejected" else None,
         "consult": explanation if connected else None,
+        "callback_reason_text": callback[0] if callback else None,
+        "callback_source_text": callback[1] if callback else None,
+        "end_reason": end_reason_of(call, turns) if connected else None,
     }
