@@ -442,6 +442,58 @@ def test_instruction_lists_only_requested_questions():
     assert all(isinstance(v, (str, int, float, bool)) for v in variables.values())
 
 
+# ---- 수업 문의 묻는 순서 (맞는 반 → 자리 → 시간, 11/22) ----------------------------
+from extract import QUESTIONS  # noqa: E402
+from real_call import SKIPPED_NO_CLASS, ask_order  # noqa: E402
+
+
+def _qs(*codes):
+    return [{"question_id": f"q{i}", "question_code": c} for i, c in enumerate(codes, 1)]
+
+
+@pytest.mark.parametrize("codes, expected", [
+    (("shuttle", "class_time", "level_fit", "pickup", "vacancy"), ("shuttle", "level_fit", "vacancy", "class_time", "pickup")),
+    (("vacancy", "level_fit"), ("level_fit", "vacancy")),
+    (("pickup", "vacancy"), ("pickup", "vacancy")),
+    (("shuttle", "level_test"), ("shuttle", "level_test")),
+])
+def test_ask_order_groups_lesson_questions(codes, expected):
+    assert tuple(q["question_code"] for q in ask_order(_qs(*codes))) == expected
+
+
+@pytest.mark.parametrize("codes, rule", [
+    (("class_time", "level_fit", "vacancy"), "맞는 반이 없다고 하면 자리와 수업 시간은 묻지 않고"),
+    (("level_fit", "vacancy"), "맞는 반이 없다고 하면 자리는 묻지 않고"),
+    (("level_fit", "class_time"), "맞는 반이 없다고 하면 수업 시간은 묻지 않고"),
+    (("vacancy", "class_time"), None),  # 맞는 반을 묻지 않으면 건너뛰기 규칙도 없음
+])
+def test_instruction_asks_lesson_in_order_and_skips_without_class(codes, rule):
+    instruction, _ = build_instruction(real_request(questions=_qs(*codes)))
+    asked = [QUESTIONS[c][0] for c in ("level_fit", "vacancy", "class_time") if c in codes]
+    assert [instruction.index(text) for text in asked] == sorted(instruction.index(text) for text in asked)
+    if rule:
+        assert rule in instruction
+    else:
+        assert "맞는 반이 없다고 하면" not in instruction
+
+
+def test_skipped_lesson_questions_are_explained_in_request_order(monkeypatch):
+    segments = copy.deepcopy(REAL_1019)
+    segments[4]["text"] = "중2 중간 수준 반은 지금 없어요."
+    raw = copy.deepcopy(LLM_1019)
+    raw["answers"] = {"level_fit": item("no", [4], "중2 중간 수준 반은 지금 없어요", "맞는 반 없음"),
+                      "vacancy": item("not_asked", [], "", "묻지 않음"), "class_time": item("not_asked", [], "", "묻지 않음")}
+    monkeypatch.setattr(llm_judge, "call_llm", lambda *a, **k: {"result": raw})
+    request = real_request(questions=_qs("vacancy", "class_time", "level_fit"))
+    result = build_result("c_lesson", request, {"status": "completed"}, None, segments, no_wait_judge())
+    ResultInput.model_validate(result)
+    assert [a["question_code"] for a in result["answers"]] == ["vacancy", "class_time", "level_fit"]  # 요청 순서 그대로
+    got = {a["question_code"]: a for a in result["answers"]}
+    assert (got["level_fit"]["answered"], got["level_fit"]["yes_no"]) == (True, False)
+    for code in ("vacancy", "class_time"):
+        assert got[code]["reason"] == "not_asked" and got[code]["detail"] == SKIPPED_NO_CLASS
+
+
 # ---- LLM 판정 연결 (11/9) -------------------------------------------------
 # 실제 LLM은 부르지 않는다. llm_judge.call_llm을 바꿔 끼워, 판정 출력 → 계약 변환 → 결과 전송 본문을 확인한다.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
