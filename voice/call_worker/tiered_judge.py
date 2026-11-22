@@ -1,4 +1,4 @@
-"""계층 판정(tiered-v2-spec). 워커가 LLM_JUDGE_MODEL=tiered일 때 쓴다.
+"""계층 판정(tiered-v2.1-spec). 워커가 LLM_JUDGE_MODEL=tiered일 때 쓴다.
 
 구성 (11/18 사람 작성 105사례 평가에서 고른 v2_route_na: 주 정확도 94.2%, 비싼 오류 3회 모두 0)
   1차 분류   gpt-5.6-luna와 gemini-3.5-flash-lite를 같은 프롬프트로 병렬 호출
@@ -27,7 +27,7 @@ from llm_judge import (GEMINI_URL, JUDGE_ATTEMPT_WAITS, OPENAI_URL, UNSURE_LABEL
                        fact_source, facts_ok, grounded, source_text)
 
 log = logging.getLogger("call_worker")
-VERSION = "tiered-v2-spec"
+VERSION = "tiered-v2.1-spec"
 SEOUL = ZoneInfo("Asia/Seoul")
 
 # USD per 1M tokens (입력, 출력). 출력에는 추론 토큰 포함. 로그의 비용 추정에만 쓴다 (11/18 기준)
@@ -38,8 +38,8 @@ SIGNAL = ["none", "hedge", "deferred", "corrected", "partial_week", "conditional
 
 # 개정안 3번 표 + 11/16 방향 결정(등원·하원)
 QUESTION = {
-    "shuttle": "등원 차량이 학생 거주 지역(질문별 위치)에서 학생을 태워 학원으로 데려옴. 차량이 있어도 그 지역에 안 가면 no. 하원만 된다는 답은 no",
-    "pickup": "수업이 끝난 뒤 학원이 학생을 질문별 위치까지 데려다줌(사람이든 차량이든). 등원만 된다는 답은 no",
+    "shuttle": "등원 차량이 학생 거주 지역(질문별 위치)에서 학생을 태워 학원으로 데려옴. 차량이 있어도 그 지역에 안 가면 no. 하원만 된다는 답은 no. 그 지역에 가는지 확인하지 않고 차량이 있다고만 하면 unknown",
+    "pickup": "수업이 끝난 뒤 학원이 학생을 질문별 위치까지 데려다줌(사람이든 차량이든). 등원만 된다는 답은 no. 그 위치까지 가는지 확인하지 않고 하원 차량이 있다고만 하면 unknown",
     "level_fit": "학생 학년·과목·수준에 맞춰 지금 들어갈 수 있는 반이 있음. 자리가 남았는지는 별개",
     "vacancy": "질문 기간(없으면 통화 시점)에 등록할 자리가 있음",
     "level_test": "등록 전 레벨 테스트가 있음. 필수든 선택이든",
@@ -57,13 +57,14 @@ RULES = """판정 순서(위에서부터 처음 해당하는 값에서 멈춘다
    - 첫머리의 '네', '예'는 맞장구일 수 있다. 뒤에 보류, 되묻기, 말 흐림이 오면 답으로 세지 않는다.
    - 경로를 부정한 말('전화로는 안 돼요', '여기서는 확인이 안 돼요')은 질문별 뜻에 대한 답이 아니다. 다음 단계로 넘긴다.
    - AI가 되짚은 말은 학원이 맞다고 했을 때만 근거다. 학원이 앞말을 고치면 마지막에 확정한 답을 따른다.
-3. 학부모가 움직여야 하나: 답 대신 학부모가 답을 확인할 다른 경로(방문, 레벨 테스트, 예약 사이트, 홈페이지)를 안내했으면 redirect. 서비스 대신 다른 방법을 제안한 것은 redirect가 아니다.
+3. 학부모가 움직여야 하나: 답 대신 학부모가 답을 확인할 다른 경로(방문, 레벨 테스트, 예약 사이트, 홈페이지)를 안내했으면 redirect. 학부모가 정보(성적, 학년 등)를 더 알려 주면 답할 수 있다고 한 것도 redirect다. 서비스 대신 다른 방법을 제안한 것은 redirect가 아니다.
 4. 나머지는 unknown: 모름, 추측만 함, 알아보고 연락 주겠다고 함, 말을 흐림, 통화가 끊김.
-애매할 때: 2단계에서 확실한지 애매하면 3·4단계로 넘긴다. 3단계와 4단계 사이가 애매하면 다음 할 일이 누구 몫인지 본다. 학부모 몫이면 redirect, 학원 몫이면 unknown이다('알아보고 연락드릴게요', '문자로 보내드릴게요'는 학원 몫).
+애매할 때: 2단계에서 확실한지 애매하면 3·4단계로 넘긴다. 3단계와 4단계 사이가 애매하면 다음 할 일이 누구 몫인지 본다. 학부모 몫이면 redirect, 학원 몫이면 unknown이다('알아보고 연락드릴게요', '문자로 보내드릴게요'는 학원 몫). 답 없이 다시 전화해 달라고만 했으면, 학부모가 답을 확인할 경로가 아니므로 unknown이다. 안 된다고 답한 뒤 다시 연락하라고 한 것은 no다.
 
-기간: 질문에 기간이 있으면 그 기간, 없으면 통화 시점이 기준이다.
+기간: 질문에 기간이 있으면 그 기간, 없으면 통화 시점이 기준이다. AI가 특정 날을 물었으면 그 날이 기간이다.
 - 그 기간에 안 되면 no다. 그 뒤 이야기(다음 달 개강 예정, 대기 등록 가능)는 yes의 근거가 아니다.
-- 상담의 기본 기간은 메시지에 적힌 '이번 주 남은 날'이다. 학원이 주말을 먼저 말하면 주말도 넣는다.
+- 상담의 기본 기간은 메시지에 적힌 '이번 주 남은 날'이다. 오늘은 통화 시각 이후만 든다.
+- 학원이 주말을 먼저 말하면 주말도 기간에 넣는다. 그 주말에 된다고 하면 평일이 안 되더라도 yes다.
 - 학원이 안 되는 날을 골라 말했을 때 남은 날을 다 덮으면 no, 언급 안 된 날이 하루라도 남으면 unknown이다. 기간을 통째로 말한 답('이번 주는 안 돼요')은 no다.
 
 조건: 된다고 했지만 조건이 붙었으면 yes로 두고 condition에 조건을 짧게 적는다.
@@ -72,7 +73,7 @@ RULES = """판정 순서(위에서부터 처음 해당하는 값에서 멈춘다
 - 가능 여부를 바꾸지 않는 정보(선택 사항이다, 비용이 따로 든다)는 조건이 아니다.
 - 조건이 없거나 값이 yes가 아니면 condition은 빈 문자열이다.
 
-섞인 답: 학원이 다른 질문의 답까지 같이 말하면, 그 질문이 확인할 질문 목록에 있을 때만 그 질문에도 기록하고 물은 것으로 본다.
+섞인 답: 학원이 다른 질문의 답까지 같이 말하면, 그 질문이 확인할 질문 목록에 있을 때만 그 질문에도 기록하고 물은 것으로 본다. 그 질문의 뜻에 직접 답한 말만 기록하고, 다른 질문의 답에서 미루어 채우지 않는다(예: 반이 없다는 말로 자리를 no로 채우지 않는다).
 상담(consult): 가능한 때를 말하면 yes이고 available_times에, 안 되는 때는 unavailable_times에 학원이 말한 그대로 적는다."""
 
 TRIAGE_SYSTEM = f"""당신은 학부모를 대신해 학원에 건 전화의 전사를 읽고, 질문마다 학원이 무엇을 말했는지 분류한다.
@@ -125,12 +126,20 @@ def call_moment(time_context: dict | None) -> dt.datetime | None:
 
 
 def remaining_days(moment: dt.datetime) -> str:
-    """개정안 6번: '이번 주'의 남은 날은 통화 다음 날부터 그 주 금요일까지."""
+    """'이번 주 남은 날': 통화 당일(통화 시각 이후)부터 그 주 금요일까지. 11/19 결정(개정안 6번은 다음 날부터).
+
+    판정 메시지에 그대로 들어가는 글이다. 형식:
+      11/18(수) 15시 통화 → "11/18(수, 15:00 이후), 11/19(목), 11/20(금)"
+      11/20(금) 10시 통화 → "11/20(금, 10:00 이후)"
+      토·일 통화          → "없음(통화일이 토·일). 학원이 주말이나 날짜를 먼저 말하면 그 날을 넣는다"
+    늦은 시각 통화도 오늘을 넣는다. 학원이 '오늘은 끝났어요'라고 하면 판정기가 그 말로 거른다.
+    """
     d = moment.date()
-    days = [d + dt.timedelta(i) for i in range(1, 5 - d.weekday())] if d.weekday() < 4 else []
-    if not days:
-        return "없음(통화일이 금·토·일). 학원이 주말이나 날짜를 먼저 말하면 그 날을 넣는다"
-    return ", ".join(f"{x.month}/{x.day}({WD[x.weekday()]})" for x in days)
+    if d.weekday() >= 5:
+        return "없음(통화일이 토·일). 학원이 주말이나 날짜를 먼저 말하면 그 날을 넣는다"
+    today = f"{d.month}/{d.day}({WD[d.weekday()]}, {moment:%H:%M} 이후)"
+    rest = [d + dt.timedelta(i) for i in range(1, 5 - d.weekday())]
+    return ", ".join([today] + [f"{x.month}/{x.day}({WD[x.weekday()]})" for x in rest])
 
 
 def context_lines(questions, time_context, code=None) -> str:
@@ -282,6 +291,8 @@ def needs_review(code, item, other, turns) -> list[str]:
         reasons.append("상담 일부 요일만")
     if code == "consult" and st == "yes" and not item.get("available_times"):
         reasons.append("상담 yes인데 가능 시간 없음")  # 개정안 3번: 상담 제도가 있다는 말만으로는 yes 아님
+    if code == "consult" and st == "no" and item.get("available_times"):
+        reasons.append("상담 no인데 가능 시간 있음")  # 주말 등 기본 기간 밖을 학원이 먼저 말한 경우
     idx = _evidence(item, turns)
     if len(idx) >= 2 and any(_norm(turns[i].text).startswith(("아니", "아아니")) for i in idx):
         reasons.append("정정 가능성")
