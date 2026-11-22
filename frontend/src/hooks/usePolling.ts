@@ -20,9 +20,12 @@ export function usePolling({
   useEffect(() => {
     if (!enabled) return;
     let timer = 0;
+    let cancelled = false;
     const schedule = () => {
+      if (cancelled) return;
       window.clearTimeout(timer);
       timer = window.setTimeout(async () => {
+        if (cancelled) return;
         if (document.hidden) {
           schedule();
           return;
@@ -32,7 +35,10 @@ export function usePolling({
       }, hasError ? errorIntervalMs : intervalMs);
     };
     schedule();
-    return () => window.clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [enabled, intervalMs, errorIntervalMs, hasError]);
 }
 

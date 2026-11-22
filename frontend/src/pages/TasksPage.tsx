@@ -5,7 +5,7 @@ import { retryView } from '../lib/retry-view';
 import { useInquiryList } from '../hooks/useInquiries';
 import { usePolling, shouldPollList } from '../hooks/usePolling';
 import { ErrorPanel, Head, Loading } from '../components/ui';
-import { active, states, type InquiryListItem, type InquiryQuestion } from '../lib/inquiry-model';
+import { active, fieldLabel, states, type InquiryListItem, type InquiryQuestion } from '../lib/inquiry-model';
 
 function formatKst(value?: string) {
   return value ? new Date(value).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }) : '';
@@ -114,7 +114,7 @@ export default function TasksPage() {
             const t = list.details[item.inquiry_id] || item;
             const retry = retryView(list.details[item.inquiry_id]);
             const academy = (t as { academy?: { name?: string; region?: string } }).academy;
-            const student = (t as { student?: { region?: string; grade?: string; subject?: string } }).student;
+            const student = (t as { student?: { region?: string; grade?: string; subject?: string; level?: string } }).student;
             return (
               <Link className="task" key={item.inquiry_id} to={`/detail/${encodeURIComponent(item.inquiry_id)}`}>
                 <div className="task-top">
@@ -123,7 +123,7 @@ export default function TasksPage() {
                     <h3>{academy?.name || item.inquiry_id}</h3>
                     <small>
                       {student
-                        ? `${student.region || '지역 미입력'} · ${student.grade} · ${student.subject}`
+                        ? `${student.region || '지역 미입력'} · ${fieldLabel('grade', student.grade || '')} · ${fieldLabel('subject', student.subject || '')}${student.level ? ` · ${fieldLabel('level', student.level)}` : ''}`
                         : '상세 페이지에서 내용을 확인하세요.'}
                     </small>
                   </div>
