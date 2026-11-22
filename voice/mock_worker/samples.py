@@ -65,20 +65,69 @@ def build_events(call_id: str, scenario: Scenario, started_at: datetime) -> list
     ]
 
 
+# 목업 전사의 상담원 질문과 학원 대답. 대답은 ANSWERS와 같은 내용이고 학부모 화면의 '학원 원문'·근거 발화가 된다
+ASK: dict[str, str] = {
+    "shuttle": "등원 차량으로 집 근처에서 학원까지 태워 오실 수 있을까요?",
+    "pickup": "수업이 끝나면 하원 차량으로 집 근처까지 데려다주실 수 있나요?",
+    "level_fit": "학생 수준에 맞는 반이 있을까요?",
+    "vacancy": "그 반에 지금 등록할 자리가 있나요?",
+    "level_test": "등록 전에 레벨 테스트가 있나요?",
+    "class_time": "수업 요일과 시간은 어떻게 되나요?",
+}
+REPLY: dict[str, str] = {
+    "shuttle": "네, 침산동 경유해서 오후 4시와 6시에 운행해요.",
+    "pickup": "수업 끝나고 하원 차량은 따로 없어요.",
+    "level_fit": "네, 중2 중간 수준 수학반 있어요.",
+    "vacancy": "지금 두 자리 남아 있어요.",
+    "level_test": "네, 등록 전에 토요일 오전에 레벨 테스트 봐요.",
+    "class_time": "화요일, 목요일 저녁 7시예요.",
+}
+UNSURE_REPLY = "그건 원장님께 확인해 봐야 알아요."
+CONSULT_ASK = "이번 주에 학부모 상담이 가능할까요? 가능하면 요일과 시간도 알려 주세요."
+CONSULT_REPLY = "평일 오후 2시에서 4시 사이에 오시면 돼요."
+TURN_GAP_MS = 4000
+
+
 def build_result(request: dict, scenario: Scenario) -> dict:
-    """요청한 질문마다 답변 행을 하나씩 만든다. 못 물었거나 못 받은 항목도 빼지 않는다."""
+    """요청한 질문마다 답변 행을 하나씩 만든다. 못 물었거나 못 받은 항목도 빼지 않는다.
+    연결된 통화는 실제 워커처럼 번호 붙은 전사(turn_no)와 답변별 학원 원문·근거 발화(evidence_turns)를 만든다."""
     questions = request["questions"]
     connected = scenario != "no_answer"
+    lines: list[tuple[str, str]] = []
+
+    def say(speaker: str, text: str) -> int:
+        lines.append((speaker, text))
+        return len(lines) - 1
+
+    if connected:
+        say("academy", f"네, {request.get('academy_name') or '학원'}입니다.")
+        say("agent", " ".join(filter(None, ["안녕하세요, 학부모님을 대신해 문의드리는 AI 상담원입니다.",
+                                            request.get("disclosure_text"), "잠시 통화 괜찮으실까요?"])))
+        say("academy", "네, 말씀하세요.")
     answers = []
     for index, question in enumerate(questions):
+        code = question["question_code"]
         if not connected:
             answers.append(_missing(question, asked=False, reason="not_asked", detail="연결되지 않아 확인하지 못함"))
-        elif scenario == "partial" and index == len(questions) - 1:
-            answers.append(_missing(question, asked=True, reason="unknown", detail="원장님 확인 필요"))
+            continue
+        say("agent", ASK[code])
+        if scenario == "partial" and index == len(questions) - 1:
+            turn = say("academy", UNSURE_REPLY)
+            answers.append({**_missing(question, asked=True, reason="unknown", detail="원장님 확인 필요"),
+                            "source_text": UNSURE_REPLY, "evidence_turns": [turn]})
         else:
-            yes_no, detail = ANSWERS[question["question_code"]]
-            answers.append({"question_id": question['question_id'], "question_code": question['question_code'],
-                            "asked": True, "answered": True, "yes_no": yes_no, "reason": None, "detail": detail})
+            yes_no, detail = ANSWERS[code]
+            turn = say("academy", REPLY[code])
+            answers.append({"question_id": question['question_id'], "question_code": code,
+                            "asked": True, "answered": True, "yes_no": yes_no, "reason": None, "detail": detail,
+                            "source_text": REPLY[code], "evidence_turns": [turn]})
+    consult = None
+    if connected:
+        say("agent", CONSULT_ASK)
+        consult = {"source_text": CONSULT_REPLY, "evidence_turns": [say("academy", CONSULT_REPLY)]}
+        say("agent", "맞으시면 이대로 학부모님께 전해 드리겠습니다. 확인해 주셔서 감사합니다. 좋은 하루 보내세요.")
+    transcript = [{"speaker": speaker, "at_ms": n * TURN_GAP_MS, "text": text, "turn_no": n}
+                  for n, (speaker, text) in enumerate(lines)]
     unresolved = [answer["question_id"] for answer in answers if not answer["answered"]]
     confirmed = len(answers) - len(unresolved)
     return {
@@ -94,11 +143,13 @@ def build_result(request: dict, scenario: Scenario) -> dict:
         "notes": "목업 결과, 실제 전화 아님",
         "latency": None,
         "duration_sec": 0,
-        "transcript": [],
+        "transcript": transcript,
         "recording_url": None,
         "callback_requested": False,
         "callback_at": None,
         "rejection_reason": None,
+        "consult": consult,
+        "end_reason": "completed" if connected else None,
     }
 
 
