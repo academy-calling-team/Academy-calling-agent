@@ -24,7 +24,7 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from llm_judge import (GEMINI_URL, JUDGE_ATTEMPT_WAITS, OPENAI_URL, UNSURE_LABEL, _evidence, _norm, _supported_times,
-                       fact_source, facts_ok, grounded, source_text)
+                       evidence_turns, fact_source, facts_ok, grounded, source_text)
 
 log = logging.getLogger("call_worker")
 VERSION = "tiered-v2-spec"
@@ -408,7 +408,8 @@ class TieredJudge:
                 rec["condition"] = ""
             has_evidence = bool(_evidence(final, turns))
             rec.update(status=st, leaning=leaning, source_text=source_text(final, turns) if has_evidence else "",
-                       fact_source=fact_source(final, turns), detail="")
+                       fact_source=fact_source(final, turns), detail="",
+                       evidence_turns=evidence_turns(final, turns) if has_evidence and st != "not_asked" else [])
             if code == "consult":
                 times = final.get("available_times", []) if st == "yes" else []
                 rec["available_times"] = _supported_times(times, final.get("unavailable_times", []), final, turns)
@@ -459,9 +460,11 @@ def to_contract(questions, out) -> tuple[list[dict], dict]:
                        detail=text[:2000], source_text=src)
         if r["reason_text"] and st != "not_asked":
             row["reason_text"] = r["reason_text"][:500]
+        if r.get("evidence_turns"):
+            row["evidence_turns"] = r["evidence_turns"]  # not_asked이면 위에서 비워 둠(계약: 묻지 않은 질문은 근거 없음)
         rows.append(row)
     c = out["consult"]
     consult = {"status": c["status"], "consult_accepted": {"yes": True, "no": False}.get(c["status"]),
                "available_times": c.get("available_times", []), "source_text": c["source_text"][:500],
-               "detail": c["detail"], "reviewed": c["reviewed"]}
+               "detail": c["detail"], "reviewed": c["reviewed"], "evidence_turns": c.get("evidence_turns", [])}
     return rows, consult

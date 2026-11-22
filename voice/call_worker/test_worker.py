@@ -830,3 +830,55 @@ def test_load_tiered_judge_from_env(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "g")
     judge = load_judge()
     assert isinstance(judge, TieredJudge) and judge.config.review == "gpt-5.6-terra"
+
+
+# ---------------------------------------------------------------- 근거 발화 (transcript turn_no + evidence_turns)
+from extract import Turn  # noqa: E402
+from llm_judge import evidence_turns  # noqa: E402
+from real_call import consult_explanation, number_transcript  # noqa: E402
+
+
+def test_evidence_turns_add_agent_recap_for_short_confirmation():
+    # 학원이 "네 맞습니다"처럼 확인만 했으면 무엇을 확인했는지 보이게 앞의 AI 되짚기도 근거 발화에 넣는다 (source_text와 같은 규칙)
+    turns = [Turn("agent", 0, "화요일과 목요일 저녁 7시가 맞을까요?"), Turn("academy", 3000, "네 맞습니다"),
+             Turn("academy", 5000, "수업은 화요일, 목요일 저녁 일곱 시예요.")]
+    assert evidence_turns({"evidence_turns": [1]}, turns) == [0, 1]
+    assert evidence_turns({"evidence_turns": [2]}, turns) == [2]
+    assert evidence_turns({"evidence_turns": [0, 9]}, turns) == []  # AI 발화·없는 번호는 근거가 아님
+
+
+def test_llm_judge_sends_numbered_transcript_and_evidence(monkeypatch):
+    monkeypatch.setattr(llm_judge, "call_llm", lambda *a, **k: {"result": LLM_1019})
+    result = build_result("c_ev", real_request(questions=Q1019), {"status": "completed", "duration": 103}, None,
+                          REAL_1019, LLMJudge("gemini-test", "k"))
+    ResultInput.model_validate(result)  # 계약: 근거 번호는 이 결과의 transcript turn_no에 있어야 함
+    assert [t["turn_no"] for t in result["transcript"]] == list(range(len(result["transcript"])))
+    got = {a["question_code"]: a for a in result["answers"]}
+    assert got["shuttle"]["evidence_turns"] == [4] and got["class_time"]["evidence_turns"] == [10]
+    assert result["consult"] == {"source_text": "수요일 3시에 오세요.", "evidence_turns": [12]}  # 확정이라 사유 없음
+
+
+def test_tiered_judge_sends_evidence_and_no_evidence_for_unasked():
+    stages = FakeStages(triage_out())
+    result = build_result("c_tev", real_request(questions=TQ), {"status": "completed"}, None, REAL_1019, tiered(stages))
+    ResultInput.model_validate(result)
+    rows = {a["question_code"]: a for a in result["answers"]}
+    assert rows["shuttle"]["evidence_turns"] == [4] and rows["pickup"]["evidence_turns"] == [8]
+    assert "evidence_turns" not in rows["vacancy"]  # 묻지 않은 질문에는 근거 발화를 보내지 않음
+    assert result["consult"]["evidence_turns"] == [12] and "reason" not in result["consult"]
+
+
+def test_consult_explanation_reason_and_unasked():
+    assert consult_explanation({"status": "redirect", "consult_accepted": None, "source_text": "방문하시면 정해요",
+                                "evidence_turns": [3]}) == {"reason": "refused", "source_text": "방문하시면 정해요", "evidence_turns": [3]}
+    assert consult_explanation({"status": "unknown", "consult_accepted": None, "source_text": "", "evidence_turns": []}) == {"reason": "unknown"}
+    assert consult_explanation({"status": "not_asked", "consult_accepted": None, "source_text": "x", "evidence_turns": [1]}) == {"reason": "not_asked"}
+    assert consult_explanation({"status": "yes", "consult_accepted": True, "source_text": "", "evidence_turns": []}) is None
+
+
+def test_evidence_outside_sent_transcript_is_dropped():
+    turns = [Turn("agent", 0, "질문"), Turn("academy", 1000, "답")]
+    keep, drop = {"evidence_turns": [1, 5]}, {"evidence_turns": [5]}
+    transcript = number_transcript(turns, [keep, drop])
+    assert [t["turn_no"] for t in transcript] == [0, 1]
+    assert keep["evidence_turns"] == [1] and "evidence_turns" not in drop

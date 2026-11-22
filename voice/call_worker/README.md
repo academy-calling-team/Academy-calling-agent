@@ -38,6 +38,9 @@
    | failed / canceled | 결과의 outcome으로만 알림 (번호 문제면 invalid_number, 그 외 rejected) |
 
 5. 끝나면 전사와 요약을 받아 결과 JSON을 만들어 보낸다. 연결이 안 된 통화는 모든 질문이 `not_asked`
+   - 전사의 각 발화에 `turn_no`(전사 순번, 0부터)를 붙인다
+   - LLM 판정기를 쓸 때 질문별 답변과 상담 설명(`consult`)에 근거 발화 번호 `evidence_turns`를 넣는다. 학원 원문(`source_text`)과 같은 발화이고, 학원이 "네 맞습니다"처럼 확인만 했으면 그 앞의 AI 되짚기도 넣는다. 묻지 않은 질문과 상담에는 넣지 않는다
+   - 상담 설명에는 확정이 안 된 경우의 사유(`reason`, redirect는 답변처럼 `refused`)와 학원 원문도 넣는다. 백엔드가 `evidence_turns`로 전사 발화를 찾아 `evidence_dialogue`로 붙여 준다
 
 웹훅을 쓰지 않으므로 공동 서버에 외부 공개 경로가 필요 없다. 이벤트·결과 전송은 목업 워커의 `Sender`와 같은 재시도·거절 규칙을 쓴다.
 
