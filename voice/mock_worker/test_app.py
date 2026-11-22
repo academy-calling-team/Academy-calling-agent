@@ -276,3 +276,35 @@ def test_fake_backend_applies_duplicate_and_conflict_rules():
     assert backend.post(url, json=event, headers=HEADERS).json()["duplicate"] is False
     assert backend.post(url, json=event, headers=HEADERS).json()["duplicate"] is True
     assert backend.post(url, json={**event, "type": "ringing"}, headers=HEADERS).status_code == 409
+
+
+# ---------------------------------------------------------------- 근거 발화가 있는 목업 결과 (프론트 근거 발화 표시용)
+import sys  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
+from contracts import ResultInput  # noqa: E402  (실제 백엔드 계약)
+
+
+@pytest.mark.parametrize("scenario", ["answered", "partial", "no_answer"])
+@pytest.mark.parametrize("request_body", [SAMPLE_REQUEST, ALL_CODES], ids=["3-questions", "all-codes"])
+def test_mock_result_passes_backend_contract(scenario, request_body):
+    ResultInput.model_validate(build_result(request_body, scenario))
+
+
+def test_mock_evidence_points_at_academy_reply():
+    result = build_result(ALL_CODES, "partial")
+    turns = {t["turn_no"]: t for t in result["transcript"]}
+    assert [t["turn_no"] for t in result["transcript"]] == list(range(len(result["transcript"])))
+    for answer in result["answers"]:
+        (n,) = answer["evidence_turns"]
+        assert turns[n]["speaker"] == "academy" and turns[n]["text"] == answer["source_text"]
+    assert result["answers"][-1]["reason"] == "unknown" and result["answers"][-1]["source_text"]  # 미확인도 원문을 보여 줌
+    (c,) = result["consult"]["evidence_turns"]
+    assert turns[c]["text"] == result["consult"]["source_text"] and result["end_reason"] == "completed"
+
+
+def test_unconnected_mock_has_no_dialogue_evidence():
+    result = build_result(SAMPLE_REQUEST, "no_answer")
+    assert result["transcript"] == [] and result["consult"] is None and result["end_reason"] is None
+    assert not any("evidence_turns" in a for a in result["answers"])

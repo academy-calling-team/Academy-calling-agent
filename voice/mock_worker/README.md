@@ -26,6 +26,8 @@
 | `MOCK_SCENARIO` | `answered` 정상 / `partial` 마지막 질문 미확인 / `no_answer` 부재중 / `retry` 첫 시도 부재중, 다시 건 전화는 정상 | answered |
 | `MOCK_DELAY_SEC` | 접수 후 결과를 보내기까지 기다리는 시간(초) | 2 |
 
+연결된 목업 결과(`answered`, `partial`)에는 실제 워커처럼 번호 붙은 가짜 전사(`transcript[].turn_no`)가 들어간다. 답변마다 학원 원문(`source_text`)과 근거 발화 번호(`evidence_turns`), 상담 설명(`consult`), 종료 원인(`end_reason=completed`)도 들어가서, 프론트가 목업 모드로 근거 발화 표시를 만들 수 있다. 부재중(`no_answer`)은 전사·근거가 없다.
+
 ## 혼자 시험하기
 
 터미널 두 개를 열고 `team8-repo`에서 실행한다.
