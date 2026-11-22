@@ -760,7 +760,7 @@ def test_tiered_result_passes_contract_and_uses_frontend_wording():
     assert result["consult_accepted"] is True and result["available_times"] == ["수요일 3시"]
     assert stages.stages().count("review") == 1 and set(stages.stages()) == {"triage", "cross", "review", "summary"}
     triage_message = next(m for s, _, m in stages.seen if s == "triage")
-    assert "이번 주 남은 날: 11/19(목), 11/20(금)" in triage_message  # 11/18(수) 15시 통화
+    assert "이번 주 남은 날: 11/18(수, 15:00 이후), 11/19(목), 11/20(금)" in triage_message  # 11/18(수) 15시 통화
     assert "학생" in triage_message
 
 
@@ -830,3 +830,38 @@ def test_load_tiered_judge_from_env(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "g")
     judge = load_judge()
     assert isinstance(judge, TieredJudge) and judge.config.review == "gpt-5.6-terra"
+
+
+# ---------------------------------------------------------------- 11/19 판정 규칙 (tiered-v2.1-spec)
+import datetime as _dt  # noqa: E402
+
+
+def _seoul(text):
+    return _dt.datetime.fromisoformat(text).astimezone(tiered_judge.SEOUL)
+
+
+def test_remaining_days_includes_today_after_call_time():
+    # 11/19 결정: 상담 기간 '이번 주 남은 날'에 통화 당일(통화 시각 이후)을 넣는다
+    assert tiered_judge.remaining_days(_seoul("2026-11-18T15:00:00+09:00")) == "11/18(수, 15:00 이후), 11/19(목), 11/20(금)"
+    assert tiered_judge.remaining_days(_seoul("2026-11-16T10:30:00+09:00")).startswith("11/16(월, 10:30 이후), 11/17(화)")
+    assert tiered_judge.remaining_days(_seoul("2026-11-20T10:00:00+09:00")) == "11/20(금, 10:00 이후)"
+    assert tiered_judge.remaining_days(_seoul("2026-11-21T10:00:00+09:00")).startswith("없음(통화일이 토·일)")
+
+
+def test_consult_no_with_available_times_goes_to_review():
+    # 기본 기간(평일) 밖의 주말을 학원이 먼저 말해 가능 시간이 있는데 no로 분류하면 2차로 넘긴다
+    item = {"status": "no", "signal": "none", "available_times": ["토요일 오전"], "unavailable_times": ["평일"]}
+    assert "상담 no인데 가능 시간 있음" in tiered_judge.needs_review("consult", item, None, [])
+    item_plain = {"status": "no", "signal": "none", "available_times": [], "unavailable_times": ["이번 주"]}
+    assert "상담 no인데 가능 시간 있음" not in tiered_judge.needs_review("consult", item_plain, None, [])
+
+
+def test_rules_carry_definition_answers_1118():
+    # 강유준 정의 답(11/18)과 11/19 결정이 1차·2차 공통 규칙에 들어 있는지
+    rules = tiered_judge.RULES
+    assert "정보(성적, 학년 등)를 더 알려 주면 답할 수 있다고 한 것도 redirect" in rules  # (1)
+    assert "다른 질문의 답에서 미루어 채우지 않는다" in rules  # (2)
+    assert "답 없이 다시 전화해 달라고만 했으면" in rules and "안 된다고 답한 뒤 다시 연락하라고 한 것은 no다" in rules  # (4)
+    assert "AI가 특정 날을 물었으면 그 날이 기간" in rules  # 개정안 6번
+    assert "오늘은 통화 시각 이후만 든다" in rules
+    assert "확인하지 않고 차량이 있다고만 하면 unknown" in tiered_judge.QUESTION["shuttle"]
