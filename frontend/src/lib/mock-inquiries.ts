@@ -4,8 +4,8 @@ const namespace = 'hakwon:isolated-mock:v1';
 
 export const mockOptions: CatalogOptions = {
   question_codes: {
-    shuttle: '셔틀 운행',
-    pickup: '픽업 가능 여부',
+    shuttle: '등원 차량',
+    pickup: '하원 차량',
     level_fit: '수준에 맞는 반',
     vacancy: '잔여 정원',
     level_test: '레벨 테스트',
@@ -66,6 +66,12 @@ function fixtures(): MockRow[] {
         null,
         '화요일하고 목요일, 저녁 일곱 시부터 여덟 시 반까지예요.',
       ][i],
+    })).map((answer, i) => ({
+      ...answer,
+      ...(answer.source_text ? { evidence_dialogue: [
+        { turn_no: i * 2, speaker: 'agent', at_ms: i * 10000, text: `${answer.question_label_kr}에 대해 알려주시겠어요?` },
+        { turn_no: i * 2 + 1, speaker: 'academy', at_ms: i * 10000 + 3000, text: answer.source_text },
+      ] } : {}),
     }));
     return {
       inquiry_id: id,
@@ -96,6 +102,10 @@ function fixtures(): MockRow[] {
               notes: '상담 가능 시간은 예약 확정을 의미하지 않습니다.',
               consult_accepted: true,
               available_times: ['평일 14:00~16:00'],
+              consult: { evidence_dialogue: [
+                { turn_no: 20, speaker: 'agent', at_ms: 60000, text: '추가 상담이 가능한 시간이 있을까요?' },
+                { turn_no: 21, speaker: 'academy', at_ms: 63000, text: '평일 오후 두 시부터 네 시까지 상담 가능합니다.' },
+              ] },
             }
           : null,
       failure_reason: status === 'failed' ? 'retry_exhausted' : null,
@@ -116,7 +126,23 @@ function fixtures(): MockRow[] {
     attempts: [{ call_id: 'mock-no-answer-call', attempt_no: 1, status: 'finished', status_label_kr: '통화 종료', outcome: 'no_answer', outcome_label_kr: '부재중', started_at: base.created_at }],
   };
   const unknown: MockRow = { ...callback, inquiry_id: 'mock-callback-unknown', review_required: true, review_reason: 'callback_time_unknown', result: { ...callback.result!, callback_at: null, summary_text: '학원에서 재연락을 요청했지만 시간을 정하지 않았습니다.' } };
-  return [...rows, callback, noAnswer, unknown];
+  const completed = rows.find((row) => row.status === 'completed')!;
+  const evidence: MockRow = { ...completed, inquiry_id: 'mock-evidence' };
+  const noClass: MockRow = {
+    ...completed, inquiry_id: 'mock-no-class',
+    questions: completed.questions.filter((q) => ['level_fit', 'vacancy', 'class_time'].includes(q.question_code)),
+    result: { answers: completed.questions.filter((q) => ['level_fit', 'vacancy', 'class_time'].includes(q.question_code)).map((q) => ({
+      ...q, asked: q.question_code === 'level_fit', answered: q.question_code === 'level_fit',
+      yes_no: q.question_code === 'level_fit' ? false : null,
+      reason: q.question_code === 'level_fit' ? null : 'not_asked',
+      detail: q.question_code === 'level_fit' ? '학생 수준에 맞는 반이 없습니다.' : '맞는 반이 없다고 해서 묻지 않음',
+      ...(q.question_code === 'level_fit' ? { evidence_dialogue: [
+        { turn_no: 0, speaker: 'agent', at_ms: 1000, text: '중학교 2학년 중급 수준에 맞는 반이 있나요?' },
+        { turn_no: 1, speaker: 'academy', at_ms: 4000, text: '지금은 그 수준에 맞는 반이 없어요.' },
+      ] } : {}),
+    })), summary_text: '맞는 반이 없어 남은 자리와 수업 시간은 질문하지 않았습니다.' },
+  };
+  return [...rows, callback, noAnswer, unknown, evidence, noClass];
 }
 
 function load(): MockStore {
@@ -206,7 +232,7 @@ export async function mockRequest(
   if (path.startsWith('/api/inquiries/')) {
     const id = decodeURIComponent(path.split('/').pop() || '');
     const row = data.rows.find((r) => r.inquiry_id === id)
-      || fixtures().find((r) => r.inquiry_id === id && ['mock-callback-scheduled', 'mock-retry-no-answer', 'mock-callback-unknown'].includes(id));
+      || fixtures().find((r) => r.inquiry_id === id && ['mock-callback-scheduled', 'mock-retry-no-answer', 'mock-callback-unknown', 'mock-evidence', 'mock-no-class'].includes(id));
     if (row) return structuredClone(row);
     throw Object.assign(new Error('상담을 찾을 수 없습니다.'), { status: 404 });
   }

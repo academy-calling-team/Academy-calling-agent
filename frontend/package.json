@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "lint": "tsc -b --pretty false",
     "typecheck": "tsc -b --pretty false",
-    "test": "node --test scripts/auth-consent.test.mjs scripts/real-call-form.test.mjs scripts/question-locations.test.mjs"
+    "test": "node --test scripts/auth-consent.test.mjs scripts/real-call-form.test.mjs scripts/question-locations.test.mjs scripts/result-view.test.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",

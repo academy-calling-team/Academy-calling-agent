@@ -327,7 +327,7 @@ for (const labeled of [true, false]) {
     ];
     const { page } = await fixture('/detail/fixture-inquiry', { detail: { questions, attempts } });
     try {
-      const title = labeled ? '통학 차량 · 서버 표시명' : 'shuttle';
+      const title = '등원 차량';
       for (let i = 0; i < 2; i++) {
         await page.getByRole('heading', { name: title, exact: true }).waitFor();
         await page.getByRole('heading', { name: 'future_question', exact: true }).waitFor();
@@ -564,4 +564,41 @@ test('leaving detail during a pending poll prevents later polling', async () => 
     await page.clock.runFor(16000);
     assert.equal(calls, 1);
   } finally { release(); await page.close(); }
+});
+
+test('evidence dialogue shows ordered speakers, consult evidence and legacy fallback', async () => {
+  const questions = ['shuttle', 'pickup', 'vacancy'].map((question_code, i) => ({ question_id: `evidence-${i}`, question_code }));
+  const turns = [
+    { turn_no: 2, speaker: 'academy', at_ms: 2000, text: '학교 앞에서 등원 차량을 탈 수 있어요.' },
+    { turn_no: 1, speaker: 'agent', at_ms: 1000, text: '학교 앞에서 등원 차량을 탈 수 있나요?' },
+  ];
+  const { page } = await fixture('/detail/fixture-inquiry', { detail: { questions, result: {
+    answers: [
+      { ...questions[0], answered: true, yes_no: true, source_text: turns[0].text, evidence_dialogue: turns },
+      { ...questions[1], answered: true, yes_no: false, source_text: '하원 차량은 운영하지 않습니다.', evidence_dialogue: [] },
+      { ...questions[2], answered: false, reason: 'not_asked', detail: '맞는 반이 없다고 해서 묻지 않음' },
+    ], consult: { evidence_dialogue: [{ turn_no: 3, speaker: 'academy', at_ms: 3000, text: '오후에 상담 가능합니다.' }] },
+  } } });
+  try {
+    await page.getByRole('heading', { name: '등원 차량', exact: true }).waitFor();
+    const rows = page.locator('.answer');
+    assert.deepEqual(await rows.nth(0).locator('blockquote').allTextContents(), [turns[1].text, turns[0].text]);
+    assert.deepEqual(await rows.nth(0).locator('.evidence-speaker').allTextContents(), ['AI 상담원', '학원']);
+    assert.equal(await rows.nth(0).getByRole('heading', { name: '학원 발화 원문' }).count(), 0);
+    assert.equal(await rows.nth(1).locator('blockquote').textContent(), '하원 차량은 운영하지 않습니다.');
+    assert.equal(await rows.nth(2).locator('.badge').textContent(), '미질문');
+    assert.equal(await rows.nth(2).locator('.answer-reason').count(), 0);
+    assert.equal(await rows.nth(2).getByRole('heading', { name: '질문하지 않은 이유' }).count(), 1);
+    await page.getByText('오후에 상담 가능합니다.', { exact: true }).waitFor();
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  } finally { await page.close(); }
+});
+
+test('new inquiry normalizes legacy transport names from the server', async () => {
+  const { page } = await fixture('/new', { questionCodes: { shuttle: '셔틀 운행', pickup: '픽업 가능 여부' } });
+  try {
+    await page.getByRole('checkbox', { name: '등원 차량', exact: true }).waitFor();
+    await page.getByRole('checkbox', { name: '하원 차량', exact: true }).waitFor();
+  } finally { await page.close(); }
 });

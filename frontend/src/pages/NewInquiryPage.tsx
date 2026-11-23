@@ -7,6 +7,7 @@ import { api, getSessionEpoch } from '../lib/api';
 import { ErrorPanel, Head, Loading } from '../components/ui';
 import {
   fieldLabel,
+  questionLabel,
   inquiryPayload,
   submissionKey,
   locationLabels,
@@ -322,7 +323,7 @@ export default function NewInquiryPage() {
                         checked={formValues.question_codes.includes(code)}
                         onChange={() => toggleQuestion(code)}
                       />
-                      <span>{label}</span>
+                      <span>{questionLabel(code, label)}</span>
                     </label>
                   );
                 })}
