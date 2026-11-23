@@ -33,13 +33,30 @@ export interface InquiryQuestion {
   location?: QuestionLocation;
 }
 
-export interface InquiryAnswer extends InquiryQuestion {
+export interface EvidenceTurn {
+  turn_no: number;
+  speaker: string;
+  at_ms: number;
+  text: string;
+}
+
+export interface ResultEvidence {
+  source_text?: string | null;
+  evidence_dialogue?: EvidenceTurn[] | null;
+}
+
+export function questionLabel(code: string, label?: string | null): string {
+  if (code === 'shuttle') return '등원 차량';
+  if (code === 'pickup') return '하원 차량';
+  return label?.trim() || code;
+}
+
+export interface InquiryAnswer extends InquiryQuestion, ResultEvidence {
   asked?: boolean;
   answered?: boolean;
   yes_no?: boolean | null;
   reason?: string | null;
   detail?: string | null;
-  source_text?: string | null;
 }
 
 export interface InquiryAttempt {
@@ -54,6 +71,7 @@ export interface InquiryAttempt {
 }
 
 export interface InquiryResult {
+  consult?: ResultEvidence | null;
   outcome?: string | null;
   callback_requested?: boolean;
   callback_at?: string | null;
@@ -184,6 +202,9 @@ export function answerView(answer?: InquiryAnswer | null): AnswerView {
         detail,
         guidance: refusedGuidance(detail, answer.source_text),
       };
+    }
+    if (answer?.reason === 'not_asked' && detail.trim()) {
+      return { kind: 'unknown', label: '미질문', reason: '', detail };
     }
     return {
       kind: 'unknown',

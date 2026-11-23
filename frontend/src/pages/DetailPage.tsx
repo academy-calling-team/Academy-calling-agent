@@ -1,3 +1,4 @@
+import { ResultEvidence } from '../components/ResultEvidence';
 import { Link, useParams } from 'react-router-dom';
 import { retryView } from '../lib/retry-view';
 import { useInquiryDetail } from '../hooks/useInquiries';
@@ -8,6 +9,7 @@ import {
   answerView,
   failureReasons,
   fieldLabel,
+  questionLabel,
   locationLabels,
   states,
   type InquiryDetail,
@@ -30,11 +32,11 @@ function Answers({ detail }: { detail: InquiryDetail }) {
           <div className={`answer ${view.kind}`} data-answer-kind={view.kind} key={q.question_id}>
             <span className="answer-symbol">{needsReview ? '?' : view.kind === 'no' ? '−' : '✓'}</span>
             <div className="answer-content">
-              <h3>{q.question_label_kr?.trim() || q.question_code}</h3>
+              <h3>{questionLabel(q.question_code, q.question_label_kr)}</h3>
               {q.location ? <p className="question-location-summary">{q.question_code === 'shuttle' ? locationLabels.shuttle : locationLabels.pickup}: {q.location.kind} · {q.location.name}</p> : null}
               {view.detail.trim() ? (
                 <section className="answer-summary" aria-label="AI 요약">
-                  <h4>AI 요약</h4>
+                  <h4>{answer?.reason === 'not_asked' ? '질문하지 않은 이유' : 'AI 요약'}</h4>
                   <p>{view.detail}</p>
                 </section>
               ) : null}
@@ -45,12 +47,7 @@ function Answers({ detail }: { detail: InquiryDetail }) {
                   <p>{view.guidance}</p>
                 </section>
               ) : null}
-              {answer?.source_text?.trim() ? (
-                <section className="answer-source" aria-label="학원 발화 원문">
-                  <h4>학원 발화 원문</h4>
-                  <blockquote>{answer.source_text}</blockquote>
-                </section>
-              ) : null}
+              <ResultEvidence value={answer} />
             </div>
             <span className={`badge ${needsReview ? 'review' : view.kind === 'no' ? 'failed' : ''}`}>
               {view.label}
@@ -202,6 +199,7 @@ export default function DetailPage() {
                 <p>가능한 시간이며 예약 확정이 아닙니다.</p>
               </>
             ) : null}
+            <ResultEvidence value={t.result?.consult} />
           </div>
           {t.attempts?.length ? (
             <div className="tip-card">

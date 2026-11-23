@@ -5,7 +5,7 @@ import { retryView } from '../lib/retry-view';
 import { useInquiryList } from '../hooks/useInquiries';
 import { usePolling, shouldPollList } from '../hooks/usePolling';
 import { ErrorPanel, Head, Loading } from '../components/ui';
-import { active, fieldLabel, states, type InquiryListItem, type InquiryQuestion } from '../lib/inquiry-model';
+import { active, fieldLabel, questionLabel, states, type InquiryListItem, type InquiryQuestion } from '../lib/inquiry-model';
 
 function formatKst(value?: string) {
   return value ? new Date(value).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }) : '';
@@ -137,7 +137,7 @@ export default function TasksPage() {
                 <div className="task-bottom">
                   <div className="tags">
                     {((t as { questions?: InquiryQuestion[] }).questions || []).map((q) => (
-                      <span key={q.question_code}>{q.question_label_kr?.trim() || q.question_code}</span>
+                      <span key={q.question_code}>{questionLabel(q.question_code, q.question_label_kr)}</span>
                     ))}
                   </div>
                   <span>{formatKst(item.created_at)} ↗</span>
