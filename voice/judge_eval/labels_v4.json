@@ -1,0 +1,1764 @@
+{
+ "real_1013/co_A": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1013/co_A2": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1013/co_B": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1013/co_C": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1013/co_D": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "no",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1013/co_D2": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1013/co_E": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "unknown",
+   "class_time": "answered",
+   "consult": "unknown"
+  },
+  "conditions": {}
+ },
+ "real_1013/co_H": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1013/va_A": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1013/va_A2": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1013/va_B": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1013/va_C": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1013/va_D": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "no",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1013/va_D2": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "no",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1013/va_E": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "unknown",
+   "class_time": "answered",
+   "consult": "unknown"
+  },
+  "conditions": {}
+ },
+ "real_1013/va_H": {
+  "call_at": "2026-10-13 화",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1019/1019_local": {
+  "call_at": "2026-10-19 월",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "yes",
+   "pickup": "no",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1019/1019_reconfirm": {
+  "call_at": "2026-10-19 월",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "yes",
+   "pickup": "no",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1019/2118": {
+  "call_at": "2026-10-19 월",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "yes",
+   "pickup": "yes",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1019/2122": {
+  "call_at": "2026-10-19 월",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "no",
+   "vacancy": "yes",
+   "level_test": "yes",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "real_1019/2126": {
+  "call_at": "2026-10-19 월",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "yes",
+   "pickup": "no",
+   "class_time": "answered",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "synthetic/S01": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "no",
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "synthetic/S02": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "unknown"
+  },
+  "conditions": {}
+ },
+ "synthetic/S03": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "no"
+  },
+  "conditions": {}
+ },
+ "synthetic/S04": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "no"
+  },
+  "conditions": {}
+ },
+ "synthetic/S05": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "no"
+  },
+  "conditions": {}
+ },
+ "synthetic/S06": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "unknown"
+  },
+  "conditions": {}
+ },
+ "synthetic/S07": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "no"
+  },
+  "conditions": {}
+ },
+ "synthetic/S08": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_fit": "yes"
+  },
+  "conditions": {}
+ },
+ "synthetic/S09": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "yes"
+  },
+  "conditions": {}
+ },
+ "synthetic/S10": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_test": "yes"
+  },
+  "conditions": {}
+ },
+ "synthetic/S11": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "yes"
+  },
+  "conditions": {}
+ },
+ "synthetic/S12": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "no"
+  },
+  "conditions": {}
+ },
+ "synthetic/S13": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "class_time": "redirect"
+  },
+  "conditions": {}
+ },
+ "synthetic/S14": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "class_time": "unknown"
+  },
+  "conditions": {}
+ },
+ "synthetic/S15": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "class_time": "answered"
+  },
+  "conditions": {}
+ },
+ "synthetic/S16": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "unknown",
+   "shuttle": "unknown"
+  },
+  "conditions": {}
+ },
+ "synthetic/S17": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "unknown"
+  },
+  "conditions": {}
+ },
+ "synthetic/S18": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "unknown"
+  },
+  "conditions": {}
+ },
+ "synthetic/S19": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "synthetic/S20": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "unknown"
+  },
+  "conditions": {}
+ },
+ "synthetic/S21": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "no"
+  },
+  "conditions": {}
+ },
+ "synthetic/S22": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_test": "no"
+  },
+  "conditions": {}
+ },
+ "synthetic/S23": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "no"
+  },
+  "conditions": {}
+ },
+ "synthetic/S24": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "no"
+  },
+  "conditions": {}
+ },
+ "synthetic/S25": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "unknown"
+  },
+  "conditions": {}
+ },
+ "synthetic/S26": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "no"
+  },
+  "conditions": {}
+ },
+ "heldout/H01": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "unknown"
+  },
+  "conditions": {}
+ },
+ "heldout/H02": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "no"
+  },
+  "conditions": {}
+ },
+ "heldout/H03": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes"
+  },
+  "conditions": {}
+ },
+ "heldout/H04": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "no"
+  },
+  "conditions": {}
+ },
+ "heldout/H05": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_test": "yes"
+  },
+  "conditions": {}
+ },
+ "heldout/H06": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_fit": "yes"
+  },
+  "conditions": {}
+ },
+ "heldout/H07": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "class_time": "answered"
+  },
+  "conditions": {}
+ },
+ "heldout/H08": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "class_time": "unknown"
+  },
+  "conditions": {}
+ },
+ "heldout/H09": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "heldout/H10": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "no"
+  },
+  "conditions": {}
+ },
+ "heldout/H11": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "no"
+  },
+  "conditions": {}
+ },
+ "heldout/H12": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "no"
+  },
+  "conditions": {}
+ },
+ "heldout/H13": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes"
+  },
+  "conditions": {}
+ },
+ "heldout/H14": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_test": "no"
+  },
+  "conditions": {}
+ },
+ "heldout/H15": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "redirect"
+  },
+  "conditions": {}
+ },
+ "heldout/H16": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "yes"
+  },
+  "conditions": {}
+ },
+ "heldout/H17": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "unknown"
+  },
+  "conditions": {}
+ },
+ "heldout/H18": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "heldout/H19": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "unknown"
+  },
+  "conditions": {}
+ },
+ "heldout/H20": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes"
+  },
+  "conditions": {}
+ },
+ "heldout/H21": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "class_time": "answered"
+  },
+  "conditions": {}
+ },
+ "heldout/H22": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "unknown"
+  },
+  "conditions": {}
+ },
+ "heldout/H23": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_test": "not_asked",
+   "pickup": "unknown"
+  },
+  "conditions": {}
+ },
+ "heldout/H24": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G01": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G02": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G03": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G04": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G05": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G06": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G07": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "redirect"
+  },
+  "conditions": {}
+ },
+ "agent/G08": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G09": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G10": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G11": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G12": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "unknown",
+   "pickup": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G13": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G14": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "not_asked",
+   "vacancy": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G15": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G16": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "pickup": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G17": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_fit": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G18": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_fit": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G19": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_fit": "redirect"
+  },
+  "conditions": {}
+ },
+ "agent/G20": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_fit": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G21": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_fit": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G22": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_fit": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G23": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_fit": "not_asked",
+   "shuttle": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G24": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_fit": "redirect"
+  },
+  "conditions": {}
+ },
+ "agent/G25": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G26": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G27": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G28": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G29": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G30": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G31": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G32": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G33": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_test": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G34": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_test": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G35": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_test": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G36": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_test": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G37": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_test": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G38": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_test": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G39": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_test": "not_asked",
+   "class_time": "answered"
+  },
+  "conditions": {}
+ },
+ "agent/G40": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "class_time": "answered"
+  },
+  "conditions": {}
+ },
+ "agent/G41": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "class_time": "answered"
+  },
+  "conditions": {}
+ },
+ "agent/G42": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "class_time": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G43": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "class_time": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G44": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "class_time": "answered"
+  },
+  "conditions": {}
+ },
+ "agent/G45": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "class_time": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G46": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "class_time": "answered"
+  },
+  "conditions": {}
+ },
+ "agent/G47": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G48": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G49": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G50": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "not_asked"
+  },
+  "conditions": {}
+ },
+ "agent/G51": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "redirect"
+  },
+  "conditions": {}
+ },
+ "agent/G52": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G53": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G54": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "unknown"
+  },
+  "conditions": {}
+ },
+ "agent/G55": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "consult": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G56": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "no",
+   "pickup": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G57": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "vacancy": "yes",
+   "level_test": "yes"
+  },
+  "conditions": {}
+ },
+ "agent/G58": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_fit": "yes",
+   "class_time": "answered"
+  },
+  "conditions": {}
+ },
+ "agent/G59": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "shuttle": "unknown",
+   "vacancy": "no"
+  },
+  "conditions": {}
+ },
+ "agent/G60": {
+  "call_at": "2026-11-09 월 15:00",
+  "student": {
+   "grade": "중2",
+   "subject": "수학",
+   "level": "중급",
+   "region": "대구 북구 침산동"
+  },
+  "labels": {
+   "level_fit": "redirect",
+   "level_test": "yes"
+  },
+  "conditions": {}
+ }
+}
