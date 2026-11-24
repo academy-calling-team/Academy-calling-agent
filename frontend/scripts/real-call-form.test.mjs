@@ -371,9 +371,12 @@ test('each question separates its AI summary and original quote without fabricat
   };
   const { page } = await fixture('/detail/fixture-inquiry', { detail });
   try {
-    await page.getByRole('heading', { name: '비교 질문 1' }).waitFor();
+    await page.getByRole('heading', { name: '등원 차량', exact: true }).waitFor();
     const rows = page.locator('.answer');
     assert.equal(await rows.count(), 6);
+    assert.deepEqual(await rows.locator('h3').allTextContents(), [
+      '등원 차량', '하원 차량', '비교 질문 3', '비교 질문 4', '비교 질문 5', '비교 질문 6',
+    ]);
     assert.equal(await rows.nth(0).locator('.answer-summary p').textContent(), summary);
     assert.equal(await rows.nth(0).locator('.answer-source blockquote').textContent(), quote);
     assert.equal(await rows.nth(0).locator('script').count(), 0);
