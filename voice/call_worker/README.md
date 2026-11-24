@@ -86,6 +86,9 @@ ClawOps의 `CallContext` 지시는 기본 프롬프트를 바꾸지 않고 위�
 그래서 같은 모델·음성 설정에 범용 프롬프트(`voice/prompts/service_agent_prompt.txt`)를 넣은 서비스 에이전트를 따로 만든다.
 시험 에이전트는 측정 조건을 지키려고 그대로 둔다.
 
+되짚기(서비스 프롬프트 4번)는 답에 숫자·요일·날짜·시간·장소가 들어 있거나 답이 애매할 때만 한다. "네, 있어요"처럼 되는지 안 되는지만 분명한 짧은 답은 되짚지 않고 넘어가고, 전체 확인은 마지막 요약(6번)이 맡는다(11/24, 리허설에서 되짚기 왕복과 2초 대기가 통화를 늘린 것을 줄이려는 변경).
+프롬프트 파일을 바꿔도 운영 중인 서비스 에이전트는 그대로다. PR 병합 뒤 아래 `update`를 실행해야 반영된다.
+
 ```
 python voice/engines/setup_service_agent.py create   # 만들고 ID를 voice/.env에 저장
 python voice/engines/setup_service_agent.py show     # 설정 확인
