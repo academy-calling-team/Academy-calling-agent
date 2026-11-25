@@ -8,6 +8,7 @@ import logging
 import sqlite3
 import time
 from contextlib import closing
+from dataclasses import replace
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -82,6 +83,41 @@ def describe_student(s: dict) -> str:
     description = (f"{grade_text}, 과목 {SUBJECT.get(s['subject'], s['subject'])}, "
                    f"수준 {LEVEL.get(s['level'], s['level'])}")
     return description + (f", {s['region']} 거주" if s.get('region') else ', 거주 지역 미입력')
+
+
+def _one_syllable_off(seen: str, name: str) -> bool:
+    """길이가 같고 한글 한 글자만 다르다(예: 춘산동 ↔ 침산동). 공백·문장부호가 다른 것은 세지 않는다."""
+    diff = [(a, b) for a, b in zip(seen, name) if a != b]
+    return len(diff) == 1 and all("가" <= ch <= "힣" for ch in diff[0])
+
+
+def align_place_names(turns: list, request: dict) -> list:
+    """판정에만 넘기는 전사: AI 발화 속 장소명이 받아쓰기에서 한 글자 틀렸으면 문의 장소명으로 맞춘다.
+
+    11/25 시험 통화에서 상담원은 '침산동'이라고 말했는데 ClawOps 전사가 '춘산동'으로 적었고,
+    판정기가 '문의 위치를 확인하지 않았다'며 등원 차량을 미확인으로 바꿨다(다시 돌리면 가능·미확인이 섞임).
+    AI는 지시받은 장소명만 말하므로 AI 발화만 고친다. 학원 발화는 다른 동네를 말했을 수 있어 그대로 둔다.
+    세 글자 이상인 이름만 본다(두 글자는 한 글자 차이 나는 말이 너무 많다). 화면에 보내는 전사는 원문 그대로다.
+    """
+    names = {q["location"]["name"].strip() for q in request.get("questions", []) if q.get("location")}
+    names |= set(((request.get("student") or {}).get("region") or "").split())
+    names = sorted((n for n in names if len(n) >= 3), key=len, reverse=True)
+    if not names:
+        return turns
+    aligned = []
+    for turn in turns:
+        text = turn.text
+        if turn.speaker == "agent":
+            for name in names:
+                i = 0
+                while i + len(name) <= len(text):
+                    if _one_syllable_off(text[i:i + len(name)], name):
+                        text = text[:i] + name + text[i + len(name):]
+                        i += len(name)
+                    else:
+                        i += 1
+        aligned.append(replace(turn, text=text) if text != turn.text else turn)
+    return aligned
 
 
 LESSON = ("level_fit", "vacancy", "class_time")  # 수업 문의 묶음(11/17 음성팀 제안, 프론트 PR #60): 맞는 반 → 자리 → 시간
@@ -389,7 +425,8 @@ def build_result(call_id: str, request: dict, call: dict, summary: dict | None, 
             context.update(call_started_at=reference_at, timezone='Asia/Seoul')
         if getattr(judge, 'uses_student', False) and request.get('student'):
             context['student'] = describe_student(request['student'])  # 계층 판정만: 개정안 2번(학생 조건은 판정기가 직접 따짐)
-        answers, consult, times, notes, explanation = judge_answers(ask_order(request["questions"]), turns, judge, context or None)
+        judged = align_place_names(turns, request)  # 발화 수는 같아서 근거 발화 번호가 원문 전사와 맞는다
+        answers, consult, times, notes, explanation = judge_answers(ask_order(request["questions"]), judged, judge, context or None)
         answers = in_request_order(answers, request["questions"])
         mark_skipped_lessons(answers)
         disclosure = disclosure_played(turns)
