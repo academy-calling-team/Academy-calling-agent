@@ -1037,3 +1037,64 @@ def test_rules_carry_definition_answers_1118():
     assert "AI가 특정 날을 물었으면 그 날이 기간" in rules  # 개정안 6번
     assert "오늘은 통화 시각 이후만 든다" in rules
     assert "확인하지 않고 차량이 있다고만 하면 unknown" in tiered_judge.QUESTION["shuttle"]
+
+
+from real_call import align_place_names  # noqa: E402
+
+# 11/25 시험 통화 1(역할극): 상담원은 '침산동'이라고 말했는데 ClawOps 전사가 '춘산동'으로 적었다
+STT_1125 = [
+    {"speaker": "speaker_0", "start": 3.18, "end": 3.76, "text": "네, 여보세요?"},
+    {"speaker": "speaker_1", "start": 5.60, "end": 15.20, "text": "안녕하세요. 학부모님을 대신해 문의드리는 AI 상담원입니다. 상담 가능하신가요?"},
+    {"speaker": "speaker_0", "start": 16.62, "end": 16.76, "text": "네."},
+    {"speaker": "speaker_1", "start": 18.80, "end": 28.72, "text": "그럼 먼저 등원 차량으로 춘산동 집 근처에서 학생을 태워 학원으로 데려올 수 있을지 알려주실 수 있을까요?"},
+    {"speaker": "speaker_0", "start": 30.28, "end": 31.06, "text": "네, 태워드려요."},
+]
+
+
+def _place_request():
+    request = real_request(questions=[
+        {"question_id": "q1", "question_code": "shuttle", "location": {"kind": "집 근처", "name": "침산동"}}])
+    request["student"] = {**request["student"], "region": "대구 북구 침산동"}
+    return request
+
+
+def test_align_place_names_fixes_agent_speech_only():
+    request = _place_request()
+    turns = [_Turn("agent", 0, "춘산동 집 근처에서 태워 주실 수 있나요? 춘산동이요."),
+             _Turn("academy", 1, "춘산동은 안 가요."),
+             _Turn("agent", 2, "칠성동 말고 침산동이요.")]
+    aligned = align_place_names(turns, request)
+    assert aligned[0].text == "침산동 집 근처에서 태워 주실 수 있나요? 침산동이요."
+    assert aligned[1] is turns[1]  # 학원은 다른 동네를 말했을 수 있다
+    assert aligned[2] is turns[2]  # 두 글자 차이(칠성동)와 이미 맞는 이름은 그대로
+    assert [t.text for t in turns][0].startswith("춘산동")  # 원본은 바꾸지 않는다
+
+
+def test_align_place_names_skips_short_names_and_missing_locations():
+    turns = [_Turn("agent", 0, "집뒤에서 태워 주실 수 있나요?")]
+    request = real_request(questions=[
+        {"question_id": "q1", "question_code": "shuttle", "location": {"kind": "집 근처", "name": "집앞"}}])
+    request["student"] = {**request["student"], "region": None}
+    assert align_place_names(turns, request) == turns  # 두 글자 이름은 보지 않는다
+    assert align_place_names(turns, real_request()) == turns  # 위치도 지역도 없으면 그대로
+
+
+def test_build_result_judges_aligned_names_but_keeps_raw_transcript():
+    seen = []
+
+    class SeeTurns:
+        uses_student = True
+
+        def with_context(self, questions, turns, time_context):
+            seen.append([t.text for t in turns])
+            rows = [{"question_id": q["question_id"], "question_code": q["question_code"], "asked": True,
+                     "answered": True, "yes_no": True, "reason": None, "detail": "침산동 집 근처에서 태워 줌",
+                     "evidence_turns": [3, 4]} for q in questions]
+            return rows, {"consult_accepted": None, "available_times": [], "status": "not_asked"}
+
+    result = build_result("place-1125", _place_request(), {"status": "completed"}, None, STT_1125, SeeTurns(),
+                          reference_at="2026-11-25T09:59:13+00:00")
+    ResultInput.model_validate(result)
+    assert "침산동 집 근처" in seen[0][3] and not any("춘산동" in t for t in seen[0])
+    assert "춘산동" in result["transcript"][3]["text"]  # 화면에 보내는 전사는 원문
+    assert result["answers"][0]["evidence_turns"] == [3, 4]
