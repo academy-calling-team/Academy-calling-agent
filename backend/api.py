@@ -166,6 +166,9 @@ def create_app(engine,internal_key,service=None,worker=None,origins=None,with_au
             return JSONResponse(status_code=200 if state['ready'] else 503,content=state)
         @app.get('/ops/overview',dependencies=[Depends(administrator)])
         def overview():return ops.overview()
+        @app.get('/ops/metrics',dependencies=[Depends(administrator)])
+        def metrics(mode:Literal['all','real','mock']='all',academy_id:str|None=None):
+            return ops.metrics(mode=mode,academy_id=academy_id)
         @app.get('/ops/reviews',dependencies=[Depends(administrator)])
         def reviews(limit:int=Query(50,ge=1,le=100),offset:int=Query(0,ge=0)):
             return ops.reviews(limit,offset)
