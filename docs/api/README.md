@@ -25,7 +25,7 @@
 
 | 질문 코드 | 의미 |
 |---|---|
-| shuttle / pickup | 통학 차량 / 픽업 |
+| shuttle / pickup | 등원 차량 / 하원 차량 |
 | level_fit / vacancy | 수준에 맞는 반 / 남은 자리 |
 | level_test / class_time | 레벨 테스트 / 수업 요일·시간 |
 
@@ -41,7 +41,7 @@
 ```json
 {
   "questions": [
-    {"question_id":"example-shuttle","question_code":"shuttle","question_label_kr":"통학 차량"}
+    {"question_id":"example-shuttle","question_code":"shuttle","question_label_kr":"등원 차량"}
   ],
   "attempts": [
     {"call_id":"example-call","attempt_no":1,"status":"finished","status_label_kr":"통화 종료",

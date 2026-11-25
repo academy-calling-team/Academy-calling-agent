@@ -2,7 +2,7 @@ from datetime import datetime,date,time
 from typing import Annotated, Literal
 from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
 
-QUESTION_LABELS = {'shuttle':'통학 차량', 'pickup':'픽업', 'level_fit':'수준에 맞는 반',
+QUESTION_LABELS = {'shuttle':'등원 차량', 'pickup':'하원 차량', 'level_fit':'수준에 맞는 반',
                    'vacancy':'남은 자리', 'level_test':'레벨 테스트', 'class_time':'수업 요일·시간'}
 CALL_STATUS_LABELS_KR = {
     'reserved':'발신 대기', 'delivery_unknown':'요청 전달 확인 중', 'accepted':'발신 요청 접수',

@@ -90,6 +90,8 @@ def test_detail_korean_labels_through_call_lifecycle(portable):
     engine, _, client = portable
     identity, headers = login(client)
     labels = client.get('/api/options').json()['question_codes']
+    assert labels['shuttle'] == '등원 차량'
+    assert labels['pickup'] == '하원 차량'
     request = dict(inquirer_id=identity['inquirer_id'], academy_id='demo-academy',
         student=dict(grade='M2', subject='MATH', level='MID', region='대구 북구 침산동'),
         question_codes=list(labels))
