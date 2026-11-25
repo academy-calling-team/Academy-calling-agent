@@ -92,7 +92,9 @@ def test_dispatch_time_uses_dispatch_day_and_persists(portable):
 def test_actual_voice_http_round_trip_accepts_locations_and_missing_region(portable, tmp_path, monkeypatch):
     _, service, client = portable
     identity, headers = login(client)
+    question_codes = ['shuttle', 'pickup', 'level_fit', 'vacancy', 'class_time']
     created = inquiry(client, headers, identity, 'http-worker',
+                      question_codes=question_codes,
                       student=dict(grade='M2', subject='MATH', level='MID'),
                       locations={'shuttle': {'kind': '학교', 'name': '침산초등학교'},
                                  'pickup': {'kind': '집 근처', 'name': '침산네거리'}})
@@ -122,11 +124,13 @@ def test_actual_voice_http_round_trip_accepts_locations_and_missing_region(porta
             service.deliver(adapter)
             receipt = store.receipt(cid)
             assert receipt.payload['student']['region'] is None
+            assert [question['question_code'] for question in receipt.payload['questions']] == question_codes
             ResultInput.model_validate(make_result(receipt.payload))
         finally:
             adapter.close()
     detail = client.get('/api/inquiries/' + created.json()['inquiry_id'], headers=headers).json()
     assert detail['status'] == 'completed'
+    assert [question['question_code'] for question in detail['questions']] == question_codes
     assert detail['questions'][0]['location']['name'] == '침산초등학교'
     assert detail['questions'][1]['location']['name'] == '침산네거리'
     assert all('location' not in row for row in detail['result']['answers'])
